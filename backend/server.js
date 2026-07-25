@@ -21,12 +21,16 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email y contraseña requeridos' });
+      return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
     }
 
+    const searchTerm = email.toString().toLowerCase().trim();
+
+    // Query matching email OR nombre for flexible login (e.g. jbb16)
     const { rows } = await db.query(
-      'SELECT * FROM investigadores WHERE email = $1 AND activo = TRUE;',
-      [email.toLowerCase().trim()]
+      `SELECT * FROM investigadores 
+       WHERE (LOWER(email) = $1 OR LOWER(nombre) = $1) AND activo = TRUE;`,
+      [searchTerm]
     );
 
     if (rows.length === 0) {
@@ -55,8 +59,8 @@ app.post('/api/auth/login', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Error en /api/auth/login:', err);
-    res.status(500).json({ error: 'Error del servidor en inicio de sesión' });
+    console.error('Error detallado en /api/auth/login:', err);
+    res.status(500).json({ error: `Error de base de datos: ${err.message}` });
   }
 });
 
@@ -100,7 +104,7 @@ app.get('/api/stats', async (req, res) => {
     });
   } catch (err) {
     console.error('Error en /api/stats:', err);
-    res.status(500).json({ error: 'Error obteniendo estadísticas' });
+    res.status(500).json({ error: 'Error obteniendo estadísticas: ' + err.message });
   }
 });
 
@@ -115,7 +119,7 @@ app.get('/api/investigadores', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('Error obteniendo investigadores:', err);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ error: 'Error del servidor: ' + err.message });
   }
 });
 
@@ -136,7 +140,7 @@ app.post('/api/investigadores/ubicacion', authenticate, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Error guardando ubicación:', err);
-    res.status(500).json({ error: 'Error guardando ubicación' });
+    res.status(500).json({ error: 'Error guardando ubicación: ' + err.message });
   }
 });
 
@@ -152,7 +156,7 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('Error obteniendo ubicaciones:', err);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ error: 'Error del servidor: ' + err.message });
   }
 });
 
@@ -251,7 +255,7 @@ app.get('/api/investigaciones', async (req, res) => {
     });
   } catch (err) {
     console.error('Error en GET /api/investigaciones:', err);
-    res.status(500).json({ error: 'Error obteniendo investigaciones' });
+    res.status(500).json({ error: 'Error obteniendo investigaciones: ' + err.message });
   }
 });
 
@@ -328,7 +332,7 @@ app.get('/api/investigaciones/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('Error en GET /api/investigaciones/:id:', err);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ error: 'Error del servidor: ' + err.message });
   }
 });
 
@@ -353,7 +357,7 @@ app.post('/api/investigaciones/:id/asignar', async (req, res) => {
     res.json({ success: true, message: 'Investigador asignado correctamente' });
   } catch (err) {
     console.error('Error asignando investigador:', err);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ error: 'Error del servidor: ' + err.message });
   }
 });
 
@@ -407,7 +411,7 @@ app.post('/api/investigaciones/:id/evidencia', async (req, res) => {
     res.json({ success: true, message: 'Estudio e investigación guardados correctamente' });
   } catch (err) {
     console.error('Error guardando evidencia:', err);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ error: 'Error del servidor: ' + err.message });
   }
 });
 
