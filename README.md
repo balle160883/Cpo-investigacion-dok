@@ -34,7 +34,7 @@ El proyecto está dividido en 3 módulos principales:
 - **Host:** `31.97.144.6`
 - **Puerto Exterior:** `5437`
 - **Usuario:** `postgres`
-- **Password:** `Seguridad2028@`
+- **Password:** Definda via Variable de Entorno `DB_PASSWORD` en Dokploy
 - **Base de Datos:** `postgres`
 
 ### Tablas utilizadas:

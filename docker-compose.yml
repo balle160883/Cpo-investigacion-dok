@@ -5,13 +5,13 @@ services:
       - "4002:4000"
     restart: always
     environment:
-      - PORT=4000
-      - DB_HOST=investigacion-postgresinvestigacion-dgx6jl
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=Seguridad2028@
-      - DB_NAME=postgres
-      - JWT_SECRET=cpo-investigaciones-secret-2026
+      - PORT=${PORT:-4000}
+      - DB_HOST=${DB_HOST:-investigacion-postgresinvestigacion-dgx6jl}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-postgres}
+      - JWT_SECRET=${JWT_SECRET:-cpo-secret-2026}
 
   frontend:
     build: ./frontend
