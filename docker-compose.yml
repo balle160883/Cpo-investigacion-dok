@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
     ports:
-      - "4000:4000"
+      - "4001:4000"
     restart: always
     environment:
       - PORT=4000
@@ -18,7 +16,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - "3001:80"
     restart: always
     depends_on:
       - backend
