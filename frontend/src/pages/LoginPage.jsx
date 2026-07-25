@@ -1,16 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Lock, User, AlertCircle } from 'lucide-react';
-
-const getApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  if (typeof window !== 'undefined' && window.location.hostname) {
-    return `http://${window.location.hostname}:4002/api`;
-  }
-  return 'http://localhost:4002/api';
-};
-
-const API_BASE_URL = getApiBaseUrl();
+import { getApiBaseUrl } from '../services/api';
 
 export default function LoginPage({ onLoginSuccess }) {
   const [email, setEmail] = useState('jbb16');
@@ -25,7 +16,8 @@ export default function LoginPage({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
