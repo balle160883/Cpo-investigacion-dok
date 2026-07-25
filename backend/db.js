@@ -1,16 +1,22 @@
 const { Pool } = require('pg');
 
-const host = process.env.DB_HOST || '31.97.144.6';
-const port = parseInt(process.env.DB_PORT || (host === '31.97.144.6' ? '5437' : '5432'));
-const password = process.env.DB_PASSWORD || 'Seguridad2028@';
+let currentHost = process.env.DB_HOST || '31.97.144.6';
+let currentPort = parseInt(process.env.DB_PORT || '5437');
+let currentPassword = process.env.DB_PASSWORD || 'Seguridad2028@';
 
-console.log(`🔌 Configurando PostgreSQL Pool -> Host: ${host}, Port: ${port}, DB: postgres`);
+// Prevent EAI_AGAIN DNS resolution issues on internal Dokploy network names
+if (currentHost.includes('investigacion-postgres') || currentHost === 'localhost' || currentHost === '127.0.0.1') {
+  currentHost = '31.97.144.6';
+  currentPort = 5437;
+}
+
+console.log(`🔌 Conectando a PostgreSQL -> Host: ${currentHost}:${currentPort}, DB: postgres`);
 
 const pool = new Pool({
-  host,
-  port,
+  host: currentHost,
+  port: currentPort,
   user: process.env.DB_USER || 'postgres',
-  password,
+  password: currentPassword,
   database: process.env.DB_NAME || 'postgres',
   max: 20,
   idleTimeoutMillis: 30000,
@@ -18,7 +24,7 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('Error inesperado en cliente de PostgreSQL pool:', err);
+  console.error('Error en pool de PostgreSQL:', err);
 });
 
 module.exports = {

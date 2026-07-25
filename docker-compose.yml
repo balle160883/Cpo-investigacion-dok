@@ -5,11 +5,11 @@ services:
       - "4002:4000"
     restart: always
     environment:
-      - PORT=${PORT:-4000}
-      - DB_HOST=${DB_HOST:-investigacion-postgresinvestigacion-dgx6jl}
-      - DB_PORT=${DB_PORT:-5432}
+      - PORT=4000
+      - DB_HOST=${DB_HOST:-31.97.144.6}
+      - DB_PORT=${DB_PORT:-5437}
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PASSWORD=${DB_PASSWORD:-Seguridad2028@}
       - DB_NAME=${DB_NAME:-postgres}
       - JWT_SECRET=${JWT_SECRET:-cpo-secret-2026}
 
