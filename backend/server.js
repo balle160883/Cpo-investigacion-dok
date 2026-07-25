@@ -1,0 +1,416 @@
+const express = require('express');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const db = require('./db');
+const initDb = require('./init_db');
+
+const app = express();
+const PORT = process.env.PORT || 4000;
+const JWT_SECRET = process.env.JWT_SECRET || 'cpo-investigaciones-secret-2026';
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+
+// Initialize DB schema on startup
+initDb();
+
+// ----------------------------------------------------
+// AUTHENTICATION
+// ----------------------------------------------------
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    }
+
+    const { rows } = await db.query(
+      'SELECT * FROM investigadores WHERE email = $1 AND activo = TRUE;',
+      [email.toLowerCase().trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Usuario no encontrado o inactivo' });
+    }
+
+    const user = rows[0];
+    if (user.password !== password) {
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        nombre: user.nombre,
+        email: user.email,
+        telefono: user.telefono,
+        rol: user.rol,
+      },
+    });
+  } catch (err) {
+    console.error('Error en /api/auth/login:', err);
+    res.status(500).json({ error: 'Error del servidor en inicio de sesión' });
+  }
+});
+
+// Middleware de Autenticación JWT
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token no proporcionado' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+}
+
+app.get('/api/auth/me', authenticate, async (req, res) => {
+  res.json({ user: req.user });
+});
+
+// ----------------------------------------------------
+// DASHBOARD STATS
+// ----------------------------------------------------
+app.get('/api/stats', async (req, res) => {
+  try {
+    const totalRes = await db.query('SELECT count(*) FROM investigaciones;');
+    const compRes = await db.query("SELECT count(*) FROM investigaciones WHERE estado = 'COMPLETADA';");
+    const procRes = await db.query("SELECT count(*) FROM investigaciones WHERE estado = 'EN_PROCESO';");
+    const pendRes = await db.query("SELECT count(*) FROM investigaciones WHERE estado IS NULL OR estado = 'PENDIENTE';");
+    const investRes = await db.query('SELECT count(*) FROM investigadores WHERE activo = TRUE;');
+
+    res.json({
+      total: parseInt(totalRes.rows[0].count),
+      completadas: parseInt(compRes.rows[0].count),
+      en_proceso: parseInt(procRes.rows[0].count),
+      pendientes: parseInt(pendRes.rows[0].count),
+      investigadores_activos: parseInt(investRes.rows[0].count),
+    });
+  } catch (err) {
+    console.error('Error en /api/stats:', err);
+    res.status(500).json({ error: 'Error obteniendo estadísticas' });
+  }
+});
+
+// ----------------------------------------------------
+// INVESTIGADORES
+// ----------------------------------------------------
+app.get('/api/investigadores', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      'SELECT id, nombre, email, telefono, rol, activo, created_at FROM investigadores ORDER BY nombre ASC;'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error obteniendo investigadores:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.post('/api/investigadores/ubicacion', authenticate, async (req, res) => {
+  try {
+    const { latitud, longitud, bateria_nivel } = req.body;
+    const investigador_id = req.user.id;
+    if (!latitud || !longitud) {
+      return res.status(400).json({ error: 'Latitud y longitud requeridas' });
+    }
+
+    await db.query(
+      `INSERT INTO ubicaciones_investigadores (investigador_id, latitud, longitud, bateria_nivel, updated_at)
+       VALUES ($1, $2, $3, $4, NOW());`,
+      [investigador_id, latitud, longitud, bateria_nivel || 100]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error guardando ubicación:', err);
+    res.status(500).json({ error: 'Error guardando ubicación' });
+  }
+});
+
+app.get('/api/investigadores/ubicaciones', async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT DISTINCT ON (investigador_id)
+        u.investigador_id, i.nombre, i.email, u.latitud, u.longitud, u.bateria_nivel, u.updated_at
+      FROM ubicaciones_investigadores u
+      JOIN investigadores i ON u.investigador_id = i.id
+      ORDER BY u.investigador_id, u.updated_at DESC;
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error obteniendo ubicaciones:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// ----------------------------------------------------
+// INVESTIGACIONES LIST & FILTER
+// ----------------------------------------------------
+app.get('/api/investigaciones', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page || '1');
+    const limit = parseInt(req.query.limit || '50');
+    const offset = (page - 1) * limit;
+    const { estado, buscar, investigador_id } = req.query;
+
+    let whereClauses = [];
+    let params = [];
+    let paramCount = 1;
+
+    if (estado) {
+      if (estado === 'PENDIENTE') {
+        whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE')`);
+      } else {
+        whereClauses.push(`inv.estado = $${paramCount}`);
+        params.push(estado);
+        paramCount++;
+      }
+    }
+
+    if (investigador_id) {
+      whereClauses.push(`inv.investigador_id = $${paramCount}`);
+      params.push(investigador_id);
+      paramCount++;
+    }
+
+    if (buscar) {
+      whereClauses.push(`(
+        p.nombre_completo ILIKE $${paramCount} OR 
+        s.folio ILIKE $${paramCount} OR 
+        CAST(inv.id_sif_research AS TEXT) ILIKE $${paramCount}
+      )`);
+      params.push(`%${buscar}%`);
+      paramCount++;
+    }
+
+    const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    const countQuery = `
+      SELECT count(*)
+      FROM investigaciones inv
+      LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
+      LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+      ${whereSql};
+    `;
+
+    const dataQuery = `
+      SELECT 
+        inv.id_sif_research,
+        inv.solicitud_id_sif,
+        inv.persona_id_sif,
+        inv.tipo_sujeto,
+        inv.investigador_id,
+        inv.fecha_asignacion,
+        inv.fecha_cumplimiento,
+        COALESCE(inv.estado, 'PENDIENTE') as estado,
+        inv.observaciones_sif,
+        p.nombre_completo as sujeto_nombre,
+        p.es_aval,
+        s.folio as solicitud_folio,
+        s.monto_solicitado,
+        s.sucursal_id,
+        d.calle,
+        d.numero_exterior,
+        d.codigo_postal,
+        d.latitud,
+        d.longitud,
+        inv_usr.nombre as investigador_nombre
+      FROM investigaciones inv
+      LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
+      LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+      LEFT JOIN direcciones d ON p.id_sif = d.persona_id_sif AND d.es_principal = TRUE
+      LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
+      ${whereSql}
+      ORDER BY inv.id_sif_research DESC
+      LIMIT $${paramCount} OFFSET $${paramCount + 1};
+    `;
+
+    params.push(limit, offset);
+
+    const totalRes = await db.query(countQuery, params.slice(0, paramCount - 1));
+    const { rows } = await db.query(dataQuery, params);
+
+    res.json({
+      total: parseInt(totalRes.rows[0].count),
+      page,
+      limit,
+      data: rows,
+    });
+  } catch (err) {
+    console.error('Error en GET /api/investigaciones:', err);
+    res.status(500).json({ error: 'Error obteniendo investigaciones' });
+  }
+});
+
+// ----------------------------------------------------
+// DETALLE DE INVESTIGACIÓN (Para Visualización e Impresión)
+// ----------------------------------------------------
+app.get('/api/investigaciones/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    // 1. Investigacion principal
+    const invRes = await db.query(`
+      SELECT 
+        inv.id_sif_research,
+        inv.solicitud_id_sif,
+        inv.persona_id_sif,
+        inv.tipo_sujeto,
+        inv.investigador_id,
+        inv.fecha_asignacion,
+        inv.fecha_cumplimiento,
+        COALESCE(inv.estado, 'PENDIENTE') as estado,
+        inv.observaciones_sif,
+        p.nombre_completo as sujeto_nombre,
+        p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido,
+        p.genero, p.es_aval,
+        s.folio as solicitud_folio,
+        s.monto_solicitado,
+        s.monto_aprobado,
+        s.sucursal_id,
+        s.cliente_id_sif,
+        d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.referencias, d.latitud, d.longitud,
+        inv_usr.nombre as investigador_nombre,
+        inv_usr.telefono as investigador_telefono
+      FROM investigaciones inv
+      LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
+      LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+      LEFT JOIN direcciones d ON p.id_sif = d.persona_id_sif
+      LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
+      WHERE inv.id_sif_research = $1
+      LIMIT 1;
+    `, [id]);
+
+    if (invRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+
+    const investigacion = invRes.rows[0];
+
+    // 2. Buscar si hay avales vinculados a esta solicitud
+    let avales = [];
+    if (investigacion.solicitud_id_sif) {
+      const avalesRes = await db.query(`
+        SELECT sa.aval_id_sif, p.nombre_completo, d.calle, d.numero_exterior, d.codigo_postal
+        FROM solicitud_avales sa
+        JOIN personas p ON sa.aval_id_sif = p.id_sif
+        LEFT JOIN direcciones d ON p.id_sif = d.persona_id_sif
+        WHERE sa.solicitud_id_sif = $1;
+      `, [investigacion.solicitud_id_sif]);
+      avales = avalesRes.rows;
+    }
+
+    // 3. Evidencia y captura socioeconómica realizada
+    const evRes = await db.query(
+      'SELECT * FROM evidencias_visita WHERE investigacion_id_sif = $1 ORDER BY created_at DESC LIMIT 1;',
+      [id]
+    );
+
+    const evidencia = evRes.rows.length > 0 ? evRes.rows[0] : null;
+
+    res.json({
+      investigacion,
+      avales,
+      evidencia,
+    });
+  } catch (err) {
+    console.error('Error en GET /api/investigaciones/:id:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// ----------------------------------------------------
+// ASIGNAR INVESTIGADOR
+// ----------------------------------------------------
+app.post('/api/investigaciones/:id/asignar', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { investigador_id } = req.body;
+
+    if (!investigador_id) {
+      return res.status(400).json({ error: 'ID de investigador requerido' });
+    }
+
+    await db.query(`
+      UPDATE investigaciones 
+      SET investigador_id = $1, fecha_asignacion = NOW(), estado = 'EN_PROCESO', updated_at = NOW()
+      WHERE id_sif_research = $2;
+    `, [investigador_id, id]);
+
+    res.json({ success: true, message: 'Investigador asignado correctamente' });
+  } catch (err) {
+    console.error('Error asignando investigador:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// ----------------------------------------------------
+// CAPTURA DE EVIDENCIA Y ESTUDIO SOCIOECONÓMICO (App Móvil)
+// ----------------------------------------------------
+app.post('/api/investigaciones/:id/evidencia', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const {
+      estudio_socioeconomico,
+      fotos_urls,
+      firma_url,
+      latitud_checkin,
+      longitud_checkin,
+      notas_investigador,
+      dictamen
+    } = req.body;
+
+    // 1. Insertar evidencia en evidencias_visita
+    await db.query(`
+      INSERT INTO evidencias_visita (
+        investigacion_id_sif,
+        latitud_checkin,
+        longitud_checkin,
+        fecha_checkin,
+        estudio_socioeconomico,
+        fotos_urls,
+        firma_url,
+        notas_investigador,
+        sincronizado_a_sif,
+        created_at
+      ) VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, TRUE, NOW());
+    `, [
+      id,
+      latitud_checkin || 0,
+      longitud_checkin || 0,
+      JSON.stringify(estudio_socioeconomico || {}),
+      JSON.stringify(fotos_urls || []),
+      firma_url || null,
+      notas_investigador || (dictamen ? `Dictamen: ${dictamen}` : '')
+    ]);
+
+    // 2. Actualizar estado de la investigación a COMPLETADA
+    await db.query(`
+      UPDATE investigaciones
+      SET estado = 'COMPLETADA', fecha_cumplimiento = NOW(), observaciones_sif = $1, updated_at = NOW()
+      WHERE id_sif_research = $2;
+    `, [notas_investigador || (dictamen ? `Dictamen: ${dictamen}` : 'Completada desde App Móvil'), id]);
+
+    res.json({ success: true, message: 'Estudio e investigación guardados correctamente' });
+  } catch (err) {
+    console.error('Error guardando evidencia:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor Backend corriendo en puerto ${PORT}`);
+});
