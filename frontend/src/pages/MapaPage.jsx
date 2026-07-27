@@ -4,11 +4,12 @@ import { fetchInvestigaciones, fetchUbicacionesInvestigadores } from '../service
 import { MapPin, Navigation, UserCheck, Layers } from 'lucide-react';
 
 // Mapbox Token from configuration
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoiZGFuaWVsYmFsbGUiLCJhIjoiY2x3bnZkMnRmMDBzNDJqcGRrZzRzbGtrZSJ9';
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 export default function MapaPage() {
   const mapContainer = useRef(null);
   const map = useRef(null);
+  const markersRef = useRef([]);
   const [invCount, setInvCount] = useState(0);
   const [investigadores, setInvestigadores] = useState([]);
 
@@ -25,10 +26,21 @@ export default function MapaPage() {
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     loadMapData();
+
+    // Refresh investigator positions every 15 seconds
+    const interval = setInterval(() => {
+      loadMapData();
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   async function loadMapData() {
     try {
+      // Clear existing markers before placing updated ones
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+
       // 1. Fetch investigations with coordinates
       const res = await fetchInvestigaciones({ limit: 100 });
       const data = res.data || [];
@@ -43,7 +55,7 @@ export default function MapaPage() {
           }`;
           el.innerText = item.tipo_sujeto === 'CLIENTE' ? 'S' : 'A';
 
-          new mapboxgl.Marker(el)
+          const marker = new mapboxgl.Marker(el)
             .setLngLat([parseFloat(item.longitud), parseFloat(item.latitud)])
             .setPopup(
               new mapboxgl.Popup({ offset: 25 }).setHTML(`
@@ -55,6 +67,7 @@ export default function MapaPage() {
               `)
             )
             .addTo(map.current);
+          markersRef.current.push(marker);
         }
       });
 
@@ -68,7 +81,7 @@ export default function MapaPage() {
           el.className = 'w-9 h-9 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-white shadow-xl animate-pulse cursor-pointer';
           el.innerHTML = `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>`;
 
-          new mapboxgl.Marker(el)
+          const marker = new mapboxgl.Marker(el)
             .setLngLat([parseFloat(inv.longitud), parseFloat(inv.latitud)])
             .setPopup(
               new mapboxgl.Popup({ offset: 25 }).setHTML(`
@@ -80,6 +93,7 @@ export default function MapaPage() {
               `)
             )
             .addTo(map.current);
+          markersRef.current.push(marker);
         }
       });
     } catch (err) {
