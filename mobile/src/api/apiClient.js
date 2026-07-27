@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Default API URL pointing to server or local host
-const BASE_URL = 'http://31.97.144.6:4000/api';
+const BASE_URL = 'http://31.97.144.6:4002/api';
 
 export async function login(email, password) {
   const res = await fetch(`${BASE_URL}/auth/login`, {
