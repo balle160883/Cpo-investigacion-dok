@@ -12,14 +12,14 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "image": "latest"
+        "image": "ubuntu-22.04-jdk-17.0"
       }
     },
     "production": {
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "image": "latest"
+        "image": "ubuntu-22.04-jdk-17.0"
       }
     }
   },
