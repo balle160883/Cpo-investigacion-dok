@@ -14,7 +14,10 @@ services:
       - JWT_SECRET=${JWT_SECRET:-cpo-secret-2026}
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_MAPBOX_TOKEN=${VITE_MAPBOX_TOKEN}
     ports:
       - "3002:80"
     restart: always
