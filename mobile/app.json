@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "CPO Investigaciones",
-    "slug": "cpo-investigaciones",
-    "owner": "cpo-1",
+    "slug": "cpo",
+    "owner": "movilex2024",
     "extra": {
       "eas": {
-        "projectId": "6f9ecea5-5d66-41f2-8ae6-b9a7cd30ad1d"
+        "projectId": "0d8be6df-1f14-4017-a193-9a641a867dd3"
       }
     },
     "version": "1.0.0",
