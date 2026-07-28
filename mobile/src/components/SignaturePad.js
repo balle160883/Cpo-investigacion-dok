@@ -1,11 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
 export default function SignaturePad({ onSignatureChange }) {
-  const [paths, setPaths] = useState([]);
-  const [currentPath, setCurrentPath] = useState('');
-  const currentPathRef = useRef('');
+  const [lines, setLines] = useState([]);
+  const currentLineRef = useRef([]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -13,40 +11,49 @@ export default function SignaturePad({ onSignatureChange }) {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        const newPath = `M${locationX.toFixed(1)},${locationY.toFixed(1)}`;
-        currentPathRef.current = newPath;
-        setCurrentPath(newPath);
+        const pt = { x: Math.round(locationX), y: Math.round(locationY) };
+        currentLineRef.current = [pt];
+        setLines((prev) => [...prev, [pt]]);
       },
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        const updatedPath = `${currentPathRef.current} L${locationX.toFixed(1)},${locationY.toFixed(1)}`;
-        currentPathRef.current = updatedPath;
-        setCurrentPath(updatedPath);
+        const pt = { x: Math.round(locationX), y: Math.round(locationY) };
+        currentLineRef.current.push(pt);
+        setLines((prev) => {
+          const newLines = [...prev];
+          newLines[newLines.length - 1] = [...currentLineRef.current];
+          return newLines;
+        });
       },
       onPanResponderRelease: () => {
-        if (currentPathRef.current) {
-          const updatedPaths = [...paths, currentPathRef.current];
-          setPaths(updatedPaths);
-          setCurrentPath('');
-          currentPathRef.current = '';
-          if (onSignatureChange) {
-            onSignatureChange(updatedPaths.join(' '));
-          }
+        if (onSignatureChange && currentLineRef.current.length > 0) {
+          const svgData = generateSvgString([...lines, currentLineRef.current]);
+          onSignatureChange(svgData);
         }
       },
     })
   ).current;
 
+  function generateSvgString(allLines) {
+    const paths = allLines
+      .filter((l) => l.length > 0)
+      .map((l) => {
+        const d = l.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+        return `<path d="${d}" stroke="#38bdf8" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
+      })
+      .join('');
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="150" viewBox="0 0 300 150">${paths}</svg>`;
+  }
+
   const handleClear = () => {
-    setPaths([]);
-    setCurrentPath('');
-    currentPathRef.current = '';
+    setLines([]);
+    currentLineRef.current = [];
     if (onSignatureChange) {
       onSignatureChange('');
     }
   };
 
-  const hasSignature = paths.length > 0 || currentPath !== '';
+  const hasSignature = lines.length > 0;
 
   return (
     <View style={styles.container}>
@@ -60,14 +67,34 @@ export default function SignaturePad({ onSignatureChange }) {
       </View>
 
       <View style={styles.canvasContainer} {...panResponder.panHandlers}>
-        <Svg style={styles.svg}>
-          {paths.map((p, i) => (
-            <Path key={i} d={p} stroke="#38bdf8" strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          ))}
-          {currentPath ? (
-            <Path d={currentPath} stroke="#38bdf8" strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          ) : null}
-        </Svg>
+        {lines.map((line, lineIndex) => (
+          <React.Fragment key={lineIndex}>
+            {line.map((pt, ptIndex) => {
+              if (ptIndex === 0) return null;
+              const prevPt = line[ptIndex - 1];
+              const dx = pt.x - prevPt.x;
+              const dy = pt.y - prevPt.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+              return (
+                <View
+                  key={ptIndex}
+                  style={[
+                    styles.strokeSegment,
+                    {
+                      left: prevPt.x,
+                      top: prevPt.y,
+                      width: distance,
+                      transform: [{ rotate: `${angle}deg` }],
+                    },
+                  ]}
+                />
+              );
+            })}
+          </React.Fragment>
+        ))}
+
         {!hasSignature && (
           <View style={styles.placeholderOverlay} pointerEvents="none">
             <Text style={styles.placeholderText}>Firme aquí con su dedo</Text>
@@ -116,8 +143,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  svg: {
-    flex: 1,
+  strokeSegment: {
+    position: 'absolute',
+    height: 3,
+    backgroundColor: '#38bdf8',
+    borderRadius: 1.5,
+    transformOrigin: '0% 50%',
   },
   placeholderOverlay: {
     ...StyleSheet.absoluteFillObject,
