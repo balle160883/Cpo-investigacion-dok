@@ -43,6 +43,16 @@ export default function VisitasScreen({ navigation, route }) {
           data={visitas}
           keyExtractor={(item) => item.id_sif_research.toString()}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0284c7" />}
+          ListEmptyComponent={(
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>📋</Text>
+              <Text style={styles.emptyTitle}>Sin investigaciones asignadas</Text>
+              <Text style={styles.emptySubtitle}>No tienes visitas domiciliarias asignadas por el momento.</Text>
+              <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+                <Text style={styles.refreshBtnText}>🔄 Actualizar lista</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.card}
@@ -105,4 +115,10 @@ const styles = StyleSheet.create({
   estado: { fontSize: 11, fontWeight: 'bold', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   estadoComp: { color: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)' },
   estadoPend: { color: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)' },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 60, paddingHorizontal: 20 },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#f8fafc', marginBottom: 6 },
+  emptySubtitle: { fontSize: 13, color: '#94a3b8', textAlign: 'center', marginBottom: 20 },
+  refreshBtn: { backgroundColor: '#0284c7', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  refreshBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 14 },
 });
