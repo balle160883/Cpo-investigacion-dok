@@ -4,19 +4,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const BASE_URL = 'http://31.97.144.6:4002/api';
 
 export async function login(email, password) {
-  const res = await fetch(`${BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión');
-  
-  if (data.token) {
-    await AsyncStorage.setItem('userToken', data.token);
-    await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+  try {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión');
+    
+    if (data.token) {
+      await AsyncStorage.setItem('userToken', data.token);
+      await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+    }
+    return data;
+  } catch (err) {
+    if (err.message === 'Network request failed' || err.name === 'TypeError') {
+      throw new Error(`Error de red al conectar con el servidor (http://31.97.144.6:4002). Por favor verifica que tu dispositivo tenga acceso a internet.`);
+    }
+    throw err;
   }
-  return data;
 }
 
 export async function getAssignedInvestigaciones(investigadorId) {
