@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { guardarEvidenciaInvestigacion } from '../api/apiClient';
+import SignaturePad from '../components/SignaturePad';
 
 export default function CapturaFormatoScreen({ route, navigation }) {
   const { id, inv } = route.params;
@@ -36,7 +39,79 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
   const [dictamen, setDictamen] = useState('DOMICILIO CONFIRMADO');
   const [observaciones, setObservaciones] = useState('');
+
+  // Evidencias: Fotos, Firma y GPS
+  const [fotos, setFotos] = useState([]);
+  const [firmaUrl, setFirmaUrl] = useState('');
+  const [location, setLocation] = useState(null);
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    obtenerUbicacionGPS();
+  }, []);
+
+  async function obtenerUbicacionGPS() {
+    setGettingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Se requiere permiso de ubicación para registrar el GPS de la visita.');
+        setGettingLocation(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setLocation(loc.coords);
+    } catch (err) {
+      console.log('Error obteniendo GPS:', err);
+    } finally {
+      setGettingLocation(false);
+    }
+  }
+
+  async function tomarFotoCamara() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso denegado', 'Se requiere acceso a la cámara para tomar fotografías.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      const base64Image = `data:image/jpeg;base64,${asset.base64}`;
+      setFotos((prev) => [...prev, base64Image]);
+    }
+  }
+
+  async function seleccionarFotoGaleria() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso denegado', 'Se requiere acceso a la galería para seleccionar imágenes.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      const base64Image = `data:image/jpeg;base64,${asset.base64}`;
+      setFotos((prev) => [...prev, base64Image]);
+    }
+  }
+
+  function eliminarFoto(index) {
+    setFotos((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handleGuardar() {
     setSaving(true);
@@ -69,11 +144,13 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         estudio_socioeconomico,
         dictamen,
         notas_investigador: observaciones,
-        latitud_checkin: 20.6597,
-        longitud_checkin: -103.3496,
+        fotos_urls: fotos,
+        firma_url: firmaUrl,
+        latitud_checkin: location ? location.latitude : 20.6597,
+        longitud_checkin: location ? location.longitude : -103.3496,
       });
 
-      Alert.alert('Éxito', 'Estudio socio-económico guardado correctamente', [
+      Alert.alert('Éxito', 'Estudio socio-económico y evidencias guardados correctamente', [
         { text: 'OK', onPress: () => navigation.navigate('Visitas') },
       ]);
     } catch (err) {
@@ -88,6 +165,22 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       <Text style={styles.headerTitle}>
         FORMATO DIGITAL: {isAval ? 'AVAL' : 'SOLICITANTE'}
       </Text>
+
+      {/* UBICACIÓN GPS */}
+      <View style={styles.gpsBanner}>
+        <Text style={styles.gpsTitle}>📍 Coordenadas de Check-in GPS:</Text>
+        {gettingLocation ? (
+          <ActivityIndicator size="small" color="#38bdf8" />
+        ) : location ? (
+          <Text style={styles.gpsCoords}>
+            Lat: {location.latitude.toFixed(5)}, Lng: {location.longitude.toFixed(5)}
+          </Text>
+        ) : (
+          <TouchableOpacity onPress={obtenerUbicacionGPS}>
+            <Text style={styles.gpsRetry}>⚠️ Tap para intentar obtener GPS real</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* 1. INFORMACIÓN Y VERIFICACIÓN */}
       <View style={styles.section}>
@@ -159,9 +252,54 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         <TextInput style={styles.input} value={valorMuebles} onChangeText={setValorMuebles} keyboardType="numeric" />
       </View>
 
-      {/* 4. DICTAMEN Y OBSERVACIONES */}
+      {/* 4. CAPTURA FOTOGRÁFICA */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>4. Observaciones del Investigador</Text>
+        <Text style={styles.sectionTitle}>4. Captura de Evidencia Fotográfica</Text>
+        <Text style={styles.sublabel}>Tome fotos de la fachada, comprobantes, interior o identificación:</Text>
+
+        <View style={styles.rowButtons}>
+          <TouchableOpacity style={styles.photoBtn} onPress={tomarFotoCamara}>
+            <Text style={styles.photoBtnText}>📷 Tomar Foto</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.photoBtnSecondary} onPress={seleccionarFotoGaleria}>
+            <Text style={styles.photoBtnSecondaryText}>🖼️ Galería</Text>
+          </TouchableOpacity>
+        </View>
+
+        {fotos.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
+            {fotos.map((uri, index) => (
+              <View key={index} style={styles.imageCard}>
+                <Image source={{ uri }} style={styles.previewImage} />
+                <TouchableOpacity style={styles.deleteBadge} onPress={() => eliminarFoto(index)}>
+                  <Text style={styles.deleteBadgeText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
+      {/* 5. FIRMA DIGITAL */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>5. Firma Digital del Entrevistado</Text>
+        <SignaturePad onSignatureChange={setFirmaUrl} />
+      </View>
+
+      {/* 6. DICTAMEN Y OBSERVACIONES */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>6. Observaciones y Dictamen</Text>
+        <Text style={styles.label}>Dictamen:</Text>
+        <View style={styles.row}>
+          <TouchableOpacity style={[styles.chip, dictamen === 'DOMICILIO CONFIRMADO' && styles.chipActive]} onPress={() => setDictamen('DOMICILIO CONFIRMADO')}>
+            <Text style={styles.chipText}>✓ Confirmado</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.chip, dictamen === 'DOMICILIO NO LOCALIZADO' && styles.chipActive]} onPress={() => setDictamen('DOMICILIO NO LOCALIZADO')}>
+            <Text style={styles.chipText}>✕ No Localizado</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.label}>Observaciones:</Text>
         <TextInput
           style={[styles.input, { height: 80 }]}
           multiline
@@ -173,7 +311,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       </View>
 
       <TouchableOpacity style={styles.saveButton} onPress={handleGuardar} disabled={saving}>
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Guardar y Enviar Dictamen</Text>}
+        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Guardar Evidencia y Dictamen</Text>}
       </TouchableOpacity>
     </ScrollView>
   );
@@ -181,15 +319,30 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a', padding: 16 },
-  headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#38bdf8', marginBottom: 16, marginTop: 40, textAlign: 'center' },
+  headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#38bdf8', marginBottom: 12, marginTop: 40, textAlign: 'center' },
+  gpsBanner: { backgroundColor: '#1e293b', padding: 12, borderRadius: 12, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#38bdf8' },
+  gpsTitle: { color: '#94a3b8', fontSize: 11, fontWeight: 'bold' },
+  gpsCoords: { color: '#38bdf8', fontSize: 13, fontWeight: 'bold', marginTop: 2 },
+  gpsRetry: { color: '#f59e0b', fontSize: 12, marginTop: 2 },
   section: { backgroundColor: '#1e293b', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#334155' },
   sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#ffffff', marginBottom: 12 },
   label: { color: '#cbd5e1', fontSize: 12, fontWeight: '600', marginTop: 8, marginBottom: 4 },
+  sublabel: { color: '#94a3b8', fontSize: 11, marginBottom: 12 },
   input: { backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155', borderRadius: 10, padding: 10, color: '#ffffff', fontSize: 13 },
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 },
+  rowButtons: { flexDirection: 'row', gap: 10, marginTop: 4 },
   chip: { backgroundColor: '#0f172a', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#334155' },
   chipActive: { backgroundColor: '#0284c7', borderColor: '#38bdf8' },
   chipText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
+  photoBtn: { flex: 1, backgroundColor: '#0284c7', padding: 12, borderRadius: 10, alignItems: 'center' },
+  photoBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 },
+  photoBtnSecondary: { flex: 1, backgroundColor: '#334155', padding: 12, borderRadius: 10, alignItems: 'center' },
+  photoBtnSecondaryText: { color: '#38bdf8', fontWeight: 'bold', fontSize: 13 },
+  galleryScroll: { marginTop: 14, flexDirection: 'row' },
+  imageCard: { position: 'relative', marginRight: 12 },
+  previewImage: { width: 90, height: 90, borderRadius: 10, borderWidth: 1, borderColor: '#38bdf8' },
+  deleteBadge: { position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  deleteBadgeText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
   saveButton: { backgroundColor: '#10b981', padding: 16, borderRadius: 16, alignItems: 'center', marginBottom: 50 },
   saveButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 15 },
 });
