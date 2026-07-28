@@ -3,8 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import { login } from '../api/apiClient';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('carlos.mendoza@cajaoblatos.com.mx');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('christianportillo107@gmail.com');
+  const [password, setPassword] = useState('Seguridad2026@');
   const [loading, setLoading] = useState(false);
 
   async function handleLogin() {
