@@ -158,7 +158,22 @@ export default function DetalleFormatoPage() {
           </div>
 
           <div className="col-span-3">
-            <span className="font-bold">Dirección:</span> {inv.calle ? `${inv.calle} #${inv.numero_exterior || ''} Int ${inv.numero_interior || 'S/N'}, CP ${inv.codigo_postal || ''}` : 'Sin Dirección Registrada'}
+            <span className="font-bold">Dirección SIF:</span> {inv.calle ? `${inv.calle} #${inv.numero_exterior || ''} Int ${inv.numero_interior || 'S/N'}, CP ${inv.codigo_postal || ''}` : 'Sin Dirección Registrada'}
+            {est.tiene_direccion_diferente && (
+              <div className="mt-1.5 p-2 bg-sky-50 border border-sky-300 rounded-md text-sky-950 text-xs shadow-sm">
+                <span className="font-bold text-sky-800 uppercase tracking-wider block">
+                  ✅ DIRECCIÓN REAL CONFIRMADA EN CAMPO:
+                </span>
+                <div className="font-semibold text-slate-800">
+                  {est.calle_real ? `Calle: ${est.calle_real}` : ''} {est.colonia_real ? `• Colonia: ${est.colonia_real}` : ''}
+                </div>
+                {est.referencias_domicilio && (
+                  <div className="text-[11px] text-slate-600 italic">
+                    <strong>Referencias / Entre calles:</strong> {est.referencias_domicilio}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <span className="font-bold">Teléfono:</span> {est.telefono || 'N/A'}

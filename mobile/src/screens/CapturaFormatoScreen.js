@@ -23,6 +23,12 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [puertaColor, setPuertaColor] = useState('');
   const [numeroNiveles, setNumeroNiveles] = useState('1');
 
+  // Dirección Real / Corregida en Campo
+  const [tieneDireccionDiferente, setTieneDireccionDiferente] = useState(false);
+  const [calleReal, setCalleReal] = useState('');
+  const [coloniaReal, setColoniaReal] = useState('');
+  const [referenciasDomicilio, setReferenciasDomicilio] = useState('');
+
   const [estadoCivil, setEstadoCivil] = useState('casado');
   const [ocupacionConyuge, setOcupacionConyuge] = useState('');
   const [situacionVivienda, setSituacionVivienda] = useState('propia');
@@ -67,6 +73,35 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       console.log('Error obteniendo GPS:', err);
     } finally {
       setGettingLocation(false);
+    }
+  }
+
+  async function autocompletarConGPS() {
+    try {
+      let coords = location;
+      if (!coords) {
+        const freshLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        if (freshLoc && freshLoc.coords) coords = freshLoc.coords;
+      }
+      if (!coords) {
+        Alert.alert('Aviso', 'No se obtuvo la ubicación GPS.');
+        return;
+      }
+      const geo = await Location.reverseGeocodeAsync({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+      if (geo && geo.length > 0) {
+        const item = geo[0];
+        const calleDetectada = `${item.street || item.name || ''} ${item.streetNumber || ''}`.trim();
+        const coloniaDetectada = item.district || item.subregion || item.city || '';
+        if (calleDetectada) setCalleReal(calleDetectada);
+        if (coloniaDetectada) setColoniaReal(coloniaDetectada);
+        Alert.alert('GPS Detectado', `Dirección: ${calleDetectada}, ${coloniaDetectada}`);
+      }
+    } catch (e) {
+      console.log('Error autocompletando con GPS:', e);
+      Alert.alert('GPS Capturado', 'Coordenadas de precisión listas para guardar.');
     }
   }
 
@@ -152,6 +187,10 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         valor_estimado_casa: parseFloat(valorCasa || 0),
         valor_estimado_muebles: parseFloat(valorMuebles || 0),
         valor_estimado_automovil: parseFloat(valorAuto || 0),
+        tiene_direccion_diferente: tieneDireccionDiferente,
+        calle_real: calleReal,
+        colonia_real: coloniaReal,
+        referencias_domicilio: referenciasDomicilio,
       };
 
       await guardarEvidenciaInvestigacion(id, {
@@ -242,9 +281,9 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         <TextInput style={styles.input} placeholder="Folio de INE/Pasaporte" placeholderTextColor="#64748b" value={folioId} onChangeText={setFolioId} />
       </View>
 
-      {/* 2. PARTICULARES DEL DOMICILIO */}
+      {/* 2. PARTICULARES DEL DOMICILIO Y DIRECCIÓN REAL */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>2. Particulares del Inmueble</Text>
+        <Text style={styles.sectionTitle}>2. Particulares del Inmueble y Dirección</Text>
         <Text style={styles.label}>Casa Color:</Text>
         <TextInput style={styles.input} value={casaColor} onChangeText={setCasaColor} placeholder="Ej. Blanco / Azul" placeholderTextColor="#64748b" />
         
@@ -253,6 +292,67 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
         <Text style={styles.label}>Número de Niveles:</Text>
         <TextInput style={styles.input} value={numeroNiveles} onChangeText={setNumeroNiveles} keyboardType="numeric" />
+
+        {/* CORRECCIÓN DE DIRECCIÓN REAL EN CAMPO */}
+        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#334155' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#38bdf8', marginBottom: 6 }}>
+            📍 ¿La dirección física real difiere de la registrada en SIF?
+          </Text>
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[styles.chip, !tieneDireccionDiferente && styles.chipActive]}
+              onPress={() => setTieneDireccionDiferente(false)}
+            >
+              <Text style={styles.chipText}>No (Es la misma SIF)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, tieneDireccionDiferente && styles.chipActive]}
+              onPress={() => setTieneDireccionDiferente(true)}
+            >
+              <Text style={styles.chipText}>⚠️ Sí (Corregir Dirección)</Text>
+            </TouchableOpacity>
+          </View>
+
+          {tieneDireccionDiferente && (
+            <View style={{ marginTop: 10, backgroundColor: '#0f172a', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#38bdf8' }}>
+              <TouchableOpacity
+                onPress={autocompletarConGPS}
+                style={{ backgroundColor: '#0284c7', paddingVertical: 9, paddingHorizontal: 12, borderRadius: 8, marginBottom: 10, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12 }}>
+                  📍 Usar mi GPS para Autocompletar Dirección Real
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={styles.label}>Calle y Número Real (Corregido en Campo):</Text>
+              <TextInput
+                style={styles.input}
+                value={calleReal}
+                onChangeText={setCalleReal}
+                placeholder="Ej. Av. Vallarta #1234 Int 2"
+                placeholderTextColor="#64748b"
+              />
+
+              <Text style={styles.label}>Colonia Real:</Text>
+              <TextInput
+                style={styles.input}
+                value={coloniaReal}
+                onChangeText={setColoniaReal}
+                placeholder="Ej. Col. Americana"
+                placeholderTextColor="#64748b"
+              />
+
+              <Text style={styles.label}>Referencias de Ubicación / Entre calles:</Text>
+              <TextInput
+                style={styles.input}
+                value={referenciasDomicilio}
+                onChangeText={setReferenciasDomicilio}
+                placeholder="Ej. Entre Juárez y Zaragoza, frente a abarrotes"
+                placeholderTextColor="#64748b"
+              />
+            </View>
+          )}
+        </View>
       </View>
 
       {/* 3. STATUS SOCIO-ECONÓMICO (DINÁMICO ADAPTATIVO) */}
