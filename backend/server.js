@@ -252,6 +252,9 @@ app.get('/api/investigaciones', async (req, res) => {
         d.calle,
         d.numero_exterior,
         d.codigo_postal,
+        d.colonia,
+        d.municipio,
+        d.estado_provincia,
         inv_usr.nombre as investigador_nombre
       FROM investigaciones inv
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)

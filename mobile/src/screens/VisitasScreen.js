@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAssignedInvestigaciones } from '../api/apiClient';
 
 export default function VisitasScreen({ navigation, route }) {
-  const user = route.params?.user || { nombre: 'Investigador' };
+  const [currentUser, setCurrentUser] = useState(route.params?.user || { nombre: 'Investigador' });
   const [visitas, setVisitas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -11,12 +12,27 @@ export default function VisitasScreen({ navigation, route }) {
   const [filtroEstado, setFiltroEstado] = useState('TODOS'); // TODOS | PENDIENTE | COMPLETADA
 
   useEffect(() => {
-    loadData();
+    initUserAndData();
   }, []);
 
-  async function loadData() {
+  async function initUserAndData() {
+    let activeUser = route.params?.user;
+    if (!activeUser || !activeUser.id) {
+      try {
+        const rawUser = await AsyncStorage.getItem('userData');
+        if (rawUser) {
+          activeUser = JSON.parse(rawUser);
+          setCurrentUser(activeUser);
+        }
+      } catch (e) {}
+    }
+    loadData(activeUser?.id);
+  }
+
+  async function loadData(userId) {
     try {
-      const res = await getAssignedInvestigaciones(user.id);
+      const targetId = userId || currentUser?.id;
+      const res = await getAssignedInvestigaciones(targetId);
       setVisitas(res.data || []);
     } catch (err) {
       console.log('Error visitas:', err);
@@ -28,7 +44,7 @@ export default function VisitasScreen({ navigation, route }) {
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadData();
+    loadData(currentUser?.id);
   };
 
   const visitasFiltradas = visitas.filter((item) => {

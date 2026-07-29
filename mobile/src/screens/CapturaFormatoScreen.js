@@ -242,28 +242,94 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         <TextInput style={styles.input} value={numeroNiveles} onChangeText={setNumeroNiveles} keyboardType="numeric" />
       </View>
 
-      {/* 3. STATUS SOCIO-ECONÓMICO */}
+      {/* 3. STATUS SOCIO-ECONÓMICO (DINÁMICO ADAPTATIVO) */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3. Status Socio-Económico</Text>
         
-        <Text style={styles.label}>Vivienda:</Text>
+        <Text style={styles.label}>Situación de la Vivienda:</Text>
         <View style={styles.row}>
-          <TouchableOpacity style={[styles.chip, situacionVivienda === 'propia' && styles.chipActive]} onPress={() => setSituacionVivienda('propia')}>
-            <Text style={styles.chipText}>Propia</Text>
+          <TouchableOpacity
+            style={[styles.chip, situacionVivienda === 'propia' && styles.chipActive]}
+            onPress={() => setSituacionVivienda('propia')}
+          >
+            <Text style={styles.chipText}>🏠 Propia</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.chip, situacionVivienda === 'rentada' && styles.chipActive]} onPress={() => setSituacionVivienda('rentada')}>
-            <Text style={styles.chipText}>Rentada</Text>
+          <TouchableOpacity
+            style={[styles.chip, situacionVivienda === 'rentada' && styles.chipActive]}
+            onPress={() => setSituacionVivienda('rentada')}
+          >
+            <Text style={styles.chipText}>🔑 Rentada</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.chip, situacionVivienda === 'padres' && styles.chipActive]} onPress={() => setSituacionVivienda('padres')}>
-            <Text style={styles.chipText}>Padres</Text>
+          <TouchableOpacity
+            style={[styles.chip, situacionVivienda === 'padres' && styles.chipActive]}
+            onPress={() => setSituacionVivienda('padres')}
+          >
+            <Text style={styles.chipText}>👨‍👩‍👧 Padres / Familiar</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.label}>Valor Estimado de Casa ($):</Text>
-        <TextInput style={styles.input} value={valorCasa} onChangeText={setValorCasa} keyboardType="numeric" />
+        {/* CAMPOS DINÁMICOS SEGÚN VIVIENDA */}
+        {situacionVivienda === 'propia' && (
+          <View style={{ marginTop: 8 }}>
+            <Text style={styles.label}>Valor Estimado de Casa ($):</Text>
+            <TextInput
+              style={styles.input}
+              value={valorCasa}
+              onChangeText={setValorCasa}
+              keyboardType="numeric"
+              placeholder="0.00"
+              placeholderTextColor="#64748b"
+            />
+          </View>
+        )}
 
-        <Text style={styles.label}>Valor Estimado de Muebles ($):</Text>
-        <TextInput style={styles.input} value={valorMuebles} onChangeText={setValorMuebles} keyboardType="numeric" />
+        {situacionVivienda === 'rentada' && (
+          <View style={{ marginTop: 8 }}>
+            <Text style={styles.label}>Monto de Renta Mensual ($):</Text>
+            <TextInput
+              style={styles.input}
+              value={montoPagoMensual}
+              onChangeText={setMontoPagoMensual}
+              keyboardType="numeric"
+              placeholder="Ej. 4,500.00"
+              placeholderTextColor="#64748b"
+            />
+          </View>
+        )}
+
+        {situacionVivienda === 'padres' && (
+          <View style={{ marginTop: 8 }}>
+            <Text style={styles.label}>Familiar o Titular del Inmueble:</Text>
+            <TextInput
+              style={styles.input}
+              value={nombreAtendio}
+              onChangeText={setNombreAtendio}
+              placeholder="Ej. Padre / Madre / Familiar"
+              placeholderTextColor="#64748b"
+            />
+          </View>
+        )}
+
+        <View style={{ marginTop: 8 }}>
+          <Text style={styles.label}>Tiempo de Residencia en Domicilio (Años / Meses):</Text>
+          <TextInput
+            style={styles.input}
+            value={tiempoResidencia}
+            onChangeText={setTiempoResidencia}
+            placeholder="Ej. 5 años"
+            placeholderTextColor="#64748b"
+          />
+
+          <Text style={styles.label}>Valor Estimado de Muebles y Enseres ($):</Text>
+          <TextInput
+            style={styles.input}
+            value={valorMuebles}
+            onChangeText={setValorMuebles}
+            keyboardType="numeric"
+            placeholder="0.00"
+            placeholderTextColor="#64748b"
+          />
+        </View>
       </View>
 
       {/* 4. CAPTURA FOTOGRÁFICA */}

@@ -28,7 +28,17 @@ export async function login(email, password) {
 
 export async function getAssignedInvestigaciones(investigadorId) {
   const token = await AsyncStorage.getItem('userToken');
-  const res = await fetch(`${BASE_URL}/investigaciones?investigador_id=${investigadorId || ''}`, {
+  let realId = investigadorId;
+  if (!realId) {
+    try {
+      const rawUser = await AsyncStorage.getItem('userData');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        realId = u.id;
+      }
+    } catch (e) {}
+  }
+  const res = await fetch(`${BASE_URL}/investigaciones?investigador_id=${realId || ''}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Error al cargar asignaciones');
