@@ -12,19 +12,13 @@ async function initDb() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL DEFAULT '123456',
         telefono VARCHAR(50),
-        rol VARCHAR(50) DEFAULT 'investigador', -- 'admin', 'supervisor', 'investigador'
+        rol VARCHAR(50) DEFAULT 'investigador',
         activo BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
 
-    // Ensure password column exists if created previously without it
-    await db.query(`
-      ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT '123456';
-      ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'investigador';
-    `);
-
-    // 3. Asegurar campos de colonia, municipio y estado en direcciones
+    // 2. Tabla de Direcciones
     await db.query(`
       CREATE TABLE IF NOT EXISTS direcciones (
         id SERIAL PRIMARY KEY,
@@ -44,12 +38,34 @@ async function initDb() {
         activa BOOLEAN DEFAULT TRUE,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
-      ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS colonia VARCHAR(255);
-      ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS municipio VARCHAR(255) DEFAULT 'Guadalajara';
-      ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS estado_provincia VARCHAR(255) DEFAULT 'Jalisco';
-      ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS es_principal BOOLEAN DEFAULT TRUE;
-      ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;
     `);
+
+    // 3. Tabla de Evidencias de Visita
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS evidencias_visita (
+        id SERIAL PRIMARY KEY,
+        investigacion_id_sif INT,
+        latitud_checkin DOUBLE PRECISION,
+        longitud_checkin DOUBLE PRECISION,
+        fecha_checkin TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        estudio_socioeconomico JSONB,
+        fotos_urls JSONB,
+        firma_url TEXT,
+        firma_investigador_url TEXT,
+        notas_investigador TEXT,
+        sincronizado_a_sif BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    // Alteraciones seguras
+    try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT '123456';`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'investigador';`); } catch (e) {}
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS colonia VARCHAR(255);`); } catch (e) {}
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS municipio VARCHAR(255) DEFAULT 'Guadalajara';`); } catch (e) {}
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS estado_provincia VARCHAR(255) DEFAULT 'Jalisco';`); } catch (e) {}
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS es_principal BOOLEAN DEFAULT TRUE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;`); } catch (e) {}
 
     // Seed default admin and investigators if empty
     const { rows: existingInvestigadores } = await db.query('SELECT count(*) FROM investigadores;');

@@ -190,9 +190,6 @@ app.get('/api/investigaciones', async (req, res) => {
     const offset = (page - 1) * limit;
     const { estado, buscar, investigador_id } = req.query;
 
-    // Asegurar columna es_principal en tabla direcciones
-    await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS es_principal BOOLEAN DEFAULT TRUE;`);
-
     let whereClauses = [];
     let queryParams = [];
 
