@@ -74,8 +74,12 @@ export default function VisitasScreen({ navigation, route }) {
   };
 
   const visitasFiltradas = visitas.filter((item) => {
-    if (filtroEstado !== 'TODOS' && item.estado !== filtroEstado) {
-      return false;
+    if (filtroEstado !== 'TODOS') {
+      if (filtroEstado === 'PENDIENTE') {
+        if (item.estado === 'COMPLETADA') return false;
+      } else if (filtroEstado === 'COMPLETADA') {
+        if (item.estado !== 'COMPLETADA') return false;
+      }
     }
 
     const query = searchQuery.trim().toLowerCase();
