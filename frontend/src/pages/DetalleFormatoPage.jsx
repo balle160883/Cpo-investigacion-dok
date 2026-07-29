@@ -55,6 +55,31 @@ export default function DetalleFormatoPage() {
   const firmaCaptured = ev.firma_url || '';
   const isAval = inv.tipo_sujeto !== 'CLIENTE';
 
+  function prepareFirmaSrc(src) {
+    if (!src) return '';
+    const trimmed = src.trim();
+    if (trimmed.startsWith('<svg')) {
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(trimmed)}`;
+    }
+    if (trimmed.startsWith('data:image/svg+xml')) {
+      if (trimmed.includes(';base64,')) return trimmed;
+      const commaIndex = trimmed.indexOf(',');
+      if (commaIndex !== -1) {
+        const svgContent = trimmed.substring(commaIndex + 1);
+        let rawSvg = svgContent;
+        try {
+          rawSvg = decodeURIComponent(svgContent);
+        } catch (e) {
+          rawSvg = svgContent;
+        }
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(rawSvg)}`;
+      }
+    }
+    return trimmed;
+  }
+
+  const safeFirmaSrc = prepareFirmaSrc(firmaCaptured);
+
   const handlePrint = () => {
     window.print();
   };
@@ -302,10 +327,10 @@ export default function DetalleFormatoPage() {
         <div className="pt-8 border-t border-slate-300 grid grid-cols-3 gap-6 text-center text-xs">
           {/* Firma Digital del Entrevistado (Solicitante o Aval) */}
           <div className="flex flex-col items-center justify-between">
-            <div className="w-full h-24 flex items-center justify-center border border-dashed border-slate-300 rounded bg-slate-50 p-1 mb-2 overflow-hidden">
-              {firmaCaptured ? (
+            <div className="w-full h-24 flex items-center justify-center border border-dashed border-slate-300 rounded bg-white p-1 mb-2 overflow-hidden shadow-inner">
+              {safeFirmaSrc ? (
                 <img
-                  src={firmaCaptured}
+                  src={safeFirmaSrc}
                   alt="Firma Digital del Atendido"
                   className="max-h-full max-w-full object-contain"
                 />
