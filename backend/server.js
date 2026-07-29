@@ -252,21 +252,11 @@ app.get('/api/investigaciones', async (req, res) => {
         d.calle,
         d.numero_exterior,
         d.codigo_postal,
-        d.colonia,
-        d.municipio,
-        d.estado_provincia,
-        d.latitud,
-        d.longitud,
         inv_usr.nombre as investigador_nombre
       FROM investigaciones inv
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
-      LEFT JOIN (
-        SELECT DISTINCT ON (persona_id_sif) persona_id_sif, calle, numero_exterior, codigo_postal, colonia, municipio, estado_provincia, latitud, longitud
-        FROM direcciones
-        WHERE persona_id_sif IS NOT NULL
-        ORDER BY persona_id_sif, id DESC
-      ) d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
+      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
       ${whereSql}
       ORDER BY inv.id_sif_research DESC
