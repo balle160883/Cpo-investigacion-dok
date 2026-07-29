@@ -68,7 +68,7 @@ export default function VisitasScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>Hola, {user.nombre}</Text>
+        <Text style={styles.greeting}>Hola, {currentUser?.nombre || 'Investigador'}</Text>
         <Text style={styles.subtext}>Investigaciones asignadas del día</Text>
       </View>
 
