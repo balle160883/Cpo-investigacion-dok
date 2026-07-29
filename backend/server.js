@@ -216,10 +216,10 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
 // ----------------------------------------------------
 app.get('/api/investigaciones', async (req, res) => {
   try {
-    const page = parseInt(req.query.page || '1');
-    const limit = parseInt(req.query.limit || '50');
-    const offset = (page - 1) * limit;
     const { estado, buscar, investigador_id } = req.query;
+    const page = parseInt(req.query.page || '1');
+    const limit = parseInt(req.query.limit || (investigador_id ? '500' : '50'));
+    const offset = (page - 1) * limit;
 
     let whereClauses = [];
     let queryParams = [];
@@ -235,7 +235,7 @@ app.get('/api/investigaciones', async (req, res) => {
 
     if (investigador_id) {
       queryParams.push(investigador_id);
-      whereClauses.push(`inv.investigador_id = $${queryParams.length}`);
+      whereClauses.push(`CAST(inv.investigador_id AS TEXT) = CAST($${queryParams.length} AS TEXT)`);
     }
 
     if (buscar) {
@@ -404,7 +404,7 @@ app.post('/api/investigaciones/:id/asignar', async (req, res) => {
     await db.query(`
       UPDATE investigaciones 
       SET investigador_id = $1, fecha_asignacion = NOW(), estado = 'EN_PROCESO', updated_at = NOW()
-      WHERE id_sif_research = $2;
+      WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
     `, [investigador_id, id]);
 
     res.json({ success: true, message: 'Investigador asignado correctamente' });
