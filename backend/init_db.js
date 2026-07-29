@@ -24,16 +24,29 @@ async function initDb() {
       ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'investigador';
     `);
 
-    // 2. Tabla de Rastreo GPS en Tiempo Real de Investigadores
+    // 3. Asegurar campos de colonia, municipio y estado en direcciones
     await db.query(`
-      CREATE TABLE IF NOT EXISTS ubicaciones_investigadores (
+      CREATE TABLE IF NOT EXISTS direcciones (
         id SERIAL PRIMARY KEY,
-        investigador_id INT REFERENCES investigadores(id),
-        latitud DOUBLE PRECISION NOT NULL,
-        longitud DOUBLE PRECISION NOT NULL,
-        bateria_nivel INT,
+        id_sif INT,
+        persona_id_sif INT,
+        calle VARCHAR(255),
+        numero_exterior VARCHAR(50),
+        numero_interior VARCHAR(50),
+        codigo_postal VARCHAR(20),
+        colonia VARCHAR(255),
+        municipio VARCHAR(255) DEFAULT 'Guadalajara',
+        estado_provincia VARCHAR(255) DEFAULT 'Jalisco',
+        referencias TEXT,
+        latitud DOUBLE PRECISION,
+        longitud DOUBLE PRECISION,
+        es_principal BOOLEAN DEFAULT TRUE,
+        activa BOOLEAN DEFAULT TRUE,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+      ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS colonia VARCHAR(255);
+      ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS municipio VARCHAR(255) DEFAULT 'Guadalajara';
+      ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS estado_provincia VARCHAR(255) DEFAULT 'Jalisco';
     `);
 
     // Seed default admin and investigators if empty

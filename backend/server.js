@@ -229,6 +229,9 @@ app.get('/api/investigaciones', async (req, res) => {
         d.calle,
         d.numero_exterior,
         d.codigo_postal,
+        d.colonia,
+        d.municipio,
+        d.estado_provincia,
         d.latitud,
         d.longitud,
         inv_usr.nombre as investigador_nombre
@@ -286,7 +289,7 @@ app.get('/api/investigaciones/:id', async (req, res) => {
         s.monto_aprobado,
         s.sucursal_id,
         s.cliente_id_sif,
-        d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.referencias, d.latitud, d.longitud,
+        d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.colonia, d.municipio, d.estado_provincia, d.referencias, d.latitud, d.longitud,
         inv_usr.nombre as investigador_nombre,
         inv_usr.telefono as investigador_telefono
       FROM investigaciones inv

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { getAssignedInvestigaciones } from '../api/apiClient';
 
 export default function VisitasScreen({ navigation, route }) {
@@ -7,6 +7,8 @@ export default function VisitasScreen({ navigation, route }) {
   const [visitas, setVisitas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('TODOS'); // TODOS | PENDIENTE | COMPLETADA
 
   useEffect(() => {
     loadData();
@@ -29,6 +31,24 @@ export default function VisitasScreen({ navigation, route }) {
     loadData();
   };
 
+  const visitasFiltradas = visitas.filter((item) => {
+    if (filtroEstado !== 'TODOS' && item.estado !== filtroEstado) {
+      return false;
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+
+    const enColonia = (item.colonia || '').toLowerCase().includes(query);
+    const enCalle = (item.calle || '').toLowerCase().includes(query);
+    const enMunicipio = (item.municipio || '').toLowerCase().includes(query);
+    const enEstado = (item.estado_provincia || '').toLowerCase().includes(query);
+    const enNombre = (item.sujeto_nombre || '').toLowerCase().includes(query);
+    const enFolio = (item.id_sif_research || '').toString().includes(query) || (item.solicitud_folio || '').toString().includes(query);
+
+    return enColonia || enCalle || enMunicipio || enEstado || enNombre || enFolio;
+  });
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -36,18 +56,74 @@ export default function VisitasScreen({ navigation, route }) {
         <Text style={styles.subtext}>Investigaciones asignadas del día</Text>
       </View>
 
+      {/* BUSCADOR EN TIEMPO REAL POR COLONIA / SOCIO / FOLIO */}
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar por colonia, socio o folio..."
+          placeholderTextColor="#64748b"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
+            <Text style={styles.clearSearchText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* BOTONES DE FILTRO RÁPIDO POR ESTADO */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={[styles.filterChip, filtroEstado === 'TODOS' && styles.filterChipActive]}
+          onPress={() => setFiltroEstado('TODOS')}
+        >
+          <Text style={[styles.filterChipText, filtroEstado === 'TODOS' && styles.filterChipTextActive]}>
+            Todos ({visitas.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, filtroEstado === 'PENDIENTE' && styles.filterChipActive]}
+          onPress={() => setFiltroEstado('PENDIENTE')}
+        >
+          <Text style={[styles.filterChipText, filtroEstado === 'PENDIENTE' && styles.filterChipTextActive]}>
+            Pendientes
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, filtroEstado === 'COMPLETADA' && styles.filterChipActive]}
+          onPress={() => setFiltroEstado('COMPLETADA')}
+        >
+          <Text style={[styles.filterChipText, filtroEstado === 'COMPLETADA' && styles.filterChipTextActive]}>
+            Completadas
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* CONTADOR DE RESULTADOS */}
+      {searchQuery.length > 0 && (
+        <Text style={styles.resultCount}>
+          Mostrando {visitasFiltradas.length} de {visitas.length} investigaciones
+        </Text>
+      )}
+
       {loading ? (
         <ActivityIndicator size="large" color="#0284c7" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
-          data={visitas}
+          data={visitasFiltradas}
           keyExtractor={(item) => item.id_sif_research.toString()}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0284c7" />}
           ListEmptyComponent={(
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>Sin investigaciones asignadas</Text>
-              <Text style={styles.emptySubtitle}>No tienes visitas domiciliarias asignadas por el momento.</Text>
+              <Text style={styles.emptyIcon}>🔍</Text>
+              <Text style={styles.emptyTitle}>Sin resultados</Text>
+              <Text style={styles.emptySubtitle}>
+                {searchQuery
+                  ? `No se encontraron resultados para "${searchQuery}"`
+                  : 'No tienes visitas domiciliarias asignadas por el momento.'}
+              </Text>
               <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
                 <Text style={styles.refreshBtnText}>🔄 Actualizar lista</Text>
               </TouchableOpacity>
@@ -72,6 +148,11 @@ export default function VisitasScreen({ navigation, route }) {
               <Text style={styles.direccion}>
                 📍 {item.calle ? `${item.calle} #${item.numero_exterior || ''}` : 'Sin Calle'}
               </Text>
+              
+              {/* COLONIA, MUNICIPIO Y ESTADO */}
+              <Text style={styles.ubicacionDetalle}>
+                🏡 {item.colonia ? `Col. ${item.colonia}` : 'Sin Colonia'}, {item.municipio || 'Guadalajara'}, {item.estado_provincia || 'Jalisco'}
+              </Text>
 
               <View style={styles.cardFooter}>
                 <Text style={styles.monto}>
@@ -91,9 +172,37 @@ export default function VisitasScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a', padding: 16 },
-  header: { marginBottom: 16, marginTop: 40 },
+  header: { marginBottom: 12, marginTop: 40 },
   greeting: { fontSize: 22, fontWeight: 'bold', color: '#ffffff' },
   subtext: { fontSize: 13, color: '#94a3b8' },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  searchIcon: { fontSize: 16, marginRight: 8 },
+  searchInput: { flex: 1, color: '#ffffff', fontSize: 13, paddingVertical: 2 },
+  clearSearchBtn: { padding: 4 },
+  clearSearchText: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold' },
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  filterChip: {
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterChipActive: { backgroundColor: '#0284c7', borderColor: '#38bdf8' },
+  filterChipText: { color: '#94a3b8', fontSize: 11, fontWeight: '600' },
+  filterChipTextActive: { color: '#ffffff', fontWeight: 'bold' },
+  resultCount: { color: '#38bdf8', fontSize: 11, fontWeight: 'bold', marginBottom: 8 },
   card: {
     backgroundColor: '#1e293b',
     borderRadius: 16,
@@ -109,7 +218,8 @@ const styles = StyleSheet.create({
   badgeText: { color: '#38bdf8', fontSize: 10, fontWeight: 'bold' },
   folio: { color: '#64748b', fontSize: 12, fontFamily: 'monospace' },
   nombre: { fontSize: 16, fontWeight: 'bold', color: '#ffffff', marginBottom: 4 },
-  direccion: { fontSize: 13, color: '#cbd5e1', marginBottom: 12 },
+  direccion: { fontSize: 13, color: '#cbd5e1', marginBottom: 2 },
+  ubicacionDetalle: { fontSize: 12, color: '#38bdf8', fontWeight: '500', marginBottom: 12 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#334155' },
   monto: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
   estado: { fontSize: 11, fontWeight: 'bold', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
@@ -122,3 +232,4 @@ const styles = StyleSheet.create({
   refreshBtn: { backgroundColor: '#0284c7', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
   refreshBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 14 },
 });
+
