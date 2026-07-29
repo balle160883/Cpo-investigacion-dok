@@ -27,8 +27,11 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
 
   function obtenerQueryDireccion() {
     const calle = inv.calle ? `${inv.calle} #${inv.numero_exterior || ''}`.trim() : '';
+    const colonia = inv.colonia ? `Col. ${inv.colonia}` : '';
     const cp = inv.codigo_postal ? `CP ${inv.codigo_postal}` : '';
-    const partes = [calle, cp, 'Guadalajara', 'Jalisco', 'Mexico'].filter(Boolean);
+    const municipio = inv.municipio || 'Guadalajara';
+    const estado = inv.estado_provincia || 'Jalisco';
+    const partes = [calle, colonia, cp, municipio, estado, 'Mexico'].filter(Boolean);
     return partes.join(', ');
   }
 
