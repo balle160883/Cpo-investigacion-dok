@@ -165,26 +165,22 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
         i.nombre,
         i.email,
         i.telefono,
-        COALESCE(u.latitud, ev.latitud_checkin, 20.6597) as latitud,
-        COALESCE(u.longitud, ev.longitud_checkin, -103.3496) as longitud,
+        u.latitud,
+        u.longitud,
         COALESCE(u.bateria_nivel, 100) as bateria_nivel,
-        COALESCE(u.updated_at, ev.created_at, NOW()) as updated_at,
-        CASE WHEN u.updated_at IS NOT NULL OR ev.created_at IS NOT NULL THEN true ELSE false END as tiene_gps
+        u.updated_at,
+        CASE 
+          WHEN u.updated_at IS NOT NULL AND u.updated_at >= NOW() - INTERVAL '15 minutes' THEN true 
+          ELSE false 
+        END as en_linea
       FROM investigadores i
       LEFT JOIN (
         SELECT DISTINCT ON (investigador_id) investigador_id, latitud, longitud, bateria_nivel, updated_at
         FROM ubicaciones_investigadores
         ORDER BY investigador_id, updated_at DESC
       ) u ON CAST(i.id AS TEXT) = CAST(u.investigador_id AS TEXT)
-      LEFT JOIN (
-        SELECT DISTINCT ON (inv.investigador_id) inv.investigador_id, ev.latitud_checkin, ev.longitud_checkin, ev.created_at
-        FROM evidencias_visita ev
-        JOIN investigaciones inv ON CAST(ev.investigacion_id_sif AS TEXT) = CAST(inv.id_sif_research AS TEXT)
-        WHERE ev.latitud_checkin != 0 AND ev.longitud_checkin != 0
-        ORDER BY inv.investigador_id, ev.created_at DESC
-      ) ev ON CAST(i.id AS TEXT) = CAST(ev.investigador_id AS TEXT)
       WHERE COALESCE(i.activo, TRUE) = TRUE
-      ORDER BY i.id;
+      ORDER BY en_linea DESC, i.nombre ASC;
     `);
     res.json(rows);
   } catch (err) {

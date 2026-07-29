@@ -193,7 +193,7 @@ export default function MapaPage() {
               <UserCheck className="w-4 h-4 text-emerald-400" /> Investigadores ({investigadores.length})
             </span>
             <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
-              EN LÍNEA
+              {investigadores.filter((inv) => inv.en_linea).length} EN LÍNEA
             </span>
           </div>
 
@@ -203,23 +203,37 @@ export default function MapaPage() {
                 <div
                   key={i}
                   onClick={() => {
-                    setSelectedItem(inv);
-                    centrarEnUbicacion(inv.longitud, inv.latitud, inv.nombre);
+                    if (inv.latitud && inv.longitud) {
+                      setSelectedItem(inv);
+                      centrarEnUbicacion(inv.longitud, inv.latitud, inv.nombre);
+                    }
                   }}
-                  className="p-3 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-emerald-500/50 rounded-xl cursor-pointer transition space-y-1"
+                  className={`p-3 border rounded-xl cursor-pointer transition space-y-1 ${
+                    inv.en_linea
+                      ? 'bg-slate-800/80 hover:bg-slate-800 border-emerald-500/50 hover:border-emerald-400 shadow-md'
+                      : 'bg-slate-900/60 hover:bg-slate-800/40 border-slate-800 opacity-60'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-white flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className={`w-2.5 h-2.5 rounded-full ${inv.en_linea ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
                       {inv.nombre}
                     </span>
-                    <span className="text-[10px] text-emerald-400 font-mono font-bold">
-                      {inv.bateria_nivel || 100}% 🔋
-                    </span>
+                    {inv.en_linea ? (
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                        {inv.bateria_nivel || 100}% 🔋
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-slate-500 uppercase font-semibold">
+                        Desconectado
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center justify-between">
                     <span>{inv.telefono || 'Investigador CPO'}</span>
-                    <span className="text-[10px] text-sky-400 hover:underline font-semibold">📍 Centrar en Mapa</span>
+                    {inv.en_linea && inv.latitud && (
+                      <span className="text-[10px] text-sky-400 hover:underline font-semibold">📍 Centrar en Mapa</span>
+                    )}
                   </div>
                 </div>
               ))
