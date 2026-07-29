@@ -310,6 +310,93 @@ export default function CapturaFormatoScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* ESTADO CIVIL */}
+        <Text style={styles.label}>Estado Civil:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 6 }}>
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[styles.chip, estadoCivil === 'soltero' && styles.chipActive]}
+              onPress={() => setEstadoCivil('soltero')}
+            >
+              <Text style={styles.chipText}>Soltero(a)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, estadoCivil === 'casado' && styles.chipActive]}
+              onPress={() => setEstadoCivil('casado')}
+            >
+              <Text style={styles.chipText}>Casado(a)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, estadoCivil === 'union_libre' && styles.chipActive]}
+              onPress={() => setEstadoCivil('union_libre')}
+            >
+              <Text style={styles.chipText}>Unión Libre</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, estadoCivil === 'divorciado' && styles.chipActive]}
+              onPress={() => setEstadoCivil('divorciado')}
+            >
+              <Text style={styles.chipText}>Divorciado(a)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, estadoCivil === 'viudo' && styles.chipActive]}
+              onPress={() => setEstadoCivil('viudo')}
+            >
+              <Text style={styles.chipText}>Viudo(a)</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        {(estadoCivil === 'casado' || estadoCivil === 'union_libre') && (
+          <View style={{ marginTop: 4 }}>
+            <Text style={styles.label}>Ocupación / Trabajo del Cónyuge:</Text>
+            <TextInput
+              style={styles.input}
+              value={ocupacionConyuge}
+              onChangeText={setOcupacionConyuge}
+              placeholder="Ej. Comerciante / Empleado"
+              placeholderTextColor="#64748b"
+            />
+          </View>
+        )}
+
+        {/* INTEGRANTES DEL HOGAR */}
+        <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#334155' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#38bdf8', marginBottom: 6 }}>
+            👨‍👩‍👧‍👦 Integrantes del Hogar:
+          </Text>
+
+          <Text style={styles.label}>Personas Mayores de Edad (≥ 18 años):</Text>
+          <TextInput
+            style={styles.input}
+            value={personasMayores18}
+            onChangeText={setPersonasMayores18}
+            keyboardType="numeric"
+            placeholder="Ej. 2"
+            placeholderTextColor="#64748b"
+          />
+
+          <Text style={styles.label}>Menores de Edad (&lt; 18 años):</Text>
+          <TextInput
+            style={styles.input}
+            value={personasMenores18}
+            onChangeText={setPersonasMenores18}
+            keyboardType="numeric"
+            placeholder="Ej. 0"
+            placeholderTextColor="#64748b"
+          />
+
+          <Text style={styles.label}>Personas que Aportan Ingresos al Hogar:</Text>
+          <TextInput
+            style={styles.input}
+            value={personasGeneranIngresos}
+            onChangeText={setPersonasGeneranIngresos}
+            keyboardType="numeric"
+            placeholder="Ej. 1"
+            placeholderTextColor="#64748b"
+          />
+        </View>
+
         <View style={{ marginTop: 8 }}>
           <Text style={styles.label}>Tiempo de Residencia en Domicilio (Años / Meses):</Text>
           <TextInput
