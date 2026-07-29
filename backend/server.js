@@ -309,15 +309,11 @@ app.get('/api/investigaciones/:id', async (req, res) => {
         inv_usr.nombre as investigador_nombre,
         inv_usr.telefono as investigador_telefono
       FROM investigaciones inv
-      LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
-      LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
-      LEFT JOIN (
-        SELECT DISTINCT ON (persona_id_sif) persona_id_sif, calle, numero_exterior, numero_interior, codigo_postal, colonia, municipio, estado_provincia, referencias, latitud, longitud
-        FROM direcciones
-        ORDER BY persona_id_sif, COALESCE(es_principal, FALSE) DESC, id DESC
-      ) d ON p.id_sif = d.persona_id_sif
+      LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+      LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
+      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
-      WHERE inv.id_sif_research = $1
+      WHERE CAST(inv.id_sif_research AS TEXT) = CAST($1 AS TEXT)
       LIMIT 1;
     `, [id]);
 
@@ -333,20 +329,16 @@ app.get('/api/investigaciones/:id', async (req, res) => {
       const avalesRes = await db.query(`
         SELECT sa.aval_id_sif, p.nombre_completo, d.calle, d.numero_exterior, d.codigo_postal
         FROM solicitud_avales sa
-        JOIN personas p ON sa.aval_id_sif = p.id_sif
-        LEFT JOIN (
-          SELECT DISTINCT ON (persona_id_sif) persona_id_sif, calle, numero_exterior, codigo_postal
-          FROM direcciones
-          ORDER BY persona_id_sif, COALESCE(es_principal, FALSE) DESC, id DESC
-        ) d ON p.id_sif = d.persona_id_sif
-        WHERE sa.solicitud_id_sif = $1;
+        JOIN personas p ON CAST(sa.aval_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+        LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
+        WHERE CAST(sa.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT);
       `, [investigacion.solicitud_id_sif]);
       avales = avalesRes.rows;
     }
 
     // 3. Evidencia y captura socioeconómica realizada
     const evRes = await db.query(
-      'SELECT * FROM evidencias_visita WHERE investigacion_id_sif = $1 ORDER BY created_at DESC LIMIT 1;',
+      'SELECT * FROM evidencias_visita WHERE CAST(investigacion_id_sif AS TEXT) = CAST($1 AS TEXT) ORDER BY created_at DESC LIMIT 1;',
       [id]
     );
 
