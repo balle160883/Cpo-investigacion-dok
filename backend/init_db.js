@@ -58,6 +58,18 @@ async function initDb() {
       );
     `);
 
+    // 4. Tabla de Ubicaciones en Tiempo Real de Investigadores
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ubicaciones_investigadores (
+        id SERIAL PRIMARY KEY,
+        investigador_id INT,
+        latitud DOUBLE PRECISION,
+        longitud DOUBLE PRECISION,
+        bateria_nivel INT DEFAULT 100,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
     // Alteraciones seguras
     try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT '123456';`); } catch (e) {}
     try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'investigador';`); } catch (e) {}

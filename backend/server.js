@@ -146,6 +146,19 @@ app.post('/api/investigadores/ubicacion', authenticate, async (req, res) => {
 
 app.get('/api/investigadores/ubicaciones', async (req, res) => {
   try {
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS ubicaciones_investigadores (
+          id SERIAL PRIMARY KEY,
+          investigador_id INT,
+          latitud DOUBLE PRECISION,
+          longitud DOUBLE PRECISION,
+          bateria_nivel INT DEFAULT 100,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+    } catch (e) {}
+
     const { rows } = await db.query(`
       SELECT 
         i.id as investigador_id,
@@ -162,15 +175,15 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
         SELECT DISTINCT ON (investigador_id) investigador_id, latitud, longitud, bateria_nivel, updated_at
         FROM ubicaciones_investigadores
         ORDER BY investigador_id, updated_at DESC
-      ) u ON i.id = u.investigador_id
+      ) u ON CAST(i.id AS TEXT) = CAST(u.investigador_id AS TEXT)
       LEFT JOIN (
         SELECT DISTINCT ON (inv.investigador_id) inv.investigador_id, ev.latitud_checkin, ev.longitud_checkin, ev.created_at
         FROM evidencias_visita ev
-        JOIN investigaciones inv ON ev.investigacion_id_sif = inv.id_sif_research
+        JOIN investigaciones inv ON CAST(ev.investigacion_id_sif AS TEXT) = CAST(inv.id_sif_research AS TEXT)
         WHERE ev.latitud_checkin != 0 AND ev.longitud_checkin != 0
         ORDER BY inv.investigador_id, ev.created_at DESC
-      ) ev ON i.id = ev.investigador_id
-      WHERE COALESCE(i.activo, TRUE) = TRUE AND (i.rol = 'investigador' OR i.rol = 'admin' OR i.rol IS NULL)
+      ) ev ON CAST(i.id AS TEXT) = CAST(ev.investigador_id AS TEXT)
+      WHERE COALESCE(i.activo, TRUE) = TRUE
       ORDER BY i.id;
     `);
     res.json(rows);
