@@ -106,23 +106,24 @@ export default function MapaPage() {
       const listInvestigadores = Array.isArray(ubics) ? ubics : [];
       setInvestigadores(listInvestigadores);
 
-      // Renderizar Marcadores de Investigadores Activos
+      // Renderizar Marcadores de Investigadores Activos o Última Ubicación Conocida
       listInvestigadores.forEach((inv) => {
         const lat = parseFloat(inv.latitud);
         const lng = parseFloat(inv.longitud);
 
         if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          const isOnline = inv.en_linea;
           const el = document.createElement('div');
           el.style.width = '38px';
           el.style.height = '38px';
           el.style.borderRadius = '50%';
-          el.style.backgroundColor = '#059669';
+          el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
           el.style.border = '3px solid #ffffff';
           el.style.display = 'flex';
           el.style.alignItems = 'center';
           el.style.justifyContent = 'center';
           el.style.color = '#ffffff';
-          el.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
+          el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
           el.style.cursor = 'pointer';
           el.innerHTML = `
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -136,12 +137,14 @@ export default function MapaPage() {
             .setPopup(
               new mapboxgl.Popup({ offset: 25 }).setHTML(`
                 <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                  <div style="font-size: 10px; font-weight: bold; color: #059669; text-transform: uppercase;">
-                    📡 INVESTIGADOR EN CAMPO
+                  <div style="font-size: 10px; font-weight: bold; color: ${isOnline ? '#059669' : '#475569'}; text-transform: uppercase;">
+                    ${isOnline ? '📡 INVESTIGADOR EN CAMPO (EN LÍNEA)' : '📍 ÚLTIMA UBICACIÓN CONOCIDA'}
                   </div>
                   <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
                   <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
-                  <span style="font-size: 10px; color: #10b981; font-weight: bold;">🔋 Batería: ${inv.bateria_nivel || 100}%</span>
+                  <span style="font-size: 10px; color: ${isOnline ? '#10b981' : '#64748b'}; font-weight: bold;">
+                    ${isOnline ? `🔋 Batería: ${inv.bateria_nivel || 100}%` : 'App cerrada / Sin emisión GPS en 15m'}
+                  </span>
                 </div>
               `)
             )

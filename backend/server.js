@@ -165,10 +165,10 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
         i.nombre,
         i.email,
         i.telefono,
-        u.latitud,
-        u.longitud,
+        COALESCE(u.latitud, ev.latitud_checkin) as latitud,
+        COALESCE(u.longitud, ev.longitud_checkin) as longitud,
         COALESCE(u.bateria_nivel, 100) as bateria_nivel,
-        u.updated_at,
+        COALESCE(u.updated_at, ev.created_at) as updated_at,
         CASE 
           WHEN u.updated_at IS NOT NULL AND u.updated_at >= NOW() - INTERVAL '15 minutes' THEN true 
           ELSE false 
@@ -179,6 +179,13 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
         FROM ubicaciones_investigadores
         ORDER BY investigador_id, updated_at DESC
       ) u ON CAST(i.id AS TEXT) = CAST(u.investigador_id AS TEXT)
+      LEFT JOIN (
+        SELECT DISTINCT ON (inv.investigador_id) inv.investigador_id, ev.latitud_checkin, ev.longitud_checkin, ev.created_at
+        FROM evidencias_visita ev
+        JOIN investigaciones inv ON CAST(ev.investigacion_id_sif AS TEXT) = CAST(inv.id_sif_research AS TEXT)
+        WHERE ev.latitud_checkin != 0 AND ev.longitud_checkin != 0
+        ORDER BY inv.investigador_id, ev.created_at DESC
+      ) ev ON CAST(i.id AS TEXT) = CAST(ev.investigador_id AS TEXT)
       WHERE COALESCE(i.activo, TRUE) = TRUE
       ORDER BY en_linea DESC, i.nombre ASC;
     `);
