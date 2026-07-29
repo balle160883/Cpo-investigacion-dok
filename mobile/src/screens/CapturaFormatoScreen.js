@@ -162,9 +162,21 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.headerTitle}>
-        FORMATO DIGITAL: {isAval ? 'AVAL' : 'SOLICITANTE'}
-      </Text>
+      {/* TARJETA DE DISTINCIÓN SOLICITANTE / AVAL */}
+      <View style={[styles.headerCard, isAval ? styles.headerCardAval : styles.headerCardSolicitante]}>
+        <View style={styles.badgeRow}>
+          <Text style={styles.badgeLabel}>
+            {isAval ? '🛡️ FORMATO DIGITAL DE AVAL' : '👤 FORMATO DIGITAL DE SOLICITANTE'}
+          </Text>
+          <View style={[styles.badgeTag, isAval ? styles.badgeTagAval : styles.badgeTagSolicitante]}>
+            <Text style={styles.badgeTagText}>{isAval ? 'AVAL' : 'SOLICITANTE'}</Text>
+          </View>
+        </View>
+        <Text style={styles.headerSujetoNombre}>{inv?.sujeto_nombre || 'Socio Sin Nombre'}</Text>
+        <Text style={styles.headerSubMeta}>
+          Socio N° {inv?.persona_id_sif || 'N/A'} • Solicitud #{inv?.solicitud_folio || 'N/A'}
+        </Text>
+      </View>
 
       {/* UBICACIÓN GPS */}
       <View style={styles.gpsBanner}>
@@ -319,6 +331,59 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a', padding: 16 },
+  headerCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    marginTop: 10,
+    borderWidth: 1,
+  },
+  headerCardSolicitante: {
+    backgroundColor: '#0369a1',
+    borderColor: '#38bdf8',
+  },
+  headerCardAval: {
+    backgroundColor: '#065f46',
+    borderColor: '#34d399',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  badgeLabel: {
+    color: '#e0f2fe',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  badgeTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeTagSolicitante: {
+    backgroundColor: '#0284c7',
+  },
+  badgeTagAval: {
+    backgroundColor: '#059669',
+  },
+  badgeTagText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  headerSujetoNombre: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  headerSubMeta: {
+    color: '#bae6fd',
+    fontSize: 11,
+    marginTop: 4,
+  },
   headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#38bdf8', marginBottom: 12, marginTop: 40, textAlign: 'center' },
   gpsBanner: { backgroundColor: '#1e293b', padding: 12, borderRadius: 12, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#38bdf8' },
   gpsTitle: { color: '#94a3b8', fontSize: 11, fontWeight: 'bold' },
