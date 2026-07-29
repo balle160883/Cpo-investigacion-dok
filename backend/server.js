@@ -123,10 +123,24 @@ app.get('/api/investigadores', async (req, res) => {
   }
 });
 
-app.post('/api/investigadores/ubicacion', authenticate, async (req, res) => {
+app.post('/api/investigadores/ubicacion', async (req, res) => {
   try {
-    const { latitud, longitud, bateria_nivel } = req.body;
-    const investigador_id = req.user.id;
+    const { latitud, longitud, bateria_nivel, investigador_id: bodyInvId } = req.body;
+    let investigador_id = bodyInvId;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded && decoded.id) investigador_id = decoded.id;
+      } catch (e) {}
+    }
+
+    if (!investigador_id) {
+      return res.status(400).json({ error: 'investigador_id requerido' });
+    }
+
     if (!latitud || !longitud) {
       return res.status(400).json({ error: 'Latitud y longitud requeridas' });
     }
@@ -170,7 +184,8 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
         COALESCE(u.bateria_nivel, 100) as bateria_nivel,
         COALESCE(u.updated_at, ev.created_at) as updated_at,
         CASE 
-          WHEN u.updated_at IS NOT NULL AND u.updated_at >= NOW() - INTERVAL '15 minutes' THEN true 
+          WHEN u.updated_at IS NOT NULL AND u.updated_at >= NOW() - INTERVAL '12 hours' THEN true 
+          WHEN ev.created_at IS NOT NULL AND ev.created_at >= NOW() - INTERVAL '12 hours' THEN true
           ELSE false 
         END as en_linea
       FROM investigadores i

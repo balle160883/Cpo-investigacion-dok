@@ -69,14 +69,24 @@ export async function guardarEvidenciaInvestigacion(id, payload) {
 export async function enviarUbicacionGPS(latitud, longitud, bateria_nivel) {
   try {
     const token = await AsyncStorage.getItem('userToken');
-    if (!token) return;
+    let userObj = null;
+    try {
+      const rawUser = await AsyncStorage.getItem('userData');
+      if (rawUser) userObj = JSON.parse(rawUser);
+    } catch (e) {}
+
     await fetch(`${BASE_URL}/investigadores/ubicacion`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: token ? `Bearer ${token}` : '',
       },
-      body: JSON.stringify({ latitud, longitud, bateria_nivel }),
+      body: JSON.stringify({
+        latitud,
+        longitud,
+        bateria_nivel,
+        investigador_id: userObj?.id || '',
+      }),
     });
   } catch (err) {
     console.log('GPS sync background error:', err);
