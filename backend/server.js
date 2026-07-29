@@ -190,34 +190,33 @@ app.get('/api/investigaciones', async (req, res) => {
     const offset = (page - 1) * limit;
     const { estado, buscar, investigador_id } = req.query;
 
+    // Asegurar columna es_principal en tabla direcciones
+    await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS es_principal BOOLEAN DEFAULT TRUE;`);
+
     let whereClauses = [];
-    let params = [];
-    let paramCount = 1;
+    let queryParams = [];
 
     if (estado) {
       if (estado === 'PENDIENTE') {
         whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE')`);
       } else {
-        whereClauses.push(`inv.estado = $${paramCount}`);
-        params.push(estado);
-        paramCount++;
+        queryParams.push(estado);
+        whereClauses.push(`inv.estado = $${queryParams.length}`);
       }
     }
 
     if (investigador_id) {
-      whereClauses.push(`inv.investigador_id = $${paramCount}`);
-      params.push(investigador_id);
-      paramCount++;
+      queryParams.push(investigador_id);
+      whereClauses.push(`inv.investigador_id = $${queryParams.length}`);
     }
 
     if (buscar) {
+      queryParams.push(`%${buscar}%`);
       whereClauses.push(`(
-        p.nombre_completo ILIKE $${paramCount} OR 
-        s.folio ILIKE $${paramCount} OR 
-        CAST(inv.id_sif_research AS TEXT) ILIKE $${paramCount}
+        p.nombre_completo ILIKE $${queryParams.length} OR 
+        s.folio ILIKE $${queryParams.length} OR 
+        CAST(inv.id_sif_research AS TEXT) ILIKE $${queryParams.length}
       )`);
-      params.push(`%${buscar}%`);
-      paramCount++;
     }
 
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
@@ -229,6 +228,13 @@ app.get('/api/investigaciones', async (req, res) => {
       LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
       ${whereSql};
     `;
+
+    const countParams = [...queryParams];
+
+    queryParams.push(limit);
+    const limitIndex = queryParams.length;
+    queryParams.push(offset);
+    const offsetIndex = queryParams.length;
 
     const dataQuery = `
       SELECT 
@@ -261,18 +267,16 @@ app.get('/api/investigaciones', async (req, res) => {
       LEFT JOIN (
         SELECT DISTINCT ON (persona_id_sif) persona_id_sif, calle, numero_exterior, codigo_postal, colonia, municipio, estado_provincia, latitud, longitud
         FROM direcciones
-        ORDER BY persona_id_sif, COALESCE(es_principal, FALSE) DESC, id DESC
+        ORDER BY persona_id_sif, id DESC
       ) d ON p.id_sif = d.persona_id_sif
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
       ${whereSql}
       ORDER BY inv.id_sif_research DESC
-      LIMIT $${paramCount} OFFSET $${paramCount + 1};
+      LIMIT $${limitIndex} OFFSET $${offsetIndex};
     `;
 
-    params.push(limit, offset);
-
-    const totalRes = await db.query(countQuery, params.slice(0, paramCount - 1));
-    const { rows } = await db.query(dataQuery, params);
+    const totalRes = await db.query(countQuery, countParams);
+    const { rows } = await db.query(dataQuery, queryParams);
 
     res.json({
       total: parseInt(totalRes.rows[0].count),
@@ -282,7 +286,7 @@ app.get('/api/investigaciones', async (req, res) => {
     });
   } catch (err) {
     console.error('Error en GET /api/investigaciones:', err);
-    res.status(500).json({ error: 'Error obteniendo investigaciones: ' + err.message });
+    res.status(500).json({ error: 'Error del servidor: ' + err.message });
   }
 });
 
