@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getAssignedInvestigaciones } from '../api/apiClient';
+import * as Location from 'expo-location';
+import { getAssignedInvestigaciones, enviarUbicacionGPS } from '../api/apiClient';
 
 export default function VisitasScreen({ navigation, route }) {
   const [currentUser, setCurrentUser] = useState(route.params?.user || { nombre: 'Investigador' });
@@ -13,7 +14,32 @@ export default function VisitasScreen({ navigation, route }) {
 
   useEffect(() => {
     initUserAndData();
+    reportarGPSActual();
+
+    // RASTREO GPS EN TIEMPO REAL: Transmite coordenadas cada 30 segundos
+    const gpsInterval = setInterval(() => {
+      reportarGPSActual();
+    }, 30000);
+
+    return () => clearInterval(gpsInterval);
   }, []);
+
+  async function reportarGPSActual() {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      if (loc && loc.coords) {
+        await enviarUbicacionGPS(loc.coords.latitude, loc.coords.longitude, 100);
+      }
+    } catch (e) {
+      console.log('Error transmitiendo ubicación GPS:', e);
+    }
+  }
 
   async function initUserAndData() {
     let activeUser = route.params?.user;
