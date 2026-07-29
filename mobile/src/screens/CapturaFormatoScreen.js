@@ -117,6 +117,19 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   async function handleGuardar() {
     setSaving(true);
     try {
+      let currentCoords = location;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const freshLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          if (freshLoc && freshLoc.coords) {
+            currentCoords = freshLoc.coords;
+          }
+        }
+      } catch (e) {
+        console.log('Error obteniendo GPS en tiempo real al guardar:', e);
+      }
+
       const estudio_socioeconomico = {
         quien_atendio: quienAtendio,
         nombre_atendio: nombreAtendio,
@@ -148,8 +161,8 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         fotos_urls: fotos,
         firma_url: firmaUrl,
         firma_investigador_url: firmaInvestigadorUrl,
-        latitud_checkin: location ? location.latitude : 20.6597,
-        longitud_checkin: location ? location.longitude : -103.3496,
+        latitud_checkin: currentCoords ? currentCoords.latitude : 20.6597,
+        longitud_checkin: currentCoords ? currentCoords.longitude : -103.3496,
       });
 
       Alert.alert('Éxito', 'Estudio socio-económico y evidencias guardados correctamente', [
