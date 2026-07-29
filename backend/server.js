@@ -223,7 +223,7 @@ app.get('/api/investigaciones', async (req, res) => {
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
     const countQuery = `
-      SELECT count(DISTINCT inv.id_sif_research)
+      SELECT count(*)
       FROM investigaciones inv
       LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
       LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
@@ -231,7 +231,7 @@ app.get('/api/investigaciones', async (req, res) => {
     `;
 
     const dataQuery = `
-      SELECT DISTINCT ON (inv.id_sif_research)
+      SELECT 
         inv.id_sif_research,
         inv.solicitud_id_sif,
         inv.persona_id_sif,
@@ -258,13 +258,11 @@ app.get('/api/investigaciones', async (req, res) => {
       FROM investigaciones inv
       LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
       LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
-      LEFT JOIN LATERAL (
-        SELECT calle, numero_exterior, codigo_postal, colonia, municipio, estado_provincia, latitud, longitud
+      LEFT JOIN (
+        SELECT DISTINCT ON (persona_id_sif) persona_id_sif, calle, numero_exterior, codigo_postal, colonia, municipio, estado_provincia, latitud, longitud
         FROM direcciones
-        WHERE persona_id_sif = p.id_sif
-        ORDER BY COALESCE(es_principal, FALSE) DESC, id DESC
-        LIMIT 1
-      ) d ON TRUE
+        ORDER BY persona_id_sif, COALESCE(es_principal, FALSE) DESC, id DESC
+      ) d ON p.id_sif = d.persona_id_sif
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
       ${whereSql}
       ORDER BY inv.id_sif_research DESC
@@ -321,13 +319,11 @@ app.get('/api/investigaciones/:id', async (req, res) => {
       FROM investigaciones inv
       LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
       LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
-      LEFT JOIN LATERAL (
-        SELECT calle, numero_exterior, numero_interior, codigo_postal, colonia, municipio, estado_provincia, referencias, latitud, longitud
+      LEFT JOIN (
+        SELECT DISTINCT ON (persona_id_sif) persona_id_sif, calle, numero_exterior, numero_interior, codigo_postal, colonia, municipio, estado_provincia, referencias, latitud, longitud
         FROM direcciones
-        WHERE persona_id_sif = p.id_sif
-        ORDER BY COALESCE(es_principal, FALSE) DESC, id DESC
-        LIMIT 1
-      ) d ON TRUE
+        ORDER BY persona_id_sif, COALESCE(es_principal, FALSE) DESC, id DESC
+      ) d ON p.id_sif = d.persona_id_sif
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
       WHERE inv.id_sif_research = $1
       LIMIT 1;
@@ -346,13 +342,11 @@ app.get('/api/investigaciones/:id', async (req, res) => {
         SELECT sa.aval_id_sif, p.nombre_completo, d.calle, d.numero_exterior, d.codigo_postal
         FROM solicitud_avales sa
         JOIN personas p ON sa.aval_id_sif = p.id_sif
-        LEFT JOIN LATERAL (
-          SELECT calle, numero_exterior, codigo_postal
+        LEFT JOIN (
+          SELECT DISTINCT ON (persona_id_sif) persona_id_sif, calle, numero_exterior, codigo_postal
           FROM direcciones
-          WHERE persona_id_sif = p.id_sif
-          ORDER BY COALESCE(es_principal, FALSE) DESC, id DESC
-          LIMIT 1
-        ) d ON TRUE
+          ORDER BY persona_id_sif, COALESCE(es_principal, FALSE) DESC, id DESC
+        ) d ON p.id_sif = d.persona_id_sif
         WHERE sa.solicitud_id_sif = $1;
       `, [investigacion.solicitud_id_sif]);
       avales = avalesRes.rows;
