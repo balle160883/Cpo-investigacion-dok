@@ -70,6 +70,36 @@ export default function InvestigacionesPage() {
     }
   }
 
+  function exportarAExcel() {
+    if (!data || data.length === 0) {
+      alert('No hay datos para exportar.');
+      return;
+    }
+
+    const headers = ['ID Investigación', 'Solicitud Folio', 'Tipo Sujeto', 'Nombre del Socio', 'Calle', 'Colonia', 'Municipio', 'Estado', 'Investigador', 'Estado Estudio'];
+    const rows = data.map((r) => [
+      r.id_sif_research,
+      r.solicitud_folio || 'N/A',
+      r.tipo_sujeto === 'CLIENTE' ? 'SOLICITANTE' : 'AVAL',
+      `"${(r.sujeto_nombre || '').replace(/"/g, '""')}"`,
+      `"${(r.calle || '').replace(/"/g, '""')}"`,
+      `"${(r.colonia || '').replace(/"/g, '""')}"`,
+      `"${(r.municipio || 'Guadalajara').replace(/"/g, '""')}"`,
+      `"${(r.estado_provincia || 'Jalisco').replace(/"/g, '""')}"`,
+      `"${(r.investigador_nombre || 'Sin Asignar').replace(/"/g, '""')}"`,
+      r.estado,
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Reporte_Investigaciones_CPO_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   const totalPages = Math.ceil(total / 25) || 1;
 
   return (
@@ -77,36 +107,46 @@ export default function InvestigacionesPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Investigaciones Domiciliarias</h2>
-          <p className="text-slate-400 text-sm">Administración y asignación de estudios a Solicitantes y Avales.</p>
+          <p className="text-slate-400 text-sm">Administración, asignación y exportación de estudios a Solicitantes y Avales.</p>
         </div>
 
-        {/* Search & Filter Bar */}
-        <form onSubmit={handleSearch} className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, folio..."
-              value={buscar}
-              onChange={(e) => setBuscar(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-sky-500 w-64"
-            />
-          </div>
+        {/* Search, Export & Filter Bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          <form onSubmit={handleSearch} className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, folio..."
+                value={buscar}
+                onChange={(e) => setBuscar(e.target.value)}
+                className="pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-sky-500 w-64"
+              />
+            </div>
 
-          <select
-            value={estado}
-            onChange={(e) => {
-              setEstado(e.target.value);
-              setPage(1);
-            }}
-            className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-300 focus:outline-none focus:border-sky-500"
+            <select
+              value={estado}
+              onChange={(e) => {
+                setEstado(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-300 focus:outline-none focus:border-sky-500"
+            >
+              <option value="">Todos los Estados</option>
+              <option value="PENDIENTE">Pendientes</option>
+              <option value="EN_PROCESO">En Proceso</option>
+              <option value="COMPLETADA">Completadas</option>
+            </select>
+          </form>
+
+          <button
+            onClick={exportarAExcel}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5"
+            title="Exportar listado actual a Excel / CSV"
           >
-            <option value="">Todos los Estados</option>
-            <option value="PENDIENTE">Pendientes</option>
-            <option value="EN_PROCESO">En Proceso</option>
-            <option value="COMPLETADA">Completadas</option>
-          </select>
-        </form>
+            <FileText className="w-4 h-4" /> Exportar a Excel
+          </button>
+        </div>
       </div>
 
       {/* Data Table */}
@@ -118,7 +158,7 @@ export default function InvestigacionesPage() {
                 <th className="px-5 py-3.5">ID / Folio</th>
                 <th className="px-5 py-3.5">Tipo Sujeto</th>
                 <th className="px-5 py-3.5">Nombre del Socio</th>
-                <th className="px-5 py-3.5">Domicilio Registrado</th>
+                <th className="px-5 py-3.5">Domicilio y Colonia</th>
                 <th className="px-5 py-3.5">Investigador Asignado</th>
                 <th className="px-5 py-3.5">Estado</th>
                 <th className="px-5 py-3.5 text-right">Acciones</th>
@@ -161,7 +201,9 @@ export default function InvestigacionesPage() {
                         <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                         {row.calle ? `${row.calle} #${row.numero_exterior || ''}` : 'Sin Calle'}
                       </div>
-                      <div className="text-[11px] text-slate-500 pl-4">CP: {row.codigo_postal || 'N/A'}</div>
+                      <div className="text-[11px] text-sky-400 font-semibold pl-4">
+                        🏡 {row.colonia ? `Col. ${row.colonia}` : 'Sin Colonia'}, {row.municipio || 'Guadalajara'}
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-xs">
                       {row.investigador_nombre ? (

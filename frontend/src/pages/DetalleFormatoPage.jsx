@@ -109,16 +109,29 @@ export default function DetalleFormatoPage() {
       {/* Official Form Document Container */}
       <div className="bg-white text-slate-900 rounded-xl p-8 shadow-2xl border border-slate-200 print-area space-y-6">
         
-        {/* Document Header */}
-        <div className="border-b-2 border-slate-900 pb-4 text-center">
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-900 uppercase">
-            Caja Oblatos <span className="text-sm font-normal">AHORRO • CRÉDITO • SERVICIOS</span>
-          </h1>
-          <h2 className="text-sm font-bold text-slate-800 tracking-wide mt-1 uppercase">
-            DEPARTAMENTO DE INVESTIGACIONES DOMICILIARIAS
-          </h2>
-          <div className="text-xs font-semibold text-slate-700 mt-0.5">
-            ESTUDIO DOMICILIARIO: <span className="underline font-bold">{isAval ? 'AVAL DE PRÉSTAMO' : 'SOLICITANTE DE PRÉSTAMO'}</span>
+        {/* Document Header with Official QR Badge */}
+        <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
+          <div className="flex-1 text-center pl-16">
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900 uppercase">
+              Caja Oblatos <span className="text-sm font-normal">AHORRO • CRÉDITO • SERVICIOS</span>
+            </h1>
+            <h2 className="text-sm font-bold text-slate-800 tracking-wide mt-1 uppercase">
+              DEPARTAMENTO DE INVESTIGACIONES DOMICILIARIAS
+            </h2>
+            <div className="text-xs font-semibold text-slate-700 mt-0.5">
+              ESTUDIO DOMICILIARIO: <span className="underline font-bold">{isAval ? 'AVAL DE PRÉSTAMO' : 'SOLICITANTE DE PRÉSTAMO'}</span>
+            </div>
+          </div>
+
+          {/* QR Code Verification Badge */}
+          <div className="flex flex-col items-center justify-center border border-slate-300 p-1.5 rounded-lg bg-slate-50 shrink-0">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(`CPO-VERIFIED|FOLIO:${inv.id_sif_research}|SOCIO:${inv.persona_id_sif}`)}`}
+              alt="QR Verificación"
+              className="w-16 h-16 object-contain"
+            />
+            <span className="text-[9px] font-bold text-slate-700 mt-1 tracking-tight">DOCUMENTO OFICIAL</span>
+            <span className="text-[8px] font-mono text-slate-500">SIF #{inv.id_sif_research}</span>
           </div>
         </div>
 
