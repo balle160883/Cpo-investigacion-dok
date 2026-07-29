@@ -150,6 +150,10 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   }
 
   async function handleGuardar() {
+    if (inv?.estado === 'COMPLETADA') {
+      Alert.alert('Bloqueado', 'Esta investigación ya fue completada y guardada. No se puede volver a editar salvo que un supervisor la reasigne.');
+      return;
+    }
     setSaving(true);
     try {
       let currentCoords = location;

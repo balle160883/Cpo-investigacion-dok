@@ -89,12 +89,23 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.capturaButton}
-        onPress={() => navigation.navigate('CapturaFormato', { id, inv })}
-      >
-        <Text style={styles.capturaButtonText}>📋 Capturar Estudio Socio-Económico</Text>
-      </TouchableOpacity>
+      {inv.estado === 'COMPLETADA' ? (
+        <View style={{ backgroundColor: '#1e293b', borderLeftWidth: 4, borderLeftColor: '#10b981', padding: 16, borderRadius: 12, marginTop: 8, marginBottom: 40 }}>
+          <Text style={{ color: '#10b981', fontSize: 14, fontWeight: 'bold', marginBottom: 4 }}>
+            🔒 INVESTIGACIÓN COMPLETADA Y BLOQUEADA
+          </Text>
+          <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+            Esta visita ya fue guardada con evidencias, fotos y firmas. No se puede modificar salvo que un supervisor la reasigne.
+          </Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.capturaButton}
+          onPress={() => navigation.navigate('CapturaFormato', { id, inv })}
+        >
+          <Text style={styles.capturaButtonText}>📋 Capturar Estudio Socio-Económico</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }
