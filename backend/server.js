@@ -152,27 +152,25 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
         i.nombre,
         i.email,
         i.telefono,
-        COALESCE(u.latitud, ev.latitud_checkin, 20.6597 + (i.id * 0.008)) as latitud,
-        COALESCE(u.longitud, ev.longitud_checkin, -103.3496 + (i.id * 0.008)) as longitud,
-        COALESCE(u.bateria_nivel, 95) as bateria_nivel,
-        COALESCE(u.updated_at, ev.created_at, NOW()) as updated_at
+        COALESCE(u.latitud, ev.latitud_checkin, 20.6597) as latitud,
+        COALESCE(u.longitud, ev.longitud_checkin, -103.3496) as longitud,
+        COALESCE(u.bateria_nivel, 100) as bateria_nivel,
+        COALESCE(u.updated_at, ev.created_at, NOW()) as updated_at,
+        CASE WHEN u.updated_at IS NOT NULL OR ev.created_at IS NOT NULL THEN true ELSE false END as tiene_gps
       FROM investigadores i
-      LEFT JOIN LATERAL (
-        SELECT latitud, longitud, bateria_nivel, updated_at
+      LEFT JOIN (
+        SELECT DISTINCT ON (investigador_id) investigador_id, latitud, longitud, bateria_nivel, updated_at
         FROM ubicaciones_investigadores
-        WHERE investigador_id = i.id
-        ORDER BY updated_at DESC
-        LIMIT 1
-      ) u ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT ev.latitud_checkin, ev.longitud_checkin, ev.created_at
+        ORDER BY investigador_id, updated_at DESC
+      ) u ON i.id = u.investigador_id
+      LEFT JOIN (
+        SELECT DISTINCT ON (inv.investigador_id) inv.investigador_id, ev.latitud_checkin, ev.longitud_checkin, ev.created_at
         FROM evidencias_visita ev
         JOIN investigaciones inv ON ev.investigacion_id_sif = inv.id_sif_research
-        WHERE inv.investigador_id = i.id
-        ORDER BY ev.created_at DESC
-        LIMIT 1
-      ) ev ON TRUE
-      WHERE i.activo = TRUE AND (i.rol = 'investigador' OR i.rol IS NULL)
+        WHERE ev.latitud_checkin != 0 AND ev.longitud_checkin != 0
+        ORDER BY inv.investigador_id, ev.created_at DESC
+      ) ev ON i.id = ev.investigador_id
+      WHERE COALESCE(i.activo, TRUE) = TRUE AND (i.rol = 'investigador' OR i.rol = 'admin' OR i.rol IS NULL)
       ORDER BY i.id;
     `);
     res.json(rows);

@@ -57,55 +57,48 @@ export default function MapaPage() {
       // 1. Obtener Investigaciones
       const resInv = await fetchInvestigaciones({ limit: 100 });
       const rawInvs = resInv.data || [];
+      setInvestigaciones(rawInvs);
 
-      const invsConCoords = rawInvs.map((item, idx) => {
-        let lat = parseFloat(item.latitud);
-        let lng = parseFloat(item.longitud);
+      // Renderizar Marcadores de Investigaciones SOLAMENTE con coordenadas reales
+      rawInvs.forEach((item) => {
+        const lat = parseFloat(item.latitud);
+        const lng = parseFloat(item.longitud);
 
-        if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-          // Asignar coordenada dispersa en zona metropolitana de Guadalajara si no tiene lat/lng original
-          lat = 20.6597 + ((idx % 7) * 0.007 - 0.02);
-          lng = -103.3496 + ((idx % 9) * 0.007 - 0.02);
-        }
-        return { ...item, lat, lng };
-      });
-      setInvestigaciones(invsConCoords);
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          const isCompleted = item.estado === 'COMPLETADA';
+          const el = document.createElement('div');
+          el.style.width = '28px';
+          el.style.height = '28px';
+          el.style.borderRadius = '50%';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.fontSize = '11px';
+          el.style.fontWeight = 'bold';
+          el.style.color = '#ffffff';
+          el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+          el.style.cursor = 'pointer';
+          el.style.border = '2px solid #ffffff';
+          el.style.backgroundColor = isCompleted ? '#10b981' : '#0284c7';
+          el.innerText = item.tipo_sujeto === 'CLIENTE' ? 'S' : 'A';
 
-      // Renderizar Marcadores de Investigaciones (Azul / Verde)
-      invsConCoords.forEach((item) => {
-        const isCompleted = item.estado === 'COMPLETADA';
-        const el = document.createElement('div');
-        el.style.width = '28px';
-        el.style.height = '28px';
-        el.style.borderRadius = '50%';
-        el.style.display = 'flex';
-        el.style.alignItems = 'center';
-        el.style.justifyContent = 'center';
-        el.style.fontSize = '11px';
-        el.style.fontWeight = 'bold';
-        el.style.color = '#ffffff';
-        el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
-        el.style.cursor = 'pointer';
-        el.style.border = '2px solid #ffffff';
-        el.style.backgroundColor = isCompleted ? '#10b981' : '#0284c7';
-        el.innerText = item.tipo_sujeto === 'CLIENTE' ? 'S' : 'A';
-
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([item.lng, item.lat])
-          .setPopup(
-            new mapboxgl.Popup({ offset: 25 }).setHTML(`
-              <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                <div style="font-size: 10px; font-weight: bold; color: ${isCompleted ? '#059669' : '#0284c7'}; text-transform: uppercase;">
-                  ${item.tipo_sujeto === 'CLIENTE' ? 'Solicitante' : 'Aval'} • ${item.estado}
+          const marker = new mapboxgl.Marker(el)
+            .setLngLat([lng, lat])
+            .setPopup(
+              new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
+                  <div style="font-size: 10px; font-weight: bold; color: ${isCompleted ? '#059669' : '#0284c7'}; text-transform: uppercase;">
+                    ${item.tipo_sujeto === 'CLIENTE' ? 'Solicitante' : 'Aval'} • ${item.estado}
+                  </div>
+                  <strong style="font-size: 13px; color: #0f172a;">${item.sujeto_nombre || 'Socio'}</strong><br/>
+                  <span style="font-size: 11px; color: #475569;">📍 ${item.calle || 'Calle N/A'} #${item.numero_exterior || ''}</span><br/>
+                  <span style="font-size: 10px; color: #64748b;">Colonia: ${item.colonia || 'S/N'}</span>
                 </div>
-                <strong style="font-size: 13px; color: #0f172a;">${item.sujeto_nombre || 'Socio'}</strong><br/>
-                <span style="font-size: 11px; color: #475569;">📍 ${item.calle || 'Calle N/A'} #${item.numero_exterior || ''}</span><br/>
-                <span style="font-size: 10px; color: #64748b;">Colonia: ${item.colonia || 'S/N'}</span>
-              </div>
-            `)
-          )
-          .addTo(map.current);
-        markersRef.current.push(marker);
+              `)
+            )
+            .addTo(map.current);
+          markersRef.current.push(marker);
+        }
       });
 
       // 2. Obtener Ubicaciones de Investigadores Activos
@@ -113,52 +106,48 @@ export default function MapaPage() {
       const listInvestigadores = Array.isArray(ubics) ? ubics : [];
       setInvestigadores(listInvestigadores);
 
-      // Renderizar Marcadores de Investigadores (Verde Esmeralda Pulsante con Icono)
-      listInvestigadores.forEach((inv, idx) => {
-        let lat = parseFloat(inv.latitud);
-        let lng = parseFloat(inv.longitud);
+      // Renderizar Marcadores de Investigadores Activos
+      listInvestigadores.forEach((inv) => {
+        const lat = parseFloat(inv.latitud);
+        const lng = parseFloat(inv.longitud);
 
-        if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-          lat = 20.6597 + (idx * 0.01);
-          lng = -103.3496 + (idx * 0.01);
-        }
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          const el = document.createElement('div');
+          el.style.width = '38px';
+          el.style.height = '38px';
+          el.style.borderRadius = '50%';
+          el.style.backgroundColor = '#059669';
+          el.style.border = '3px solid #ffffff';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.color = '#ffffff';
+          el.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
+          el.style.cursor = 'pointer';
+          el.innerHTML = `
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          `;
 
-        const el = document.createElement('div');
-        el.style.width = '38px';
-        el.style.height = '38px';
-        el.style.borderRadius = '50%';
-        el.style.backgroundColor = '#059669';
-        el.style.border = '3px solid #ffffff';
-        el.style.display = 'flex';
-        el.style.alignItems = 'center';
-        el.style.justifyContent = 'center';
-        el.style.color = '#ffffff';
-        el.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
-        el.style.cursor = 'pointer';
-        el.style.animation = 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite';
-        el.innerHTML = `
-          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-        `;
-
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([lng, lat])
-          .setPopup(
-            new mapboxgl.Popup({ offset: 25 }).setHTML(`
-              <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                <div style="font-size: 10px; font-weight: bold; color: #059669; text-transform: uppercase;">
-                  📡 INVESTIGADOR EN CAMPO
+          const marker = new mapboxgl.Marker(el)
+            .setLngLat([lng, lat])
+            .setPopup(
+              new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
+                  <div style="font-size: 10px; font-weight: bold; color: #059669; text-transform: uppercase;">
+                    📡 INVESTIGADOR EN CAMPO
+                  </div>
+                  <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
+                  <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
+                  <span style="font-size: 10px; color: #10b981; font-weight: bold;">🔋 Batería: ${inv.bateria_nivel || 100}%</span>
                 </div>
-                <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
-                <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
-                <span style="font-size: 10px; color: #10b981; font-weight: bold;">🔋 Batería: ${inv.bateria_nivel || 100}%</span>
-              </div>
-            `)
-          )
-          .addTo(map.current);
-        markersRef.current.push(marker);
+              `)
+            )
+            .addTo(map.current);
+          markersRef.current.push(marker);
+        }
       });
 
     } catch (err) {
