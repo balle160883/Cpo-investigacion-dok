@@ -394,11 +394,15 @@ app.post('/api/investigaciones/:id/evidencia', async (req, res) => {
       estudio_socioeconomico,
       fotos_urls,
       firma_url,
+      firma_investigador_url,
       latitud_checkin,
       longitud_checkin,
       notas_investigador,
       dictamen
     } = req.body;
+
+    // Asegurar columna firma_investigador_url en evidencias_visita
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;`);
 
     // 1. Insertar evidencia en evidencias_visita
     await db.query(`
@@ -410,10 +414,11 @@ app.post('/api/investigaciones/:id/evidencia', async (req, res) => {
         estudio_socioeconomico,
         fotos_urls,
         firma_url,
+        firma_investigador_url,
         notas_investigador,
         sincronizado_a_sif,
         created_at
-      ) VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, TRUE, NOW());
+      ) VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, TRUE, NOW());
     `, [
       id,
       latitud_checkin || 0,
@@ -421,6 +426,7 @@ app.post('/api/investigaciones/:id/evidencia', async (req, res) => {
       JSON.stringify(estudio_socioeconomico || {}),
       JSON.stringify(fotos_urls || []),
       firma_url || null,
+      firma_investigador_url || null,
       notas_investigador || (dictamen ? `Dictamen: ${dictamen}` : '')
     ]);
 

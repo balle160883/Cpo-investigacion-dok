@@ -1,7 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder } from 'react-native';
 
-export default function SignaturePad({ onSignatureChange }) {
+export default function SignaturePad({
+  title = "✍️ Firma Digital",
+  placeholderText = "Firme aquí con su dedo",
+  subtext = "Firma autógrafa",
+  borderColor = "#38bdf8",
+  onSignatureChange,
+}) {
   const [lines, setLines] = useState([]);
   const currentLineRef = useRef([]);
   const containerRef = useRef(null);
@@ -43,7 +49,6 @@ export default function SignaturePad({ onSignatureChange }) {
       },
       onPanResponderMove: (evt) => {
         const pt = getPoint(evt);
-        // Evitar puntos duplicados consecutivos
         const lastPt = currentLineRef.current[currentLineRef.current.length - 1];
         if (lastPt && Math.abs(lastPt.x - pt.x) < 1 && Math.abs(lastPt.y - pt.y) < 1) {
           return;
@@ -94,7 +99,7 @@ export default function SignaturePad({ onSignatureChange }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>✍️ Firma Digital del Entrevistado</Text>
+        <Text style={styles.title}>{title}</Text>
         {hasSignature && (
           <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
             <Text style={styles.clearBtnText}>🗑️ Limpiar Firma</Text>
@@ -105,10 +110,9 @@ export default function SignaturePad({ onSignatureChange }) {
       <View
         ref={containerRef}
         onLayout={measureContainer}
-        style={styles.canvasContainer}
+        style={[styles.canvasContainer, { borderColor }]}
         {...panResponder.panHandlers}
       >
-        {/* Capa de trazos aislada de punteros (pointerEvents="none") para evitar saltos */}
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {lines.map((line, lineIndex) => (
             <React.Fragment key={lineIndex}>
@@ -142,13 +146,12 @@ export default function SignaturePad({ onSignatureChange }) {
           ))}
         </View>
 
-        {/* Línea guía de firma */}
         <View pointerEvents="none" style={styles.signatureBaseline} />
 
         {!hasSignature && (
           <View style={styles.placeholderOverlay} pointerEvents="none">
-            <Text style={styles.placeholderText}>Firme aquí con su dedo</Text>
-            <Text style={styles.subtext}>Firma autógrafa del solicitante o aval</Text>
+            <Text style={styles.placeholderText}>{placeholderText}</Text>
+            <Text style={styles.subtext}>{subtext}</Text>
           </View>
         )}
       </View>

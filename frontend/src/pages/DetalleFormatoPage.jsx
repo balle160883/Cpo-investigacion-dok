@@ -53,6 +53,7 @@ export default function DetalleFormatoPage() {
   }
 
   const firmaCaptured = ev.firma_url || '';
+  const firmaInvestigadorCaptured = ev.firma_investigador_url || '';
   const isAval = inv.tipo_sujeto !== 'CLIENTE';
 
   function prepareFirmaSrc(src) {
@@ -79,6 +80,7 @@ export default function DetalleFormatoPage() {
   }
 
   const safeFirmaSrc = prepareFirmaSrc(firmaCaptured);
+  const safeFirmaInvestigadorSrc = prepareFirmaSrc(firmaInvestigadorCaptured);
 
   const handlePrint = () => {
     window.print();
@@ -346,8 +348,18 @@ export default function DetalleFormatoPage() {
           </div>
 
           {/* Firma del Investigador */}
-          <div className="flex flex-col items-center justify-end">
-            <div className="h-24"></div>
+          <div className="flex flex-col items-center justify-between">
+            <div className="w-full h-24 flex items-center justify-center border border-dashed border-slate-300 rounded bg-white p-1 mb-2 overflow-hidden shadow-inner">
+              {safeFirmaInvestigadorSrc ? (
+                <img
+                  src={safeFirmaInvestigadorSrc}
+                  alt="Firma Digital del Investigador"
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <span className="text-[11px] text-slate-400 italic">Sin firma de investigador</span>
+              )}
+            </div>
             <div className="border-b border-slate-800 w-full mb-1"></div>
             <div className="font-bold text-slate-900">Firma del Investigador</div>
             <div className="text-[10px] text-slate-500">{inv.investigador_nombre || 'Depto. Investigaciones'}</div>

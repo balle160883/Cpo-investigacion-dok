@@ -43,6 +43,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   // Evidencias: Fotos, Firma y GPS
   const [fotos, setFotos] = useState([]);
   const [firmaUrl, setFirmaUrl] = useState('');
+  const [firmaInvestigadorUrl, setFirmaInvestigadorUrl] = useState('');
   const [location, setLocation] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -146,6 +147,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         notas_investigador: observaciones,
         fotos_urls: fotos,
         firma_url: firmaUrl,
+        firma_investigador_url: firmaInvestigadorUrl,
         latitud_checkin: location ? location.latitude : 20.6597,
         longitud_checkin: location ? location.longitude : -103.3496,
       });
@@ -292,10 +294,27 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         )}
       </View>
 
-      {/* 5. FIRMA DIGITAL */}
+      {/* 5. FIRMAS DIGITALES DE VALIDACIÓN */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>5. Firma Digital del Entrevistado</Text>
-        <SignaturePad onSignatureChange={setFirmaUrl} />
+        <Text style={styles.sectionTitle}>5. Firmas Digitales de Validación</Text>
+        
+        {/* FIRMA ENTREVISTADO */}
+        <SignaturePad
+          title={isAval ? "✍️ 1. FIRMA DEL ENTREVISTADO (AVAL)" : "✍️ 1. FIRMA DEL ENTREVISTADO (SOLICITANTE)"}
+          placeholderText={isAval ? "Firma del AVAL entrevistado" : "Firma del SOLICITANTE entrevistado"}
+          subtext={inv?.sujeto_nombre ? `Socio: ${inv.sujeto_nombre}` : "Firma autógrafa del entrevistado"}
+          borderColor={isAval ? "#34d399" : "#38bdf8"}
+          onSignatureChange={setFirmaUrl}
+        />
+
+        {/* FIRMA INVESTIGADOR */}
+        <SignaturePad
+          title="✍️ 2. FIRMA DEL INVESTIGADOR EN CAMPO"
+          placeholderText="Firma del INVESTIGADOR de campo"
+          subtext="Firma autógrafa del investigador que realiza la visita"
+          borderColor="#f59e0b"
+          onSignatureChange={setFirmaInvestigadorUrl}
+        />
       </View>
 
       {/* 6. DICTAMEN Y OBSERVACIONES */}
