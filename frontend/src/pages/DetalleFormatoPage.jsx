@@ -126,7 +126,7 @@ export default function DetalleFormatoPage() {
           {/* QR Code Verification Badge */}
           <div className="flex flex-col items-center justify-center border border-slate-300 p-1.5 rounded-lg bg-slate-50 shrink-0">
             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(`CPO-VERIFIED|FOLIO:${inv.id_sif_research}|SOCIO:${inv.persona_id_sif}`)}`}
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`${window.location.origin}/investigaciones/${inv.id_sif_research}`)}`}
               alt="QR Verificación"
               className="w-16 h-16 object-contain"
             />
