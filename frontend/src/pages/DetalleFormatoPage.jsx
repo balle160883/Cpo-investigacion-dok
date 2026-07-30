@@ -212,6 +212,9 @@ export default function DetalleFormatoPage() {
                 <span><strong>Tipo:</strong> {est.tipo_identificacion || 'INE'}</span>
                 <span><strong>Folio:</strong> {est.folio_identificacion || 'N/A'}</span>
               </div>
+              <div className="text-[11px] pt-1">
+                <strong>Ocupación ({isAval ? 'del Aval' : 'del Solicitante'}):</strong> <span className="font-semibold text-slate-900">{est.ocupacion || 'No especificada'}</span>
+              </div>
 
               <div className="font-bold border-b border-slate-300 pb-1 pt-2">Particulares del Domicilio:</div>
               <div className="grid grid-cols-3 gap-2 text-[11px]">

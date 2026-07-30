@@ -30,6 +30,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [referenciasDomicilio, setReferenciasDomicilio] = useState('');
 
   const [estadoCivil, setEstadoCivil] = useState('casado');
+  const [ocupacion, setOcupacion] = useState('');
   const [ocupacionConyuge, setOcupacionConyuge] = useState('');
   const [situacionVivienda, setSituacionVivienda] = useState('propia');
   const [montoPagoMensual, setMontoPagoMensual] = useState('0');
@@ -181,6 +182,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         puerta_cancel_color: puertaColor,
         numero_niveles: parseInt(numeroNiveles || '1'),
         estado_civil: estadoCivil,
+        ocupacion: ocupacion,
         ocupacion_conyuge: ocupacionConyuge,
         situacion_vivienda: situacionVivienda,
         monto_pago_mensual: parseFloat(montoPagoMensual || 0),
@@ -283,6 +285,15 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
         <Text style={styles.label}>Identificación Oficial:</Text>
         <TextInput style={styles.input} placeholder="Folio de INE/Pasaporte" placeholderTextColor="#64748b" value={folioId} onChangeText={setFolioId} />
+
+        <Text style={styles.label}>Ocupación ({isAval ? 'del Aval' : 'del Solicitante'}):</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej. Comerciante, Empleado, Chofer..."
+          placeholderTextColor="#64748b"
+          value={ocupacion}
+          onChangeText={setOcupacion}
+        />
       </View>
 
       {/* 2. PARTICULARES DEL DOMICILIO Y DIRECCIÓN REAL */}
