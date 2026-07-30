@@ -160,6 +160,19 @@ app.post('/api/investigadores/ubicacion', async (req, res) => {
 
 app.get('/api/investigadores/ubicaciones', async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const role = (decoded?.rol || '').toLowerCase();
+        const allowed = ['superadmin', 'asignador', 'validador'];
+        if (role && !allowed.includes(role)) {
+          return res.status(403).json({ error: 'Acceso denegado. Permiso solo para Superadmin, Asignador o Validador' });
+        }
+      } catch (e) {}
+    }
+
     try {
       await db.query(`
         CREATE TABLE IF NOT EXISTS ubicaciones_investigadores (

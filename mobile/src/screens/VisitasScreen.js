@@ -16,10 +16,10 @@ export default function VisitasScreen({ navigation, route }) {
     initUserAndData();
     reportarGPSActual();
 
-    // RASTREO GPS EN TIEMPO REAL: Transmite coordenadas cada 30 segundos
+    // RASTREO GPS EN TIEMPO REAL: Transmite coordenadas cada 15 segundos
     const gpsInterval = setInterval(() => {
       reportarGPSActual();
-    }, 30000);
+    }, 15000);
 
     return () => clearInterval(gpsInterval);
   }, []);

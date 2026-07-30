@@ -9,7 +9,8 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 export default function MapaPage() {
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const markersRef = useRef([]);
+  const invMarkersRef = useRef(new Map());
+  const reqMarkersRef = useRef(new Map());
   const [investigadores, setInvestigadores] = useState([]);
   const [investigaciones, setInvestigaciones] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,10 +30,10 @@ export default function MapaPage() {
 
     loadMapData();
 
-    // Auto-refresh posiciones cada 15 segundos
+    // Auto-refresh posiciones cada 5 segundos para tiempo real fluido
     const interval = setInterval(() => {
       loadMapData();
-    }, 15000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -41,63 +42,66 @@ export default function MapaPage() {
     if (map.current && lng && lat) {
       map.current.flyTo({
         center: [parseFloat(lng), parseFloat(lat)],
-        zoom: 14,
+        zoom: 15,
         essential: true,
       });
     }
   };
 
   async function loadMapData() {
-    setLoading(true);
     try {
-      // Limpiar marcadores previos
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
-
       // 1. Obtener Investigaciones
       const resInv = await fetchInvestigaciones({ limit: 100 });
       const rawInvs = resInv.data || [];
       setInvestigaciones(rawInvs);
 
       // Renderizar Marcadores de Investigaciones SOLAMENTE con coordenadas reales
+      const activeReqKeys = new Set();
       rawInvs.forEach((item) => {
         const lat = parseFloat(item.latitud);
         const lng = parseFloat(item.longitud);
 
         if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          const key = `req-${item.id_sif_research}`;
+          activeReqKeys.add(key);
           const isCompleted = item.estado === 'COMPLETADA';
-          const el = document.createElement('div');
-          el.style.width = '28px';
-          el.style.height = '28px';
-          el.style.borderRadius = '50%';
-          el.style.display = 'flex';
-          el.style.alignItems = 'center';
-          el.style.justifyContent = 'center';
-          el.style.fontSize = '11px';
-          el.style.fontWeight = 'bold';
-          el.style.color = '#ffffff';
-          el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
-          el.style.cursor = 'pointer';
-          el.style.border = '2px solid #ffffff';
-          el.style.backgroundColor = isCompleted ? '#10b981' : '#0284c7';
-          el.innerText = item.tipo_sujeto === 'CLIENTE' ? 'S' : 'A';
 
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat([lng, lat])
-            .setPopup(
-              new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                  <div style="font-size: 10px; font-weight: bold; color: ${isCompleted ? '#059669' : '#0284c7'}; text-transform: uppercase;">
-                    ${item.tipo_sujeto === 'CLIENTE' ? 'Solicitante' : 'Aval'} • ${item.estado}
+          if (!reqMarkersRef.current.has(key)) {
+            const el = document.createElement('div');
+            el.style.width = '28px';
+            el.style.height = '28px';
+            el.style.borderRadius = '50%';
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'center';
+            el.style.fontSize = '11px';
+            el.style.fontWeight = 'bold';
+            el.style.color = '#ffffff';
+            el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+            el.style.cursor = 'pointer';
+            el.style.border = '2px solid #ffffff';
+            el.style.backgroundColor = isCompleted ? '#10b981' : '#0284c7';
+            el.innerText = item.tipo_sujeto === 'CLIENTE' ? 'S' : 'A';
+
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat([lng, lat])
+              .setPopup(
+                new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                  <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
+                    <div style="font-size: 10px; font-weight: bold; color: ${isCompleted ? '#059669' : '#0284c7'}; text-transform: uppercase;">
+                      ${item.tipo_sujeto === 'CLIENTE' ? 'Solicitante' : 'Aval'} • ${item.estado}
+                    </div>
+                    <strong style="font-size: 13px; color: #0f172a;">${item.sujeto_nombre || 'Socio'}</strong><br/>
+                    <span style="font-size: 11px; color: #475569;">📍 ${item.calle || 'Calle N/A'} #${item.numero_exterior || ''}</span><br/>
+                    <span style="font-size: 10px; color: #64748b;">Colonia: ${item.colonia || 'S/N'}</span>
                   </div>
-                  <strong style="font-size: 13px; color: #0f172a;">${item.sujeto_nombre || 'Socio'}</strong><br/>
-                  <span style="font-size: 11px; color: #475569;">📍 ${item.calle || 'Calle N/A'} #${item.numero_exterior || ''}</span><br/>
-                  <span style="font-size: 10px; color: #64748b;">Colonia: ${item.colonia || 'S/N'}</span>
-                </div>
-              `)
-            )
-            .addTo(map.current);
-          markersRef.current.push(marker);
+                `)
+              )
+              .addTo(map.current);
+            reqMarkersRef.current.set(key, marker);
+          } else {
+            reqMarkersRef.current.get(key).setLngLat([lng, lat]);
+          }
         }
       });
 
@@ -106,50 +110,65 @@ export default function MapaPage() {
       const listInvestigadores = Array.isArray(ubics) ? ubics : [];
       setInvestigadores(listInvestigadores);
 
-      // Renderizar Marcadores de Investigadores Activos o Última Ubicación Conocida
+      // Renderizar y Actualizar Marcadores de Investigadores con Movimiento Animado Suave
+      const activeInvKeys = new Set();
       listInvestigadores.forEach((inv) => {
         const lat = parseFloat(inv.latitud);
         const lng = parseFloat(inv.longitud);
 
         if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          const key = `inv-${inv.investigador_id}`;
+          activeInvKeys.add(key);
           const isOnline = inv.en_linea;
-          const el = document.createElement('div');
-          el.style.width = '38px';
-          el.style.height = '38px';
-          el.style.borderRadius = '50%';
-          el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
-          el.style.border = '3px solid #ffffff';
-          el.style.display = 'flex';
-          el.style.alignItems = 'center';
-          el.style.justifyContent = 'center';
-          el.style.color = '#ffffff';
-          el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
-          el.style.cursor = 'pointer';
-          el.innerHTML = `
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-          `;
 
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat([lng, lat])
-            .setPopup(
-              new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                  <div style="font-size: 10px; font-weight: bold; color: ${isOnline ? '#059669' : '#475569'}; text-transform: uppercase;">
-                    ${isOnline ? '📡 INVESTIGADOR EN CAMPO (EN LÍNEA)' : '📍 ÚLTIMA UBICACIÓN CONOCIDA'}
+          if (!invMarkersRef.current.has(key)) {
+            const el = document.createElement('div');
+            el.className = 'custom-inv-marker';
+            el.style.width = '38px';
+            el.style.height = '38px';
+            el.style.borderRadius = '50%';
+            el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
+            el.style.border = '3px solid #ffffff';
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'center';
+            el.style.color = '#ffffff';
+            el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
+            el.style.cursor = 'pointer';
+            el.style.transition = 'transform 0.8s ease-out, background-color 0.5s ease';
+            el.innerHTML = `
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            `;
+
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat([lng, lat])
+              .setPopup(
+                new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                  <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
+                    <div style="font-size: 10px; font-weight: bold; color: ${isOnline ? '#059669' : '#475569'}; text-transform: uppercase;">
+                      ${isOnline ? '📡 INVESTIGADOR EN CAMPO (EN LÍNEA)' : '📍 ÚLTIMA UBICACIÓN CONOCIDA'}
+                    </div>
+                    <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
+                    <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
+                    <span style="font-size: 10px; color: ${isOnline ? '#10b981' : '#64748b'}; font-weight: bold;">
+                      ${isOnline ? `🔋 Batería: ${inv.bateria_nivel || 100}%` : 'App cerrada / Sin emisión GPS'}
+                    </span>
                   </div>
-                  <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
-                  <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
-                  <span style="font-size: 10px; color: ${isOnline ? '#10b981' : '#64748b'}; font-weight: bold;">
-                    ${isOnline ? `🔋 Batería: ${inv.bateria_nivel || 100}%` : 'App cerrada / Sin emisión GPS en 15m'}
-                  </span>
-                </div>
-              `)
-            )
-            .addTo(map.current);
-          markersRef.current.push(marker);
+                `)
+              )
+              .addTo(map.current);
+
+            invMarkersRef.current.set(key, { marker, el });
+          } else {
+            // Actualización suave de coordenadas sin recrear DOM
+            const { marker, el } = invMarkersRef.current.get(key);
+            marker.setLngLat([lng, lat]);
+            el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
+            el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
+          }
         }
       });
 

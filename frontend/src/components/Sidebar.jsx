@@ -2,13 +2,17 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, FileText, MapPin, Users, Printer } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ user }) {
+  const userRole = (user?.rol || '').toLowerCase();
+  const allowedRolesForMap = ['superadmin', 'asignador', 'validador'];
+  const canViewMap = allowedRolesForMap.includes(userRole);
+
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/investigaciones', label: 'Investigaciones', icon: FileText },
-    { to: '/mapa', label: 'Mapa GPS', icon: MapPin },
+    canViewMap && { to: '/mapa', label: 'Mapa GPS', icon: MapPin },
     { to: '/investigadores', label: 'Investigadores', icon: Users },
-  ];
+  ].filter(Boolean);
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 no-print min-h-[calc(100vh-4rem)]">

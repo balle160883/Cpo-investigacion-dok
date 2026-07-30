@@ -48,18 +48,25 @@ export default function App() {
     );
   }
 
+  const userRole = (user?.rol || '').toLowerCase();
+  const allowedRolesForMap = ['superadmin', 'asignador', 'validador'];
+  const canViewMap = allowedRolesForMap.includes(userRole);
+
   return (
     <Router>
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
         <Header user={user} onLogout={handleLogout} />
         <div className="flex flex-1">
-          <Sidebar />
+          <Sidebar user={user} />
           <main className="flex-1 p-6 overflow-y-auto">
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/investigaciones" element={<InvestigacionesPage />} />
               <Route path="/investigaciones/:id" element={<DetalleFormatoPage />} />
-              <Route path="/mapa" element={<MapaPage />} />
+              <Route
+                path="/mapa"
+                element={canViewMap ? <MapaPage /> : <Navigate to="/" replace />}
+              />
               <Route path="/investigadores" element={<InvestigadoresPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
