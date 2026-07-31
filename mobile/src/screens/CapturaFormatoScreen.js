@@ -33,7 +33,10 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [ocupacion, setOcupacion] = useState('');
   const [ocupacionConyuge, setOcupacionConyuge] = useState('');
   const [situacionVivienda, setSituacionVivienda] = useState('propia');
+  const [nombreQuienPresta, setNombreQuienPresta] = useState('');
+  const [parentescoQuienPresta, setParentescoQuienPresta] = useState('');
   const [montoPagoMensual, setMontoPagoMensual] = useState('0');
+
   const [tiempoResidencia, setTiempoResidencia] = useState('3 años');
 
   const [personasMayores18, setPersonasMayores18] = useState('2');
@@ -191,7 +194,10 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         ocupacion: ocupacion,
         ocupacion_conyuge: ocupacionConyuge,
         situacion_vivienda: situacionVivienda,
+        nombre_quien_presta: nombreQuienPresta,
+        parentesco_quien_presta: parentescoQuienPresta,
         monto_pago_mensual: parseFloat(montoPagoMensual || 0),
+
         tiempo_residencia: tiempoResidencia,
         personas_mayores_18: parseInt(personasMayores18 || '0'),
         personas_menores_18: parseInt(personasMenores18 || '0'),
@@ -394,29 +400,43 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3. Status Socio-Económico</Text>
         
-        <Text style={styles.label}>Situación de la Vivienda:</Text>
-        <View style={styles.row}>
-          <TouchableOpacity
-            style={[styles.chip, situacionVivienda === 'propia' && styles.chipActive]}
-            onPress={() => setSituacionVivienda('propia')}
-          >
-            <Text style={styles.chipText}>🏠 Propia</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.chip, situacionVivienda === 'rentada' && styles.chipActive]}
-            onPress={() => setSituacionVivienda('rentada')}
-          >
-            <Text style={styles.chipText}>🔑 Rentada</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.chip, situacionVivienda === 'padres' && styles.chipActive]}
-            onPress={() => setSituacionVivienda('padres')}
-          >
-            <Text style={styles.chipText}>👨‍👩‍👧 Padres / Familiar</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.label}>Tipo / Situación de la Vivienda:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 6 }}>
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[styles.chip, situacionVivienda === 'propia' && styles.chipActive]}
+              onPress={() => setSituacionVivienda('propia')}
+            >
+              <Text style={styles.chipText}>🏠 Propia</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, (situacionVivienda === 'padres' || situacionVivienda === 'de_sus_padres') && styles.chipActive]}
+              onPress={() => setSituacionVivienda('padres')}
+            >
+              <Text style={styles.chipText}>👨‍👩‍👧 De sus Padres</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, situacionVivienda === 'prestada' && styles.chipActive]}
+              onPress={() => setSituacionVivienda('prestada')}
+            >
+              <Text style={styles.chipText}>🤝 Prestada</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, situacionVivienda === 'pagandola' && styles.chipActive]}
+              onPress={() => setSituacionVivienda('pagandola')}
+            >
+              <Text style={styles.chipText}>💳 Pagándola</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, situacionVivienda === 'rentada' && styles.chipActive]}
+              onPress={() => setSituacionVivienda('rentada')}
+            >
+              <Text style={styles.chipText}>🔑 Rentada</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
 
-        {/* CAMPOS DINÁMICOS SEGÚN VIVIENDA */}
+        {/* CAMPOS DINÁMICOS SEGÚN TIPO DE VIVIENDA */}
         {situacionVivienda === 'propia' && (
           <View style={{ marginTop: 8 }}>
             <Text style={styles.label}>Valor Estimado de Casa ($):</Text>
@@ -431,9 +451,33 @@ export default function CapturaFormatoScreen({ route, navigation }) {
           </View>
         )}
 
-        {situacionVivienda === 'rentada' && (
+        {situacionVivienda === 'prestada' && (
+          <View style={{ marginTop: 8, backgroundColor: '#0f172a', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#38bdf8' }}>
+            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#38bdf8', marginBottom: 6 }}>
+              🤝 Información de la Persona que Presta la Vivienda:
+            </Text>
+            <Text style={styles.label}>Nombre de la persona que la presta:</Text>
+            <TextInput
+              style={styles.input}
+              value={nombreQuienPresta}
+              onChangeText={setNombreQuienPresta}
+              placeholder="Ej. Juan Pérez García"
+              placeholderTextColor="#64748b"
+            />
+            <Text style={styles.label}>Parentesco de quien la presta:</Text>
+            <TextInput
+              style={styles.input}
+              value={parentescoQuienPresta}
+              onChangeText={setParentescoQuienPresta}
+              placeholder="Ej. Tío, Cuñado, Amigo, Familiar"
+              placeholderTextColor="#64748b"
+            />
+          </View>
+        )}
+
+        {(situacionVivienda === 'rentada' || situacionVivienda === 'pagandola') && (
           <View style={{ marginTop: 8 }}>
-            <Text style={styles.label}>Monto de Renta Mensual ($):</Text>
+            <Text style={styles.label}>{situacionVivienda === 'pagandola' ? 'Monto de Cuota/Pago Mensual ($):' : 'Monto de Renta Mensual ($):'}</Text>
             <TextInput
               style={styles.input}
               value={montoPagoMensual}
@@ -447,7 +491,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
         {situacionVivienda === 'padres' && (
           <View style={{ marginTop: 8 }}>
-            <Text style={styles.label}>Familiar o Titular del Inmueble:</Text>
+            <Text style={styles.label}>Nombre del Familiar / Titular del Inmueble:</Text>
             <TextInput
               style={styles.input}
               value={nombreAtendio}
@@ -457,6 +501,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
             />
           </View>
         )}
+
 
         {/* ESTADO CIVIL */}
         <Text style={styles.label}>Estado Civil:</Text>

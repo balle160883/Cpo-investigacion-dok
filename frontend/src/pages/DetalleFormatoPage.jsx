@@ -250,11 +250,17 @@ export default function DetalleFormatoPage() {
               <div className="font-bold mb-1">Tipo de Vivienda:</div>
               <div className="text-[11px] space-y-0.5">
                 <div>( {est.situacion_vivienda === 'propia' ? 'X' : ' '} ) Propia</div>
-                <div>( {est.situacion_vivienda === 'de_sus_padres' ? 'X' : ' '} ) De sus Padres</div>
+                <div>( {est.situacion_vivienda === 'padres' || est.situacion_vivienda === 'de_sus_padres' ? 'X' : ' '} ) De sus Padres</div>
                 <div>( {est.situacion_vivienda === 'prestada' ? 'X' : ' '} ) Prestada</div>
-                <div>( {est.situacion_vivienda === 'pagandola' ? 'X' : ' '} ) Pagándola (${est.monto_pago_mensual || '0'})</div>
-                <div>( {est.situacion_vivienda === 'rentada' ? 'X' : ' '} ) Rentada (${est.monto_pago_mensual || '0'})</div>
+                <div>( {est.situacion_vivienda === 'pagandola' ? 'X' : ' '} ) Pagándola (${parseFloat(est.monto_pago_mensual || 0).toLocaleString('es-MX')})</div>
+                <div>( {est.situacion_vivienda === 'rentada' ? 'X' : ' '} ) Rentada (${parseFloat(est.monto_pago_mensual || 0).toLocaleString('es-MX')})</div>
               </div>
+              {est.situacion_vivienda === 'prestada' && (
+                <div className="mt-1.5 text-[10px] text-slate-800 bg-sky-50 p-1.5 rounded border border-sky-200 space-y-0.5">
+                  <div><strong>Presta la vivienda:</strong> <span className="font-semibold">{est.nombre_quien_presta || 'Familiar'}</span></div>
+                  <div><strong>Parentesco:</strong> <span className="font-semibold text-sky-900">{est.parentesco_quien_presta || 'Conocido / Familiar'}</span></div>
+                </div>
+              )}
               <div className="mt-2 text-[11px]">
                 <strong>Tiempo en domicilio:</strong> {est.tiempo_residencia || '3 años'}
               </div>
