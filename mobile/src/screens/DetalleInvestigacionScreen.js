@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, ActivityIndicator, Alert } from 'react-native';
 import { getInvestigacionDetalle } from '../api/apiClient';
+import { abrirGoogleMapsNativo, abrirWazeNativo } from '../utils/navigationHelper';
 
 export default function DetalleInvestigacionScreen({ route, navigation }) {
   const { id } = route.params;
@@ -25,65 +26,16 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
 
   const inv = data?.investigacion || {};
 
-  function obtenerQueryDireccion() {
-    const partes = [
-      inv.calle ? `${inv.calle} ${inv.numero_exterior || ''}`.trim() : null,
-      inv.colonia ? `Col. ${inv.colonia}` : null,
-      inv.codigo_postal ? `CP ${inv.codigo_postal}` : null,
-      inv.municipio || 'Guadalajara',
-      inv.estado_provincia || 'Jalisco',
-      'Mexico',
-    ].filter(Boolean);
-    return partes.join(', ');
-  }
-
-  function tieneCoordenadasReales() {
-    const lat = Number(inv.latitud);
-    const lng = Number(inv.longitud);
-    return (
-      !isNaN(lat) && !isNaN(lng) &&
-      lat !== 0 && lng !== 0 &&
-      Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001
-    );
-  }
-
   function abrirGoogleMaps() {
-    const conCoords = tieneCoordenadasReales();
-    const lat = Number(inv.latitud);
-    const lng = Number(inv.longitud);
-    const query = obtenerQueryDireccion();
-
-    // Con coordenadas GPS reales → navegar directo al punto
-    // Con dirección texto → buscar en Maps
-    const url = conCoords
-      ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
-      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-
-    Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir Google Maps'));
+    abrirGoogleMapsNativo(inv);
   }
 
   function abrirWaze() {
-    const conCoords = tieneCoordenadasReales();
-    const lat = Number(inv.latitud);
-    const lng = Number(inv.longitud);
-    const query = obtenerQueryDireccion();
-
-    // URL nativa (abre la app instalada)
-    const nativeUrl = conCoords
-      ? `waze://ul?ll=${lat},${lng}&navigate=yes`
-      : `waze://ul?q=${encodeURIComponent(query)}&navigate=yes`;
-
-    // URL web como fallback si Waze no está instalado
-    const webUrl = conCoords
-      ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
-      : `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`;
-
-    Linking.canOpenURL(nativeUrl)
-      .then((canOpen) => Linking.openURL(canOpen ? nativeUrl : webUrl))
-      .catch(() => Alert.alert('Error', 'No se pudo abrir Waze'));
+    abrirWazeNativo(inv);
   }
 
   return (
+
 
     <ScrollView style={styles.container}>
       <View style={styles.card}>

@@ -18,8 +18,16 @@
       "backgroundColor": "#0f172a"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "comgooglemaps",
+          "waze",
+          "geo"
+        ]
+      }
     },
+
     "android": {
       "package": "com.cpo.investigaciones",
       "usesCleartextTraffic": true,
