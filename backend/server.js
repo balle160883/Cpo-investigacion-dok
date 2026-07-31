@@ -1,8 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
+const fs = require('fs');
 const initDb = require('./init_db');
 const errorHandler = require('./src/middlewares/error.middleware');
+const auditLogger = require('./src/middlewares/audit.middleware');
 
 const authRoutes = require('./src/routes/auth.routes');
 const statsRoutes = require('./src/routes/stats.routes');
@@ -12,10 +15,23 @@ const investigacionesRoutes = require('./src/routes/investigaciones.routes');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Garantizar que el directorio de uploads exista (volumen Docker: /app/uploads)
+const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  console.log(`📁 Directorio de medios creado: ${UPLOADS_DIR}`);
+}
+
 // Seguridad HTTP con Helmet y CORS
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+
+// Logger de Auditoría de Eventos
+app.use(auditLogger);
+
+// Servir archivos de evidencias fotográficas almacenados en disco
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Inicializar esquema de Base de Datos al arrancar
 initDb();
@@ -31,4 +47,6 @@ app.use(errorHandler);
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor Backend modular corriendo en puerto ${PORT}`);
+  console.log(`📦 Almacenamiento de medios en: ${UPLOADS_DIR}`);
 });
+

@@ -4,6 +4,8 @@ services:
     ports:
       - "4002:4000"
     restart: always
+    volumes:
+      - investigacion_uploads:/app/uploads
     environment:
       - PORT=4000
       - DB_HOST=${DB_HOST:-31.97.144.6}
@@ -23,3 +25,7 @@ services:
     restart: always
     depends_on:
       - backend
+
+volumes:
+  investigacion_uploads:
+    name: investigacion_uploads
