@@ -45,9 +45,20 @@ export async function getAssignedInvestigaciones(investigadorId) {
   const res = await fetch(`${BASE_URL}/investigaciones${queryParam}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error('Error al cargar asignaciones');
+
+  if (res.status === 401 || res.status === 403) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'SESION_EXPIRADA');
+  }
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `Error del servidor (${res.status}) al cargar asignaciones`);
+  }
+
   return res.json();
 }
+
 
 
 export async function getInvestigacionDetalle(id) {

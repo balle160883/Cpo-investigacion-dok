@@ -37,6 +37,7 @@ export default function VisitasScreen({ navigation, route }) {
   const [userLocation, setUserLocation] = useState(null);
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     initUserAndData();
@@ -100,8 +101,6 @@ export default function VisitasScreen({ navigation, route }) {
     abrirNavegacionNativa(item);
   }
 
-
-
   async function initUserAndData() {
     let activeUser = route.params?.user;
     if (!activeUser || !activeUser.id) {
@@ -118,20 +117,37 @@ export default function VisitasScreen({ navigation, route }) {
     loadData(activeUser?.id);
   }
 
+  async function handleRelogin() {
+    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('userData');
+    navigation.replace('Login');
+  }
+
   async function loadData(userId) {
+    setLoadError(null);
     try {
       const targetId = userId || currentUser?.id;
       const res = await getAssignedInvestigaciones(targetId);
       setVisitas(res.data || []);
+      setLoadError(null);
       checkPendingSurveys();
     } catch (err) {
       console.log('Error visitas:', err);
+      const msg = err.message || 'Error al conectar con el servidor';
+      if (msg.includes('SESION_EXPIRADA') || msg.includes('Token') || msg.includes('401')) {
+        Alert.alert(
+          'Sesión Expirada',
+          'Tu token de sesión ya no es válido. Por favor vuelve a ingresar tus credenciales.',
+          [{ text: 'Iniciar Sesión', onPress: handleRelogin }]
+        );
+      } else {
+        setLoadError(msg);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }
-
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -265,16 +281,26 @@ export default function VisitasScreen({ navigation, route }) {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0284c7" />}
           ListEmptyComponent={(
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyTitle}>Sin resultados</Text>
+              <Text style={styles.emptyIcon}>{loadError ? '⚠️' : '🔍'}</Text>
+              <Text style={styles.emptyTitle}>{loadError ? 'Error al Cargar' : 'Sin resultados'}</Text>
               <Text style={styles.emptySubtitle}>
-                {searchQuery
+                {loadError
+                  ? loadError
+                  : searchQuery
                   ? `No se encontraron resultados para "${searchQuery}"`
                   : 'No tienes visitas domiciliarias asignadas por el momento.'}
               </Text>
               <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
                 <Text style={styles.refreshBtnText}>🔄 Actualizar lista</Text>
               </TouchableOpacity>
+              {loadError && (
+                <TouchableOpacity
+                  style={[styles.refreshBtn, { backgroundColor: '#dc2626', marginTop: 10 }]}
+                  onPress={handleRelogin}
+                >
+                  <Text style={styles.refreshBtnText}>🔑 Re-Iniciar Sesión</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
           renderItem={({ item }) => (
