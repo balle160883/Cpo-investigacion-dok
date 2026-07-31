@@ -3,6 +3,35 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Default API URL pointing to server or local host
 const BASE_URL = 'http://31.97.144.6:4002/api';
 
+// Memoria caché en ejecución para eliminar condiciones de carrera con AsyncStorage
+let inMemoryToken = null;
+let inMemoryUser = null;
+
+async function getToken() {
+  if (inMemoryToken) return inMemoryToken;
+  try {
+    const t = await AsyncStorage.getItem('userToken');
+    if (t) {
+      inMemoryToken = t;
+      return t;
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function getUser() {
+  if (inMemoryUser) return inMemoryUser;
+  try {
+    const raw = await AsyncStorage.getItem('userData');
+    if (raw) {
+      const u = JSON.parse(raw);
+      inMemoryUser = u;
+      return u;
+    }
+  } catch (e) {}
+  return null;
+}
+
 export async function login(email, password) {
   try {
     const res = await fetch(`${BASE_URL}/auth/login`, {
@@ -12,38 +41,46 @@ export async function login(email, password) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión');
-    
+
     if (data.token) {
-      await AsyncStorage.setItem('userToken', data.token);
-      await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+      inMemoryToken = data.token;
+      inMemoryUser = data.user;
+      await Promise.all([
+        AsyncStorage.setItem('userToken', data.token),
+        AsyncStorage.setItem('userData', JSON.stringify(data.user)),
+      ]);
     }
     return data;
   } catch (err) {
     if (err.message === 'Network request failed' || err.name === 'TypeError') {
-      throw new Error(`Error de red al conectar con el servidor (http://31.97.144.6:4002). Por favor verifica que tu dispositivo tenga acceso a internet.`);
+      throw new Error(
+        `Error de red al conectar con el servidor (http://31.97.144.6:4002). Por favor verifica tu conexión a internet.`
+      );
     }
     throw err;
   }
 }
 
 export async function getAssignedInvestigaciones(investigadorId) {
-  const token = await AsyncStorage.getItem('userToken');
-  let realId = (investigadorId && investigadorId !== 'undefined' && investigadorId !== 'null') ? investigadorId : null;
+  const token = await getToken();
+  let realId =
+    investigadorId && investigadorId !== 'undefined' && investigadorId !== 'null'
+      ? investigadorId
+      : null;
+
   if (!realId) {
-    try {
-      const rawUser = await AsyncStorage.getItem('userData');
-      if (rawUser) {
-        const u = JSON.parse(rawUser);
-        if (u && u.id && u.id !== 'undefined' && u.id !== 'null') {
-          realId = u.id;
-        }
-      }
-    } catch (e) {}
+    const u = await getUser();
+    if (u && u.id && u.id !== 'undefined' && u.id !== 'null') {
+      realId = u.id;
+    }
   }
 
   const queryParam = realId ? `?investigador_id=${encodeURIComponent(realId)}` : '';
   const res = await fetch(`${BASE_URL}/investigaciones${queryParam}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json',
+    },
   });
 
   if (res.status === 401 || res.status === 403) {
@@ -59,11 +96,15 @@ export async function getAssignedInvestigaciones(investigadorId) {
   return res.json();
 }
 
-
-
 export async function getInvestigacionDetalle(id) {
-  const res = await fetch(`${BASE_URL}/investigaciones/${id}`);
-  if (!res.ok) throw new Error('Error al obtener detalle');
+  const token = await getToken();
+  const res = await fetch(`${BASE_URL}/investigaciones/${id}`, {
+    headers: {
+      Authorization: token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!res.ok) throw new Error('Error al obtener detalle de la investigación');
   return res.json();
 }
 
@@ -83,7 +124,7 @@ export async function savePendingOfflineSurvey(id, payload) {
     const pending = await getPendingOfflineSurveys();
     const existingIndex = pending.findIndex((item) => String(item.id) === String(id));
     const newItem = { id, payload, savedAt: new Date().toISOString() };
-    
+
     if (existingIndex >= 0) {
       pending[existingIndex] = newItem;
     } else {
@@ -114,12 +155,12 @@ export async function syncPendingSurveys() {
 
   for (const item of pending) {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getToken();
       const res = await fetch(`${BASE_URL}/investigaciones/${item.id}/evidencia`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: token ? `Bearer ${token}` : '',
         },
         body: JSON.stringify(item.payload),
       });
@@ -140,12 +181,12 @@ export async function syncPendingSurveys() {
 
 export async function guardarEvidenciaInvestigacion(id, payload) {
   try {
-    const token = await AsyncStorage.getItem('userToken');
+    const token = await getToken();
     const res = await fetch(`${BASE_URL}/investigaciones/${id}/evidencia`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: token ? `Bearer ${token}` : '',
       },
       body: JSON.stringify(payload),
     });
@@ -153,12 +194,17 @@ export async function guardarEvidenciaInvestigacion(id, payload) {
     if (!res.ok) throw new Error(data.error || 'Error al guardar captura');
     return data;
   } catch (err) {
-    if (err.message === 'Network request failed' || err.name === 'TypeError' || err.message?.includes('fetch')) {
+    if (
+      err.message === 'Network request failed' ||
+      err.name === 'TypeError' ||
+      err.message?.includes('fetch')
+    ) {
       await savePendingOfflineSurvey(id, payload);
       return {
         success: true,
         offline: true,
-        message: 'Sin conexión a internet. La visita se guardó localmente y se enviará automáticamente cuando tengas señal.',
+        message:
+          'Sin conexión a internet. La visita se guardó localmente y se enviará automáticamente cuando tengas señal.',
       };
     }
     throw err;
@@ -167,12 +213,8 @@ export async function guardarEvidenciaInvestigacion(id, payload) {
 
 export async function enviarUbicacionGPS(latitud, longitud, bateria_nivel) {
   try {
-    const token = await AsyncStorage.getItem('userToken');
-    let userObj = null;
-    try {
-      const rawUser = await AsyncStorage.getItem('userData');
-      if (rawUser) userObj = JSON.parse(rawUser);
-    } catch (e) {}
+    const token = await getToken();
+    const userObj = await getUser();
 
     await fetch(`${BASE_URL}/investigadores/ubicacion`, {
       method: 'POST',
@@ -181,13 +223,13 @@ export async function enviarUbicacionGPS(latitud, longitud, bateria_nivel) {
         Authorization: token ? `Bearer ${token}` : '',
       },
       body: JSON.stringify({
+        investigador_id: userObj?.id || null,
         latitud,
         longitud,
-        bateria_nivel,
-        investigador_id: userObj?.id || '',
+        bateria_nivel: bateria_nivel || 100,
       }),
     });
   } catch (err) {
-    console.log('GPS sync background error:', err);
+    // Falla silenciosa de rastreo GPS en segundo plano
   }
 }
