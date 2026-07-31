@@ -96,17 +96,70 @@ export default function VisitasScreen({ navigation, route }) {
     }
   }
 
-  function abrirNavegacionSencilla(item) {
-    let dest = '';
-    if (item.latitud && item.longitud && Number(item.latitud) !== 0) {
-      dest = `${item.latitud},${item.longitud}`;
-    } else {
-      const query = [item.calle ? `${item.calle} #${item.numero_exterior || ''}` : '', item.colonia, item.municipio || 'Guadalajara', 'Jalisco'].filter(Boolean).join(', ');
-      dest = encodeURIComponent(query);
-    }
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
-    Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir aplicación de mapas'));
+  function construirQueryDireccion(item) {
+    const partes = [
+      item.calle ? `${item.calle} ${item.numero_exterior || ''}`.trim() : null,
+      item.colonia ? `Col. ${item.colonia}` : null,
+      item.municipio || 'Guadalajara',
+      item.estado_provincia || 'Jalisco',
+      'Mexico',
+    ].filter(Boolean);
+    return partes.join(', ');
   }
+
+  function tieneCoordenadasValidasItem(item) {
+    const lat = Number(item.latitud);
+    const lng = Number(item.longitud);
+    return (
+      !isNaN(lat) && !isNaN(lng) &&
+      lat !== 0 && lng !== 0 &&
+      Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001
+    );
+  }
+
+  function abrirNavegacionSencilla(item) {
+    const tieneCoords = tieneCoordenadasValidasItem(item);
+    const query = construirQueryDireccion(item);
+
+    const urlGoogleMapsCoords = `https://www.google.com/maps/dir/?api=1&destination=${item.latitud},${item.longitud}&travelmode=driving`;
+    const urlGoogleMapsTexto = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    const urlWazeCoords = `waze://ul?ll=${item.latitud},${item.longitud}&navigate=yes`;
+    const urlWazeTexto = `waze://ul?q=${encodeURIComponent(query)}&navigate=yes`;
+    const urlWazeWebCoords = `https://waze.com/ul?ll=${item.latitud},${item.longitud}&navigate=yes`;
+    const urlWazeWebTexto = `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`;
+
+    Alert.alert(
+      '🗺️ Abrir Ruta de Navegación',
+      tieneCoords
+        ? `📍 Destino GPS: ${item.latitud}, ${item.longitud}`
+        : `📍 Destino: ${query}`,
+      [
+        {
+          text: '🗺️ Google Maps',
+          onPress: () => {
+            const url = tieneCoords ? urlGoogleMapsCoords : urlGoogleMapsTexto;
+            Linking.openURL(url).catch(() =>
+              Alert.alert('Error', 'No se pudo abrir Google Maps')
+            );
+          },
+        },
+        {
+          text: '🚙 Waze',
+          onPress: () => {
+            const nativeUrl = tieneCoords ? urlWazeCoords : urlWazeTexto;
+            const webUrl = tieneCoords ? urlWazeWebCoords : urlWazeWebTexto;
+            Linking.canOpenURL(nativeUrl)
+              .then((can) => Linking.openURL(can ? nativeUrl : webUrl))
+              .catch(() =>
+                Alert.alert('Error', 'No se pudo abrir Waze')
+              );
+          },
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  }
+
 
   async function initUserAndData() {
     let activeUser = route.params?.user;

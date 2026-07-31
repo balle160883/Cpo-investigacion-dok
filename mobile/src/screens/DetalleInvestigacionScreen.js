@@ -26,43 +26,65 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
   const inv = data?.investigacion || {};
 
   function obtenerQueryDireccion() {
-    const calle = inv.calle ? `${inv.calle} #${inv.numero_exterior || ''}`.trim() : '';
-    const colonia = inv.colonia ? `Col. ${inv.colonia}` : '';
-    const cp = inv.codigo_postal ? `CP ${inv.codigo_postal}` : '';
-    const municipio = inv.municipio || 'Guadalajara';
-    const estado = inv.estado_provincia || 'Jalisco';
-    const partes = [calle, colonia, cp, municipio, estado, 'Mexico'].filter(Boolean);
+    const partes = [
+      inv.calle ? `${inv.calle} ${inv.numero_exterior || ''}`.trim() : null,
+      inv.colonia ? `Col. ${inv.colonia}` : null,
+      inv.codigo_postal ? `CP ${inv.codigo_postal}` : null,
+      inv.municipio || 'Guadalajara',
+      inv.estado_provincia || 'Jalisco',
+      'Mexico',
+    ].filter(Boolean);
     return partes.join(', ');
   }
 
   function tieneCoordenadasReales() {
     const lat = Number(inv.latitud);
     const lng = Number(inv.longitud);
-    return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && Math.abs(lat - 20.6597) > 0.0001;
+    return (
+      !isNaN(lat) && !isNaN(lng) &&
+      lat !== 0 && lng !== 0 &&
+      Math.abs(lat) > 0.001 && Math.abs(lng) > 0.001
+    );
   }
 
   function abrirGoogleMaps() {
-    let destination = '';
-    if (tieneCoordenadasReales()) {
-      destination = `${inv.latitud},${inv.longitud}`;
-    } else {
-      destination = encodeURIComponent(obtenerQueryDireccion());
-    }
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+    const conCoords = tieneCoordenadasReales();
+    const lat = Number(inv.latitud);
+    const lng = Number(inv.longitud);
+    const query = obtenerQueryDireccion();
+
+    // Con coordenadas GPS reales → navegar directo al punto
+    // Con dirección texto → buscar en Maps
+    const url = conCoords
+      ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+
     Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir Google Maps'));
   }
 
   function abrirWaze() {
-    let url = '';
-    if (tieneCoordenadasReales()) {
-      url = `https://waze.com/ul?ll=${inv.latitud},${inv.longitud}&navigate=yes`;
-    } else {
-      url = `https://waze.com/ul?q=${encodeURIComponent(obtenerQueryDireccion())}&navigate=yes`;
-    }
-    Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir Waze'));
+    const conCoords = tieneCoordenadasReales();
+    const lat = Number(inv.latitud);
+    const lng = Number(inv.longitud);
+    const query = obtenerQueryDireccion();
+
+    // URL nativa (abre la app instalada)
+    const nativeUrl = conCoords
+      ? `waze://ul?ll=${lat},${lng}&navigate=yes`
+      : `waze://ul?q=${encodeURIComponent(query)}&navigate=yes`;
+
+    // URL web como fallback si Waze no está instalado
+    const webUrl = conCoords
+      ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
+      : `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`;
+
+    Linking.canOpenURL(nativeUrl)
+      .then((canOpen) => Linking.openURL(canOpen ? nativeUrl : webUrl))
+      .catch(() => Alert.alert('Error', 'No se pudo abrir Waze'));
   }
 
   return (
+
     <ScrollView style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.typeBadge}>{inv.tipo_sujeto === 'CLIENTE' ? 'SOLICITANTE DE PRÉSTAMO' : 'AVAL DE PRÉSTAMO'}</Text>
@@ -78,7 +100,7 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
         <Text style={styles.text}>Código Postal: {inv.codigo_postal || 'N/A'}</Text>
         <Text style={styles.text}>Referencias: {inv.referencias || 'Sin referencias'}</Text>
 
-        <Text style={styles.navLabel}>Abrir Ruta de Navegación:</Text>
+        <Text style={styles.navLabel}>📍 Abrir en Navegación:</Text>
         <View style={styles.navRow}>
           <TouchableOpacity style={styles.googleBtn} onPress={abrirGoogleMaps}>
             <Text style={styles.googleBtnText}>🗺️ Google Maps</Text>
@@ -121,9 +143,37 @@ const styles = StyleSheet.create({
   text: { color: '#cbd5e1', fontSize: 13, marginBottom: 6 },
   navLabel: { color: '#94a3b8', fontSize: 11, fontWeight: 'bold', marginTop: 12, marginBottom: 8 },
   navRow: { flexDirection: 'row', gap: 10 },
-  googleBtn: { flex: 1, backgroundColor: '#0284c7', padding: 12, borderRadius: 12, alignItems: 'center' },
+  // Google Maps: azul corporativo de Google
+  googleBtn: {
+    flex: 1,
+    backgroundColor: '#1A73E8',
+    padding: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1557B0',
+    shadowColor: '#1A73E8',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   googleBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 },
-  wazeBtn: { flex: 1, backgroundColor: '#0284c7', padding: 12, borderRadius: 12, alignItems: 'center' },
+  // Waze: color cian/turquesa característico de Waze
+  wazeBtn: {
+    flex: 1,
+    backgroundColor: '#1CA5F5',
+    padding: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#0E8DD4',
+    shadowColor: '#1CA5F5',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   wazeBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 },
   capturaButton: { backgroundColor: '#10b981', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 8, marginBottom: 40 },
   capturaButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 15 },
