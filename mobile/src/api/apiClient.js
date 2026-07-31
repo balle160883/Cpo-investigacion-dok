@@ -28,22 +28,27 @@ export async function login(email, password) {
 
 export async function getAssignedInvestigaciones(investigadorId) {
   const token = await AsyncStorage.getItem('userToken');
-  let realId = investigadorId;
+  let realId = (investigadorId && investigadorId !== 'undefined' && investigadorId !== 'null') ? investigadorId : null;
   if (!realId) {
     try {
       const rawUser = await AsyncStorage.getItem('userData');
       if (rawUser) {
         const u = JSON.parse(rawUser);
-        realId = u.id;
+        if (u && u.id && u.id !== 'undefined' && u.id !== 'null') {
+          realId = u.id;
+        }
       }
     } catch (e) {}
   }
-  const res = await fetch(`${BASE_URL}/investigaciones?investigador_id=${realId || ''}`, {
+
+  const queryParam = realId ? `?investigador_id=${encodeURIComponent(realId)}` : '';
+  const res = await fetch(`${BASE_URL}/investigaciones${queryParam}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Error al cargar asignaciones');
   return res.json();
 }
+
 
 export async function getInvestigacionDetalle(id) {
   const res = await fetch(`${BASE_URL}/investigaciones/${id}`);

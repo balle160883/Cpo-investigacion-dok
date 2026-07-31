@@ -109,9 +109,11 @@ export default function VisitasScreen({ navigation, route }) {
         const rawUser = await AsyncStorage.getItem('userData');
         if (rawUser) {
           activeUser = JSON.parse(rawUser);
-          setCurrentUser(activeUser);
         }
       } catch (e) {}
+    }
+    if (activeUser) {
+      setCurrentUser(activeUser);
     }
     loadData(activeUser?.id);
   }
@@ -129,6 +131,7 @@ export default function VisitasScreen({ navigation, route }) {
       setRefreshing(false);
     }
   }
+
 
   const onRefresh = () => {
     setRefreshing(true);

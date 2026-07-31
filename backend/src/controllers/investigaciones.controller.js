@@ -11,6 +11,24 @@ async function getInvestigaciones(req, res, next) {
     let whereClauses = [];
     let queryParams = [];
 
+    let targetInvestigadorId = investigador_id;
+    if (
+      targetInvestigadorId === 'undefined' ||
+      targetInvestigadorId === 'null' ||
+      targetInvestigadorId === '0' ||
+      targetInvestigadorId === ''
+    ) {
+      targetInvestigadorId = null;
+    }
+
+    // Autodetectar ID si la petición viene de un usuario con rol de investigador y no especificó ID explícito
+    if (!targetInvestigadorId && req.user) {
+      const userRol = (req.user.rol || '').toLowerCase();
+      if (userRol === 'investigador' && req.user.id) {
+        targetInvestigadorId = req.user.id;
+      }
+    }
+
     if (estado) {
       if (estado === 'PENDIENTE') {
         whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE')`);
@@ -20,10 +38,11 @@ async function getInvestigaciones(req, res, next) {
       }
     }
 
-    if (investigador_id) {
-      queryParams.push(investigador_id);
+    if (targetInvestigadorId) {
+      queryParams.push(targetInvestigadorId);
       whereClauses.push(`CAST(inv.investigador_id AS TEXT) = CAST($${queryParams.length} AS TEXT)`);
     }
+
 
     if (buscar) {
       queryParams.push(`%${buscar}%`);
