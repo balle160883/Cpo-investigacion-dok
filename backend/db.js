@@ -3,6 +3,9 @@ const { Pool } = require('pg');
 let currentHost = process.env.DB_HOST || '31.97.144.6';
 let currentPort = parseInt(process.env.DB_PORT || '5437');
 let currentPassword = process.env.DB_PASSWORD || 'Seguridad2028@';
+if (!process.env.DB_PASSWORD) {
+  console.warn('⚠️ ATENCIÓN DE SEGURIDAD: DB_PASSWORD no se configuró en .env. Se está utilizando la contraseña por defecto.');
+}
 
 // Prevent EAI_AGAIN DNS resolution issues on internal Dokploy network names
 if (currentHost.includes('investigacion-postgres') || currentHost === 'localhost' || currentHost === '127.0.0.1') {

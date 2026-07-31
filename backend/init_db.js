@@ -1,4 +1,5 @@
 const db = require('./db');
+const bcrypt = require('bcryptjs');
 
 async function initDb() {
   try {
@@ -82,13 +83,20 @@ async function initDb() {
     // Seed default admin and investigators if empty
     const { rows: existingInvestigadores } = await db.query('SELECT count(*) FROM investigadores;');
     if (parseInt(existingInvestigadores[0].count) === 0) {
-      console.log('Sembrando usuarios iniciales...');
+      console.log('Sembrando usuarios iniciales con contraseñas cifradas...');
+      const adminPass = await bcrypt.hash('admin123', 10);
+      const userPass = await bcrypt.hash('123456', 10);
+
       await db.query(`
         INSERT INTO investigadores (nombre, email, password, telefono, rol) VALUES
-        ('Administrador CPO', 'admin@cajaoblatos.com.mx', 'admin123', '3300000000', 'admin'),
-        ('Carlos Mendoza (Investigador 1)', 'carlos.mendoza@cajaoblatos.com.mx', '123456', '3312345678', 'investigador'),
-        ('Elena Torres (Investigadora 2)', 'elena.torres@cajaoblatos.com.mx', '123456', '3387654321', 'investigador');
-      `);
+        ($1, $2, $3, $4, $5),
+        ($6, $7, $8, $9, $10),
+        ($11, $12, $13, $14, $15);
+      `, [
+        'Administrador CPO', 'admin@cajaoblatos.com.mx', adminPass, '3300000000', 'admin',
+        'Carlos Mendoza (Investigador 1)', 'carlos.mendoza@cajaoblatos.com.mx', userPass, '3312345678', 'investigador',
+        'Elena Torres (Investigadora 2)', 'elena.torres@cajaoblatos.com.mx', userPass, '3387654321', 'investigador'
+      ]);
     }
 
     console.log('✅ Esquema inicializado correctamente.');

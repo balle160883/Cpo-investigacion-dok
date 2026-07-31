@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const db = require('./db');
 const initDb = require('./init_db');
 
@@ -8,16 +11,44 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || 'cpo-investigaciones-secret-2026';
 
+// Seguridad HTTP con Helmet
+app.use(helmet());
+
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 // Initialize DB schema on startup
 initDb();
 
+// Rate Limiting para Login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos de inicio de sesión desde esta IP. Por favor intenta de nuevo en 15 minutos.' }
+});
+
+// Middleware de Autenticación JWT
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token no proporcionado' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+}
+
 // ----------------------------------------------------
 // AUTHENTICATION
 // ----------------------------------------------------
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -38,7 +69,29 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const user = rows[0];
-    if (user.password !== password) {
+    let isPasswordValid = false;
+
+    // Verificar si la contraseña almacenada ya tiene hash bcrypt o es texto plano
+    const isBcryptHash = user.password && (user.password.startsWith('$2a$') || user.password.startsWith('$2b$'));
+
+    if (isBcryptHash) {
+      isPasswordValid = await bcrypt.compare(password, user.password);
+    } else {
+      // Contraseña almacenada en texto plano (Legacy / Seed)
+      if (user.password === password) {
+        isPasswordValid = true;
+        // Migración transparente a hash bcrypt en base de datos
+        try {
+          const hashedPassword = await bcrypt.hash(password, 10);
+          await db.query('UPDATE investigadores SET password = $1 WHERE id = $2;', [hashedPassword, user.id]);
+          console.log(`🔒 Contraseña migrada exitosamente a bcrypt para usuario ID: ${user.id}`);
+        } catch (migrationErr) {
+          console.error('Error durante migración de contraseña:', migrationErr);
+        }
+      }
+    }
+
+    if (!isPasswordValid) {
       return res.status(401).json({ error: 'Contraseña incorrecta' });
     }
 
@@ -64,22 +117,6 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Middleware de Autenticación JWT
-function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token no proporcionado' });
-  }
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Token inválido o expirado' });
-  }
-}
-
 app.get('/api/auth/me', authenticate, async (req, res) => {
   res.json({ user: req.user });
 });
@@ -87,7 +124,7 @@ app.get('/api/auth/me', authenticate, async (req, res) => {
 // ----------------------------------------------------
 // DASHBOARD STATS
 // ----------------------------------------------------
-app.get('/api/stats', async (req, res) => {
+app.get('/api/stats', authenticate, async (req, res) => {
   try {
     const totalRes = await db.query('SELECT count(*) FROM investigaciones;');
     const compRes = await db.query("SELECT count(*) FROM investigaciones WHERE estado = 'COMPLETADA';");
@@ -111,7 +148,7 @@ app.get('/api/stats', async (req, res) => {
 // ----------------------------------------------------
 // INVESTIGADORES
 // ----------------------------------------------------
-app.get('/api/investigadores', async (req, res) => {
+app.get('/api/investigadores', authenticate, async (req, res) => {
   try {
     const { rows } = await db.query(
       'SELECT id, nombre, email, telefono, rol, activo, created_at FROM investigadores ORDER BY nombre ASC;'
@@ -227,7 +264,7 @@ app.get('/api/investigadores/ubicaciones', async (req, res) => {
 // ----------------------------------------------------
 // INVESTIGACIONES LIST & FILTER
 // ----------------------------------------------------
-app.get('/api/investigaciones', async (req, res) => {
+app.get('/api/investigaciones', authenticate, async (req, res) => {
   try {
     const { estado, buscar, investigador_id } = req.query;
     const page = parseInt(req.query.page || '1');
@@ -328,7 +365,7 @@ app.get('/api/investigaciones', async (req, res) => {
 // ----------------------------------------------------
 // DETALLE DE INVESTIGACIÓN (Para Visualización e Impresión)
 // ----------------------------------------------------
-app.get('/api/investigaciones/:id', async (req, res) => {
+app.get('/api/investigaciones/:id', authenticate, async (req, res) => {
   try {
     const id = req.params.id;
 
@@ -405,7 +442,7 @@ app.get('/api/investigaciones/:id', async (req, res) => {
 // ----------------------------------------------------
 // ASIGNAR INVESTIGADOR
 // ----------------------------------------------------
-app.post('/api/investigaciones/:id/asignar', async (req, res) => {
+app.post('/api/investigaciones/:id/asignar', authenticate, async (req, res) => {
   try {
     const id = req.params.id;
     const { investigador_id } = req.body;
@@ -430,7 +467,7 @@ app.post('/api/investigaciones/:id/asignar', async (req, res) => {
 // ----------------------------------------------------
 // CAPTURA DE EVIDENCIA Y ESTUDIO SOCIOECONÓMICO (App Móvil)
 // ----------------------------------------------------
-app.post('/api/investigaciones/:id/evidencia', async (req, res) => {
+app.post('/api/investigaciones/:id/evidencia', authenticate, async (req, res) => {
   try {
     const id = req.params.id;
     const {
