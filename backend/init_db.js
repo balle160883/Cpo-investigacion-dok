@@ -71,6 +71,31 @@ async function initDb() {
       );
     `);
 
+    // 5. Bitácora de Auditoría Inalterable (Audit Log)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id BIGSERIAL PRIMARY KEY,
+        timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        usuario_id INT,
+        usuario_nombre VARCHAR(255),
+        usuario_rol VARCHAR(50),
+        accion VARCHAR(100) NOT NULL,
+        recurso VARCHAR(100),
+        recurso_id VARCHAR(100),
+        descripcion TEXT,
+        ip_origen VARCHAR(50),
+        user_agent TEXT,
+        datos_anteriores JSONB,
+        datos_nuevos JSONB,
+        resultado VARCHAR(20) DEFAULT 'exito'
+      );
+    `);
+
+    // Índices para consultas por usuario y por fecha en audit_log
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp DESC);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_usuario ON audit_log(usuario_id);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_accion ON audit_log(accion);`); } catch (e) {}
+
     // Alteraciones seguras
     try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT '123456';`); } catch (e) {}
     try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'investigador';`); } catch (e) {}

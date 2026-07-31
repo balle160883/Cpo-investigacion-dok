@@ -9,6 +9,7 @@ import InvestigacionesPage from './pages/InvestigacionesPage';
 import DetalleFormatoPage from './pages/DetalleFormatoPage';
 import MapaPage from './pages/MapaPage';
 import InvestigadoresPage from './pages/InvestigadoresPage';
+import AuditLogPage from './pages/AuditLogPage';
 
 function AppRoutes() {
   const { user, isAuthenticated, loading, logout, theme } = useAuth();
@@ -27,8 +28,8 @@ function AppRoutes() {
   }
 
   const userRole = (user?.rol || '').toLowerCase();
-  const allowedRolesForMap = ['superadmin', 'asignador', 'validador', 'admin'];
-  const canViewMap = allowedRolesForMap.includes(userRole);
+  const canViewMap = ['superadmin', 'asignador', 'validador', 'admin'].includes(userRole);
+  const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col transition-colors duration-200`}>
@@ -45,6 +46,10 @@ function AppRoutes() {
               element={canViewMap ? <MapaPage /> : <Navigate to="/" replace />}
             />
             <Route path="/investigadores" element={<InvestigadoresPage />} />
+            <Route
+              path="/auditoria"
+              element={canViewAudit ? <AuditLogPage /> : <Navigate to="/" replace />}
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

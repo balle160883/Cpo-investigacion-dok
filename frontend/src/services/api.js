@@ -70,3 +70,14 @@ export async function fetchProductividadInvestigadores() {
   const res = await fetch(`${getApiBaseUrl()}/stats/productividad`, { headers: getAuthHeaders() });
   return handleResponse(res, 'Error al cargar productividad de investigadores');
 }
+
+export async function fetchAuditLog(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${getApiBaseUrl()}/audit?${qs}`, { headers: getAuthHeaders() });
+  return handleResponse(res, 'Error al cargar bitácora de auditoría');
+}
+
+export async function fetchAuditAcciones() {
+  const res = await fetch(`${getApiBaseUrl()}/audit/acciones`, { headers: getAuthHeaders() });
+  return handleResponse(res, 'Error al cargar tipos de acciones');
+}

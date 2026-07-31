@@ -1,4 +1,5 @@
 const db = require('../../db');
+const { registrarAuditoria } = require('./audit.controller');
 
 async function getInvestigaciones(req, res, next) {
   try {
@@ -183,11 +184,32 @@ async function asignarInvestigador(req, res, next) {
       return res.status(400).json({ error: 'ID de investigador requerido' });
     }
 
+    // Obtener el estado anterior para el audit log
+    const { rows: prev } = await db.query(
+      `SELECT investigador_id, estado FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      [id]
+    );
+
     await db.query(`
       UPDATE investigaciones 
       SET investigador_id = $1, fecha_asignacion = NOW(), estado = 'EN_PROCESO', updated_at = NOW()
       WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
     `, [investigador_id, id]);
+
+    // Registrar en bitácora de auditoría (fire-and-forget)
+    registrarAuditoria({
+      usuario_id: req.user?.id || null,
+      usuario_nombre: req.user?.nombre || req.user?.email || 'Sistema',
+      usuario_rol: req.user?.rol || 'sistema',
+      accion: 'ASIGNAR_INVESTIGADOR',
+      recurso: 'investigaciones',
+      recurso_id: String(id),
+      descripcion: `Asignación del investigador ID ${investigador_id} a la investigación SIF ${id}`,
+      ip_origen: req.ip || req.headers['x-forwarded-for'],
+      user_agent: req.headers['user-agent'],
+      datos_anteriores: prev[0] || null,
+      datos_nuevos: { investigador_id, estado: 'EN_PROCESO' },
+    });
 
     res.json({ success: true, message: 'Investigador asignado correctamente' });
   } catch (err) {

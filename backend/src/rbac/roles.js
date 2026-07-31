@@ -1,0 +1,149 @@
+/**
+ * Definición Centralizada de Roles y Permisos RBAC — CPO Investigaciones
+ *
+ * Roles del sistema:
+ *   superadmin  → Acceso total, gestión de usuarios y auditoría
+ *   admin       → Acceso total excepto gestión de usuarios
+ *   asignador   → Asignar investigaciones, ver mapa GPS
+ *   validador   → Validar estudios completados, leer métricas
+ *   investigador→ Solo su propia cola de trabajo (app móvil)
+ *   auditor     → Solo lectura: audit log, stats, investigaciones
+ */
+
+const ROLES = {
+  SUPERADMIN: 'superadmin',
+  ADMIN: 'admin',
+  ASIGNADOR: 'asignador',
+  VALIDADOR: 'validador',
+  INVESTIGADOR: 'investigador',
+  AUDITOR: 'auditor',
+};
+
+// Permisos atómicos del sistema
+const PERMISSIONS = {
+  // Investigaciones
+  VER_INVESTIGACIONES: 'ver_investigaciones',
+  ASIGNAR_INVESTIGADOR: 'asignar_investigador',
+  EDITAR_INVESTIGACION: 'editar_investigacion',
+  EXPORTAR_DATOS: 'exportar_datos',
+
+  // Mapa GPS
+  VER_MAPA: 'ver_mapa',
+
+  // Investigadores / Usuarios
+  VER_INVESTIGADORES: 'ver_investigadores',
+  GESTIONAR_USUARIOS: 'gestionar_usuarios',
+
+  // Dashboard / Estadísticas
+  VER_DASHBOARD: 'ver_dashboard',
+  VER_PRODUCTIVIDAD: 'ver_productividad',
+
+  // Auditoría — solo superadmin y auditor
+  VER_AUDIT_LOG: 'ver_audit_log',
+};
+
+// Mapa de permisos por rol
+const ROLE_PERMISSIONS = {
+  [ROLES.SUPERADMIN]: Object.values(PERMISSIONS), // Todo
+
+  [ROLES.ADMIN]: [
+    PERMISSIONS.VER_INVESTIGACIONES,
+    PERMISSIONS.ASIGNAR_INVESTIGADOR,
+    PERMISSIONS.EDITAR_INVESTIGACION,
+    PERMISSIONS.EXPORTAR_DATOS,
+    PERMISSIONS.VER_MAPA,
+    PERMISSIONS.VER_INVESTIGADORES,
+    PERMISSIONS.VER_DASHBOARD,
+    PERMISSIONS.VER_PRODUCTIVIDAD,
+    PERMISSIONS.VER_AUDIT_LOG,
+  ],
+
+  [ROLES.ASIGNADOR]: [
+    PERMISSIONS.VER_INVESTIGACIONES,
+    PERMISSIONS.ASIGNAR_INVESTIGADOR,
+    PERMISSIONS.VER_MAPA,
+    PERMISSIONS.VER_INVESTIGADORES,
+    PERMISSIONS.VER_DASHBOARD,
+    PERMISSIONS.EXPORTAR_DATOS,
+  ],
+
+  [ROLES.VALIDADOR]: [
+    PERMISSIONS.VER_INVESTIGACIONES,
+    PERMISSIONS.VER_MAPA,
+    PERMISSIONS.VER_DASHBOARD,
+    PERMISSIONS.VER_PRODUCTIVIDAD,
+    PERMISSIONS.EXPORTAR_DATOS,
+  ],
+
+  [ROLES.INVESTIGADOR]: [
+    PERMISSIONS.VER_INVESTIGACIONES, // Solo las propias (filtrado en API)
+  ],
+
+  [ROLES.AUDITOR]: [
+    PERMISSIONS.VER_INVESTIGACIONES,
+    PERMISSIONS.VER_DASHBOARD,
+    PERMISSIONS.VER_PRODUCTIVIDAD,
+    PERMISSIONS.VER_AUDIT_LOG,
+    PERMISSIONS.VER_INVESTIGADORES,
+  ],
+};
+
+// Metadatos visuales del rol para el frontend
+const ROLE_META = {
+  [ROLES.SUPERADMIN]: {
+    label: 'Super Administrador',
+    color: 'purple',
+    badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/40',
+    icon: '👑',
+    description: 'Acceso total al sistema',
+  },
+  [ROLES.ADMIN]: {
+    label: 'Administrador',
+    color: 'sky',
+    badge: 'bg-sky-500/20 text-sky-300 border border-sky-500/40',
+    icon: '🛡️',
+    description: 'Gestión completa de operaciones',
+  },
+  [ROLES.ASIGNADOR]: {
+    label: 'Asignador de Zonas',
+    color: 'amber',
+    badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+    icon: '📍',
+    description: 'Asignación y seguimiento de investigaciones',
+  },
+  [ROLES.VALIDADOR]: {
+    label: 'Analista de Crédito',
+    color: 'emerald',
+    badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
+    icon: '✅',
+    description: 'Validación y aprobación de estudios',
+  },
+  [ROLES.INVESTIGADOR]: {
+    label: 'Investigador en Campo',
+    color: 'blue',
+    badge: 'bg-blue-500/20 text-blue-300 border border-blue-500/40',
+    icon: '🔍',
+    description: 'Realización de visitas domiciliarias',
+  },
+  [ROLES.AUDITOR]: {
+    label: 'Auditor',
+    color: 'rose',
+    badge: 'bg-rose-500/20 text-rose-300 border border-rose-500/40',
+    icon: '📋',
+    description: 'Lectura de bitácora y estadísticas',
+  },
+};
+
+/**
+ * Verificar si un rol tiene un permiso específico
+ * @param {string} rol
+ * @param {string} permiso
+ * @returns {boolean}
+ */
+function hasPermission(rol, permiso) {
+  const normalizedRol = (rol || '').toLowerCase();
+  const permisos = ROLE_PERMISSIONS[normalizedRol] || [];
+  return permisos.includes(permiso);
+}
+
+module.exports = { ROLES, PERMISSIONS, ROLE_PERMISSIONS, ROLE_META, hasPermission };
