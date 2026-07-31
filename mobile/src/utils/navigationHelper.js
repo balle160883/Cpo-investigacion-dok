@@ -1,9 +1,10 @@
 import { Platform, Linking, Alert } from 'react-native';
 
 /**
- * Convierte un objeto de investigación en una dirección formateada para geocodificación
+ * Convierte un objeto de investigación en una dirección formateada limpia para Google Maps / Waze
  */
 export function construirQueryDireccion(item) {
+  if (!item) return 'Guadalajara, Jalisco, Mexico';
   const partes = [
     item.calle ? `${item.calle} ${item.numero_exterior || ''}`.trim() : null,
     item.colonia ? `Col. ${item.colonia}` : null,
@@ -33,7 +34,6 @@ export function tieneCoordenadasValidas(item) {
 
 /**
  * Geocodificación Automática de respaldo (Nominatim OpenStreetMap)
- * Convierte la dirección en texto a Latitud y Longitud reales antes de navegar
  */
 export async function obtenerCoordenadas(item) {
   if (tieneCoordenadasValidas(item)) {
@@ -62,29 +62,26 @@ export async function obtenerCoordenadas(item) {
 }
 
 /**
- * Abrir aplicación Nativa de Google Maps directamente con Latitud y Longitud
+ * Abrir aplicación Nativa de Google Maps en modo Navegación Estilo Uber (por Coordenadas o Dirección)
  */
 export async function abrirGoogleMapsNativo(item) {
   const coords = await obtenerCoordenadas(item);
+  const query = construirQueryDireccion(item);
 
-  if (!coords) {
-    Alert.alert(
-      'Ubicación no encontrada',
-      'No se pudieron obtener las coordenadas GPS del domicilio. Verifica la dirección.'
-    );
-    return;
+  let targetParam = '';
+  if (coords) {
+    targetParam = `${coords.lat},${coords.lng}`;
+  } else {
+    targetParam = encodeURIComponent(query);
   }
 
-  const { lat, lng } = coords;
-
-  // Esquema Nativo para Android e iOS
   let url = '';
   if (Platform.OS === 'android') {
-    // google.navigation abre directamente la App de Google Maps en modo navegación Turn-by-Turn
-    url = `google.navigation:q=${lat},${lng}`;
+    // google.navigation abre la App nativa de Google Maps directamente en Turn-by-Turn GPS
+    url = `google.navigation:q=${targetParam}`;
   } else {
-    // iOS: comgooglemaps abre la App nativa de Google Maps en iPhone
-    url = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
+    // iOS: comgooglemaps abre la App nativa en iPhone
+    url = `comgooglemaps://?daddr=${targetParam}&directionsmode=driving`;
   }
 
   try {
@@ -92,72 +89,75 @@ export async function abrirGoogleMapsNativo(item) {
     if (canOpen) {
       await Linking.openURL(url);
     } else {
-      // Fallback a geo: intent (Android) o maps: (iOS Apple Maps) si Google Maps App no responde
+      // Fallback intent si la URL nativa directa no responde
       const fallbackUrl =
         Platform.OS === 'android'
-          ? `geo:${lat},${lng}?q=${lat},${lng}`
-          : `maps://?daddr=${lat},${lng}`;
+          ? `geo:0,0?q=${targetParam}`
+          : `maps://?daddr=${targetParam}`;
       
       const canFallback = await Linking.canOpenURL(fallbackUrl);
       if (canFallback) {
         await Linking.openURL(fallbackUrl);
       } else {
-        // Fallback universal a la App mediante HTTP Intent
-        await Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`);
+        // Fallback universal HTTPS (abre la app Google Maps instalada o el navegador)
+        await Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${targetParam}&travelmode=driving`);
       }
     }
   } catch (err) {
-    Alert.alert('Error', 'No se pudo abrir la aplicación de Google Maps');
+    // Fallback de emergencia universal para nunca bloquear al usuario
+    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}&travelmode=driving`).catch(() => {
+      Alert.alert('Error', 'No se pudo abrir la navegación de Google Maps');
+    });
   }
 }
 
 /**
- * Abrir aplicación Nativa de Waze directamente con Latitud y Longitud
+ * Abrir aplicación Nativa de Waze en modo Navegación Estilo Uber (por Coordenadas o Dirección)
  */
 export async function abrirWazeNativo(item) {
   const coords = await obtenerCoordenadas(item);
+  const query = construirQueryDireccion(item);
 
-  if (!coords) {
-    Alert.alert(
-      'Ubicación no encontrada',
-      'No se pudieron obtener las coordenadas GPS del domicilio para Waze. Verifica la dirección.'
-    );
-    return;
+  let nativeUrl = '';
+  let webFallbackUrl = '';
+
+  if (coords) {
+    nativeUrl = `waze://?ll=${coords.lat},${coords.lng}&navigate=yes`;
+    webFallbackUrl = `https://waze.com/ul?ll=${coords.lat},${coords.lng}&navigate=yes`;
+  } else {
+    nativeUrl = `waze://?q=${encodeURIComponent(query)}&navigate=yes`;
+    webFallbackUrl = `https://waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`;
   }
-
-  const { lat, lng } = coords;
-
-  // Esquema Nativo de Waze para app móvil
-  const nativeUrl = `waze://?ll=${lat},${lng}&navigate=yes`;
-  const webFallbackUrl = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
 
   try {
     const canOpen = await Linking.canOpenURL(nativeUrl);
     if (canOpen) {
       await Linking.openURL(nativeUrl);
     } else {
-      // Si la app Waze está instalada en Android/iOS pero canOpenURL no la detectó, intenta abrirla
       await Linking.openURL(nativeUrl).catch(async () => {
         await Linking.openURL(webFallbackUrl);
       });
     }
   } catch (err) {
     Linking.openURL(webFallbackUrl).catch(() => {
-      Alert.alert('Error', 'No se pudo abrir la aplicación de Waze');
+      Alert.alert('Error', 'No se pudo abrir la navegación de Waze');
     });
   }
 }
 
 /**
- * Diálogo interactivo para elegir entre Google Maps y Waze Nativos
+ * Diálogo interactivo para elegir entre Google Maps y Waze Nativos sin alertas de error
  */
 export async function abrirNavegacionNativa(item) {
   const coords = await obtenerCoordenadas(item);
-  const latLngTexto = coords ? `📍 Coordenadas: ${coords.lat}, ${coords.lng}` : `📍 Domicilio: ${construirQueryDireccion(item)}`;
+  const query = construirQueryDireccion(item);
+  const infoTexto = coords
+    ? `📍 Destino GPS: ${coords.lat}, ${coords.lng}`
+    : `📍 Destino Dirección: ${query}`;
 
   Alert.alert(
-    '🗺️ Navegación por GPS Nativa',
-    latLngTexto,
+    '🗺️ Navegación por GPS (Estilo Uber)',
+    infoTexto,
     [
       {
         text: '🗺️ Google Maps',
