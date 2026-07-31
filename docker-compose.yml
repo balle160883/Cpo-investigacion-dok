@@ -14,6 +14,9 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-Seguridad2028@}
       - DB_NAME=${DB_NAME:-postgres}
       - JWT_SECRET=${JWT_SECRET:-cpo-secret-2026}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
 
   frontend:
     build:
@@ -26,9 +29,15 @@ services:
     depends_on:
       - backend
 
-  # Servicio de Backup Automático de PostgreSQL (interno - sin S3 ni servicios externos)
-  # Ejecuta pg_dump cada día a las 2:00 AM y guarda los archivos en el volumen local investigacion_backups
-  # Mantiene los últimos 30 respaldos, eliminando los más antiguos automáticamente
+  # Caché en Memoria Redis — mejora respuesta del dashboard a < 50ms
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - investigacion_redis:/data
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --save 60 1
+
+  # Backup Automático diario de PostgreSQL (sin servicios externos)
   db-backup:
     image: postgres:15-alpine
     restart: always
@@ -55,3 +64,5 @@ volumes:
     name: investigacion_uploads
   investigacion_backups:
     name: investigacion_backups
+  investigacion_redis:
+    name: investigacion_redis

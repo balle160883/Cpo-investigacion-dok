@@ -1,7 +1,31 @@
 const db = require('../../db');
+const { cacheGet, cacheSet } = require('../cache/redis.client');
 
+const STATS_CACHE_KEY = 'cpo:stats:general';
+const PROD_CACHE_KEY = 'cpo:stats:productividad';
+const CACHE_TTL = 120; // 2 minutos
+
+/**
+ * @swagger
+ * /api/stats:
+ *   get:
+ *     summary: Estadísticas globales del sistema CPO
+ *     tags: [Estadísticas]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Contadores generales de investigaciones
+ */
 async function getStats(req, res, next) {
   try {
+    // Intentar responder desde caché Redis (< 5ms)
+    const cached = await cacheGet(STATS_CACHE_KEY);
+    if (cached) {
+      res.set('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+
     // Consulta optimizada en 1 solo viaje a la BD con agregación condicional
     const { rows } = await db.query(`
       SELECT 
@@ -14,21 +38,44 @@ async function getStats(req, res, next) {
     `);
 
     const stats = rows[0] || {};
-
-    res.json({
+    const result = {
       total: parseInt(stats.total || 0),
       completadas: parseInt(stats.completadas || 0),
       en_proceso: parseInt(stats.en_proceso || 0),
       pendientes: parseInt(stats.pendientes || 0),
       investigadores_activos: parseInt(stats.investigadores_activos || 0),
-    });
+    };
+
+    // Guardar en caché Redis por 2 minutos
+    await cacheSet(STATS_CACHE_KEY, result, CACHE_TTL);
+
+    res.set('X-Cache', 'MISS');
+    res.json(result);
   } catch (err) {
     next(err);
   }
 }
 
+/**
+ * @swagger
+ * /api/stats/productividad:
+ *   get:
+ *     summary: Métricas de productividad y efectividad por investigador
+ *     tags: [Estadísticas]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de investigadores con porcentaje de efectividad
+ */
 async function getProductividadInvestigadores(req, res, next) {
   try {
+    const cached = await cacheGet(PROD_CACHE_KEY);
+    if (cached) {
+      res.set('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+
     const { rows } = await db.query(`
       SELECT 
         i.id,
@@ -68,6 +115,9 @@ async function getProductividadInvestigadores(req, res, next) {
       };
     });
 
+    await cacheSet(PROD_CACHE_KEY, result, CACHE_TTL);
+
+    res.set('X-Cache', 'MISS');
     res.json(result);
   } catch (err) {
     next(err);
@@ -78,3 +128,4 @@ module.exports = {
   getStats,
   getProductividadInvestigadores,
 };
+

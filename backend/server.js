@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./src/swagger/swagger.config');
 const initDb = require('./init_db');
 const errorHandler = require('./src/middlewares/error.middleware');
 const auditLogger = require('./src/middlewares/audit.middleware');
@@ -23,7 +25,9 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 }
 
 // Seguridad HTTP con Helmet y CORS
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Necesario para que Swagger UI cargue correctamente
+}));
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
@@ -32,6 +36,16 @@ app.use(auditLogger);
 
 // Servir archivos de evidencias fotográficas almacenados en disco
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Documentación Interactiva de la API (Swagger UI)
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'CPO Investigaciones — API Docs',
+  customCss: '.swagger-ui .topbar { background-color: #0f172a; } .swagger-ui .topbar-wrapper img { content: none; }',
+}));
+app.get('/api/docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
 // Inicializar esquema de Base de Datos al arrancar
 initDb();
@@ -48,5 +62,7 @@ app.use(errorHandler);
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor Backend modular corriendo en puerto ${PORT}`);
   console.log(`📦 Almacenamiento de medios en: ${UPLOADS_DIR}`);
+  console.log(`📖 Documentación API disponible en: http://localhost:${PORT}/api/docs`);
 });
+
 
