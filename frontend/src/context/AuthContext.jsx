@@ -7,6 +7,8 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [theme, setTheme] = useState(() => localStorage.getItem('cpo_theme') || 'dark');
+
   useEffect(() => {
     const savedUser = localStorage.getItem('cpo_user');
     const savedToken = localStorage.getItem('cpo_token');
@@ -32,6 +34,12 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('cpo_theme', nextTheme);
+  };
+
   const login = (userData, userToken) => {
     localStorage.setItem('cpo_user', JSON.stringify(userData));
     localStorage.setItem('cpo_token', userToken);
@@ -55,6 +63,8 @@ export function AuthProvider({ children }) {
         token,
         loading,
         isAuthenticated,
+        theme,
+        toggleTheme,
         login,
         logout,
       }}

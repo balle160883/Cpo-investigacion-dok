@@ -1,9 +1,9 @@
 import React from 'react';
-import { ShieldCheck, Activity, LogOut } from 'lucide-react';
+import { ShieldCheck, Activity, LogOut, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Header({ user: propUser, onLogout: propLogout }) {
-  const { user: contextUser, logout: contextLogout } = useAuth();
+  const { user: contextUser, logout: contextLogout, theme, toggleTheme } = useAuth();
   const user = propUser || contextUser;
   const handleLogout = propLogout || contextLogout;
 
@@ -30,6 +30,24 @@ export default function Header({ user: propUser, onLogout: propLogout }) {
           <span>BD Dokploy Conectada</span>
         </div>
 
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700/50 flex items-center gap-1.5 text-xs font-semibold"
+          title={theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+        >
+          {theme === 'dark' ? (
+            <>
+              <Sun className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline">Claro</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-4 h-4 text-sky-400" />
+              <span className="hidden sm:inline">Oscuro</span>
+            </>
+          )}
+        </button>
+
         <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
           <div className="w-8 h-8 rounded-full bg-sky-600 flex items-center justify-center font-bold text-white text-xs">
             {userName.charAt(0).toUpperCase()}
@@ -41,7 +59,7 @@ export default function Header({ user: propUser, onLogout: propLogout }) {
 
           <button
             onClick={handleLogout}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white transition ml-2"
+            className="p-2 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white transition ml-1"
             title="Cerrar Sesión"
           >
             <LogOut className="w-4 h-4" />

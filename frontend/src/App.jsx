@@ -11,7 +11,7 @@ import MapaPage from './pages/MapaPage';
 import InvestigadoresPage from './pages/InvestigadoresPage';
 
 function AppRoutes() {
-  const { user, isAuthenticated, loading, logout } = useAuth();
+  const { user, isAuthenticated, loading, logout, theme } = useAuth();
 
   if (loading) {
     return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">Cargando sistema...</div>;
@@ -31,7 +31,7 @@ function AppRoutes() {
   const canViewMap = allowedRolesForMap.includes(userRole);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className={`min-h-screen ${theme === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col transition-colors duration-200`}>
       <Header user={user} onLogout={logout} />
       <div className="flex flex-1">
         <Sidebar user={user} />

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador } from '../services/api';
 import { Search, Filter, Eye, UserPlus, MapPin, CheckCircle, Clock, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import Toast from '../components/Toast';
 
 export default function InvestigacionesPage() {
   const [data, setData] = useState([]);
@@ -10,6 +11,7 @@ export default function InvestigacionesPage() {
   const [buscar, setBuscar] = useState('');
   const [estado, setEstado] = useState('');
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ message: '', type: 'success' });
 
   // Modal Asignar
   const [selectedInv, setSelectedInv] = useState(null);
@@ -62,9 +64,10 @@ export default function InvestigacionesPage() {
     try {
       await asignarInvestigador(selectedInv.id_sif_research, selectedInvestigadorId);
       setSelectedInv(null);
+      setToast({ message: `Investigador asignado con éxito a la investigación #${selectedInv.id_sif_research}`, type: 'success' });
       loadInvestigaciones();
     } catch (err) {
-      alert('Error asignando investigador: ' + err.message);
+      setToast({ message: 'Error asignando investigador: ' + err.message, type: 'error' });
     } finally {
       setAssigning(false);
     }
@@ -314,6 +317,13 @@ export default function InvestigacionesPage() {
           </div>
         </div>
       )}
+
+      {/* Notificación Toast */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: '', type: 'success' })}
+      />
     </div>
   );
 }

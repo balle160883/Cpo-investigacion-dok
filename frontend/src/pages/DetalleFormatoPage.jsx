@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchInvestigacionDetalle } from '../services/api';
-import { Printer, ChevronLeft, CheckSquare, Square, Camera } from 'lucide-react';
+import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X } from 'lucide-react';
 
 export default function DetalleFormatoPage() {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedFoto, setSelectedFoto] = useState(null);
+  const [selectedFotoIndex, setSelectedFotoIndex] = useState(null);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [rotation, setRotation] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -342,7 +344,11 @@ export default function DetalleFormatoPage() {
                       src={fotoUri}
                       alt={`Evidencia Fotográfica ${idx + 1}`}
                       className="w-full h-36 object-cover rounded border border-slate-200 cursor-pointer hover:opacity-90 transition"
-                      onClick={() => setSelectedFoto(fotoUri)}
+                      onClick={() => {
+                        setSelectedFotoIndex(idx);
+                        setZoomScale(1);
+                        setRotation(0);
+                      }}
                     />
                     <span className="text-[10px] font-bold text-slate-600 mt-1.5">Evidencia Foto #{idx + 1}</span>
                   </div>
@@ -407,17 +413,117 @@ export default function DetalleFormatoPage() {
 
       </div>
 
-      {/* Modal para ver foto ampliada en la Web */}
-      {selectedFoto && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 no-print" onClick={() => setSelectedFoto(null)}>
-          <div className="relative max-w-3xl max-h-[90vh] bg-slate-900 p-2 rounded-2xl shadow-2xl border border-slate-700" onClick={(e) => e.stopPropagation()}>
+      {/* Lightbox HD Modal para evidencias fotográficas */}
+      {selectedFotoIndex !== null && fotosList[selectedFotoIndex] && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-between p-4 no-print select-none"
+          onClick={() => setSelectedFotoIndex(null)}
+        >
+          {/* Header Bar */}
+          <div className="w-full max-w-4xl flex items-center justify-between text-white z-10 p-2" onClick={(e) => e.stopPropagation()}>
+            <div className="text-xs font-semibold tracking-wide flex items-center gap-2">
+              <Camera className="w-4 h-4 text-sky-400" />
+              <span>Evidencia Fotográfica #{selectedFotoIndex + 1} de {fotosList.length}</span>
+            </div>
+            
+            {/* Controles de Transformación */}
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/60 p-1.5 rounded-xl">
+              <button
+                onClick={() => setZoomScale((z) => Math.max(0.8, z - 0.25))}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition"
+                title="Alejar Zoom"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-[11px] font-mono w-10 text-center font-bold text-sky-400">
+                {Math.round(zoomScale * 100)}%
+              </span>
+              <button
+                onClick={() => setZoomScale((z) => Math.min(3, z + 0.25))}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition"
+                title="Acercar Zoom"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <div className="w-px h-4 bg-slate-700 mx-1"></div>
+              <button
+                onClick={() => setRotation((r) => (r + 90) % 360)}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition"
+                title="Rotar 90°"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+              <div className="w-px h-4 bg-slate-700 mx-1"></div>
+              <a
+                href={fotosList[selectedFotoIndex]}
+                download={`evidencia_investigacion_${inv.id_sif_research}_${selectedFotoIndex + 1}.jpg`}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition flex items-center gap-1"
+                title="Descargar imagen"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+              </a>
+            </div>
+
             <button
-              onClick={() => setSelectedFoto(null)}
-              className="absolute top-4 right-4 bg-red-600 text-white rounded-full w-8 h-8 font-bold flex items-center justify-center hover:bg-red-500 transition"
+              onClick={() => setSelectedFotoIndex(null)}
+              className="p-2 bg-rose-600/80 hover:bg-rose-500 text-white rounded-xl transition"
+              title="Cerrar (Esc)"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
-            <img src={selectedFoto} alt="Evidencia Ampliada" className="max-h-[80vh] max-w-full rounded-xl object-contain mx-auto" />
+          </div>
+
+          {/* Main Image Container */}
+          <div
+            className="flex-1 flex items-center justify-center relative w-full max-w-5xl overflow-hidden my-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Previous Button */}
+            {selectedFotoIndex > 0 && (
+              <button
+                onClick={() => {
+                  setSelectedFotoIndex((i) => i - 1);
+                  setZoomScale(1);
+                  setRotation(0);
+                }}
+                className="absolute left-4 z-20 p-3 bg-slate-900/80 border border-slate-700 hover:bg-sky-600 text-white rounded-2xl transition shadow-xl"
+                title="Fotografía Anterior"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+
+            {/* Image Canvas with Scale & Rotate */}
+            <div className="overflow-auto max-h-full max-w-full flex items-center justify-center p-4">
+              <img
+                src={fotosList[selectedFotoIndex]}
+                alt={`Evidencia ${selectedFotoIndex + 1}`}
+                style={{
+                  transform: `scale(${zoomScale}) rotate(${rotation}deg)`,
+                  transition: 'transform 0.2s ease-out',
+                }}
+                className="max-h-[75vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-slate-800"
+              />
+            </div>
+
+            {/* Next Button */}
+            {selectedFotoIndex < fotosList.length - 1 && (
+              <button
+                onClick={() => {
+                  setSelectedFotoIndex((i) => i + 1);
+                  setZoomScale(1);
+                  setRotation(0);
+                }}
+                className="absolute right-4 z-20 p-3 bg-slate-900/80 border border-slate-700 hover:bg-sky-600 text-white rounded-2xl transition shadow-xl"
+                title="Fotografía Siguiente"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+
+          <div className="text-[11px] text-slate-400 pb-2">
+            Tip: Usa los controles superiores para ajustar el zoom o rotar la fotografía
           </div>
         </div>
       )}
