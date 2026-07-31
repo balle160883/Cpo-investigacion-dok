@@ -47,6 +47,12 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [dictamen, setDictamen] = useState('DOMICILIO CONFIRMADO');
   const [observaciones, setObservaciones] = useState('');
 
+  // 3. Referencias / Avales
+  const [parentescoReferencia, setParentescoReferencia] = useState('Familiar / Aval');
+  const [tiempoConocerlo, setTiempoConocerlo] = useState('5 años');
+  const [confirmoReferencia, setConfirmoReferencia] = useState('SI');
+
+
   // Evidencias: Fotos, Firma y GPS
   const [fotos, setFotos] = useState([]);
   const [firmaUrl, setFirmaUrl] = useState('');
@@ -197,6 +203,14 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         calle_real: calleReal,
         colonia_real: coloniaReal,
         referencias_domicilio: referenciasDomicilio,
+        referencias_avales: [
+          {
+            nombre: inv?.sujeto_nombre || 'Referencia Personal',
+            parentesco: parentescoReferencia,
+            tiempo_conocerlo: tiempoConocerlo,
+            confirmo: confirmoReferencia === 'SI',
+          },
+        ],
       };
 
       const res = await guardarEvidenciaInvestigacion(id, {
@@ -551,7 +565,49 @@ export default function CapturaFormatoScreen({ route, navigation }) {
             placeholderTextColor="#64748b"
           />
         </View>
+
+        {/* INFORMACIÓN DE REFERENCIAS / AVALES (PARENTESCO Y TIEMPO CONOCERLO) */}
+        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#334155' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#38bdf8', marginBottom: 6 }}>
+            🛡️ Información de Referencias / Avales:
+          </Text>
+
+          <Text style={styles.label}>Parentesco o Relación con el {isAval ? 'Solicitante' : 'Aval'}:</Text>
+          <TextInput
+            style={styles.input}
+            value={parentescoReferencia}
+            onChangeText={setParentescoReferencia}
+            placeholder="Ej. Hermano, Amigo, Familiar, Vecino"
+            placeholderTextColor="#64748b"
+          />
+
+          <Text style={styles.label}>Tiempo de Conocerlo (Años / Meses):</Text>
+          <TextInput
+            style={styles.input}
+            value={tiempoConocerlo}
+            onChangeText={setTiempoConocerlo}
+            placeholder="Ej. 5 años, 10 años, Toda la vida"
+            placeholderTextColor="#64748b"
+          />
+
+          <Text style={styles.label}>¿Confirmó Domicilio e Información?:</Text>
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[styles.chip, confirmoReferencia === 'SI' && styles.chipActive]}
+              onPress={() => setConfirmoReferencia('SI')}
+            >
+              <Text style={styles.chipText}>SÍ [X] (Confirmado)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, confirmoReferencia === 'NO' && styles.chipActive]}
+              onPress={() => setConfirmoReferencia('NO')}
+            >
+              <Text style={styles.chipText}>NO [ ] (Rechazado)</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
+
 
       {/* 4. CAPTURA FOTOGRÁFICA */}
       <View style={styles.section}>

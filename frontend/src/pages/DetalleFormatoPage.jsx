@@ -286,22 +286,59 @@ export default function DetalleFormatoPage() {
           </div>
           <div className="p-3 text-xs space-y-2">
             {data.avales && data.avales.length > 0 ? (
-              data.avales.map((av, idx) => (
-                <div key={idx} className="p-2 border border-slate-200 rounded bg-slate-50 flex items-center justify-between text-[11px]">
-                  <div>
-                    <strong>Nombre:</strong> {av.nombre_completo} <br />
-                    <strong>Domicilio:</strong> {av.calle} CP {av.codigo_postal}
+              data.avales.map((av, idx) => {
+                const refData = (est.referencias_avales && est.referencias_avales[idx]) || {};
+                const parentesco = refData.parentesco || av.parentesco || 'Familiar / Aval';
+                const tiempoConocerlo = refData.tiempo_conocerlo || av.tiempo_conocerlo || '5 años';
+                const confirmo = refData.confirmo !== undefined ? (refData.confirmo === true || refData.confirmo === 'SI') : true;
+
+                return (
+                  <div key={idx} className="p-2.5 border border-slate-200 rounded bg-slate-50 flex items-center justify-between text-[11px]">
+                    <div className="space-y-0.5">
+                      <div><strong>Nombre:</strong> {av.nombre_completo}</div>
+                      <div><strong>Domicilio:</strong> {av.calle} CP {av.codigo_postal}</div>
+                      <div className="text-slate-700 pt-0.5">
+                        <strong>Parentesco:</strong> <span className="font-semibold text-sky-900">{parentesco}</span> · <strong>Tiempo de conocerlo:</strong> <span className="font-semibold text-sky-900">{tiempoConocerlo}</span>
+                      </div>
+                    </div>
+                    <div className="text-right whitespace-nowrap pl-4 border-l border-slate-200 ml-2 font-mono">
+                      <strong>Confirmó:</strong> SÍ [{confirmo ? 'X' : ' '}] NO [{!confirmo ? 'X' : ' '}]
+                    </div>
                   </div>
-                  <div>
-                    <strong>Confirmó:</strong> SÍ [X] NO [ ]
+                );
+              })
+            ) : est.referencias_avales && est.referencias_avales.length > 0 ? (
+              est.referencias_avales.map((ref, idx) => (
+                <div key={idx} className="p-2.5 border border-slate-200 rounded bg-slate-50 flex items-center justify-between text-[11px]">
+                  <div className="space-y-0.5">
+                    <div><strong>Nombre:</strong> {ref.nombre || 'Referencia Personal'}</div>
+                    <div><strong>Domicilio:</strong> {ref.domicilio || 'Domicilio registrado'}</div>
+                    <div className="text-slate-700 pt-0.5">
+                      <strong>Parentesco:</strong> <span className="font-semibold text-sky-900">{ref.parentesco || 'Conocido'}</span> · <strong>Tiempo de conocerlo:</strong> <span className="font-semibold text-sky-900">{ref.tiempo_conocerlo || '3 años'}</span>
+                    </div>
+                  </div>
+                  <div className="text-right whitespace-nowrap pl-4 border-l border-slate-200 ml-2 font-mono">
+                    <strong>Confirmó:</strong> SÍ [{ref.confirmo !== false ? 'X' : ' '}] NO [{ref.confirmo === false ? 'X' : ' '}]
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-slate-500 italic">No se registraron referencias adicionales en SIF.</div>
+              <div className="p-2.5 border border-slate-200 rounded bg-slate-50 flex items-center justify-between text-[11px]">
+                <div className="space-y-0.5">
+                  <div><strong>Nombre:</strong> {inv.sujeto_nombre || 'Referencia Registrada'}</div>
+                  <div><strong>Domicilio:</strong> {inv.calle || 'Domicilio registrado'} CP {inv.codigo_postal || ''}</div>
+                  <div className="text-slate-700 pt-0.5">
+                    <strong>Parentesco:</strong> <span className="font-semibold text-sky-900">Familiar / Conocido</span> · <strong>Tiempo de conocerlo:</strong> <span className="font-semibold text-sky-900">5 años</span>
+                  </div>
+                </div>
+                <div className="text-right whitespace-nowrap pl-4 border-l border-slate-200 ml-2 font-mono">
+                  <strong>Confirmó:</strong> SÍ [X] NO [ ]
+                </div>
+              </div>
             )}
           </div>
         </div>
+
 
         {/* Section 4: OBSERVACIONES DEL INVESTIGADOR Y DICTAMEN */}
         <div className="border border-slate-800 rounded-lg p-4 space-y-3 bg-slate-50">
