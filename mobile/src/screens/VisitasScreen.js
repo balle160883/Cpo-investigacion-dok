@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { getAssignedInvestigaciones, enviarUbicacionGPS } from '../api/apiClient';
+import { getAssignedInvestigaciones, enviarUbicacionGPS, getPendingOfflineSurveys, syncPendingSurveys } from '../api/apiClient';
 
 export default function VisitasScreen({ navigation, route }) {
   const [currentUser, setCurrentUser] = useState(route.params?.user || { nombre: 'Investigador' });
@@ -11,10 +11,13 @@ export default function VisitasScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('TODOS'); // TODOS | PENDIENTE | COMPLETADA
+  const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     initUserAndData();
     reportarGPSActual();
+    checkPendingSurveys();
 
     // RASTREO GPS EN TIEMPO REAL: Transmite coordenadas cada 5 segundos (Casi en vivo)
     const gpsInterval = setInterval(() => {
@@ -23,6 +26,33 @@ export default function VisitasScreen({ navigation, route }) {
 
     return () => clearInterval(gpsInterval);
   }, []);
+
+  async function checkPendingSurveys() {
+    try {
+      const pending = await getPendingOfflineSurveys();
+      setPendingOfflineCount(pending.length);
+    } catch (e) {}
+  }
+
+  async function handleSyncManual() {
+    setSyncing(true);
+    try {
+      const res = await syncPendingSurveys();
+      await checkPendingSurveys();
+      if (res.synced > 0) {
+        Alert.alert('Sincronización Exitosa', `Se enviaron ${res.synced} encuestas pendientes al servidor.`);
+        loadData(currentUser?.id);
+      } else if (res.failed > 0) {
+        Alert.alert('Aviso', `No se pudo conectar al servidor. Se reintentará cuando haya internet.`);
+      } else {
+        Alert.alert('Al día', 'No hay encuestas pendientes por enviar.');
+      }
+    } catch (e) {
+      console.log('Error syncing:', e);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function reportarGPSActual() {
     try {
@@ -60,6 +90,7 @@ export default function VisitasScreen({ navigation, route }) {
       const targetId = userId || currentUser?.id;
       const res = await getAssignedInvestigaciones(targetId);
       setVisitas(res.data || []);
+      checkPendingSurveys();
     } catch (err) {
       console.log('Error visitas:', err);
     } finally {
@@ -71,6 +102,7 @@ export default function VisitasScreen({ navigation, route }) {
   const onRefresh = () => {
     setRefreshing(true);
     loadData(currentUser?.id);
+    handleSyncManual();
   };
 
   const visitasFiltradas = visitas.filter((item) => {
@@ -101,6 +133,19 @@ export default function VisitasScreen({ navigation, route }) {
         <Text style={styles.greeting}>Hola, {currentUser?.nombre || 'Investigador'}</Text>
         <Text style={styles.subtext}>Investigaciones asignadas del día</Text>
       </View>
+
+      {/* BANNER DE SINCRONIZACIÓN OFFLINE PENDIENTE */}
+      {pendingOfflineCount > 0 && (
+        <TouchableOpacity
+          style={styles.syncBanner}
+          onPress={handleSyncManual}
+          disabled={syncing}
+        >
+          <Text style={styles.syncBannerText}>
+            {syncing ? '⏳ Sincronizando en campo...' : `⚡ Sincronizar ${pendingOfflineCount} visita(s) guardada(s) localmente`}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* BUSCADOR EN TIEMPO REAL POR COLONIA / SOCIO / FOLIO */}
       <View style={styles.searchContainer}>
@@ -221,6 +266,21 @@ const styles = StyleSheet.create({
   header: { marginBottom: 12, marginTop: 40 },
   greeting: { fontSize: 22, fontWeight: 'bold', color: '#ffffff' },
   subtext: { fontSize: 13, color: '#94a3b8' },
+  syncBanner: {
+    backgroundColor: '#d97706',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+  },
+  syncBannerText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -199,7 +199,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         referencias_domicilio: referenciasDomicilio,
       };
 
-      await guardarEvidenciaInvestigacion(id, {
+      const res = await guardarEvidenciaInvestigacion(id, {
         estudio_socioeconomico,
         dictamen,
         notas_investigador: observaciones,
@@ -210,9 +210,15 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         longitud_checkin: currentCoords ? currentCoords.longitude : -103.3496,
       });
 
-      Alert.alert('Éxito', 'Estudio socio-económico y evidencias guardados correctamente', [
-        { text: 'OK', onPress: () => navigation.navigate('Visitas') },
-      ]);
+      if (res && res.offline) {
+        Alert.alert('Modo Offline', res.message || 'Visita guardada localmente. Se sincronizará automáticamente.', [
+          { text: 'Entendido', onPress: () => navigation.navigate('Visitas') },
+        ]);
+      } else {
+        Alert.alert('Éxito', 'Estudio socio-económico y evidencias guardados correctamente', [
+          { text: 'OK', onPress: () => navigation.navigate('Visitas') },
+        ]);
+      }
     } catch (err) {
       Alert.alert('Error', err.message);
     } finally {

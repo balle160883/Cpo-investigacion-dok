@@ -51,19 +51,102 @@ export async function getInvestigacionDetalle(id) {
   return res.json();
 }
 
+const PENDING_SURVEYS_KEY = 'cpo_pending_offline_surveys';
+
+export async function getPendingOfflineSurveys() {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_SURVEYS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function savePendingOfflineSurvey(id, payload) {
+  try {
+    const pending = await getPendingOfflineSurveys();
+    const existingIndex = pending.findIndex((item) => String(item.id) === String(id));
+    const newItem = { id, payload, savedAt: new Date().toISOString() };
+    
+    if (existingIndex >= 0) {
+      pending[existingIndex] = newItem;
+    } else {
+      pending.push(newItem);
+    }
+    await AsyncStorage.setItem(PENDING_SURVEYS_KEY, JSON.stringify(pending));
+  } catch (e) {
+    console.error('Error al guardar encuestas offline:', e);
+  }
+}
+
+export async function removePendingOfflineSurvey(id) {
+  try {
+    const pending = await getPendingOfflineSurveys();
+    const filtered = pending.filter((item) => String(item.id) !== String(id));
+    await AsyncStorage.setItem(PENDING_SURVEYS_KEY, JSON.stringify(filtered));
+  } catch (e) {
+    console.error('Error al remover encuesta offline:', e);
+  }
+}
+
+export async function syncPendingSurveys() {
+  const pending = await getPendingOfflineSurveys();
+  if (pending.length === 0) return { synced: 0, failed: 0 };
+
+  let synced = 0;
+  let failed = 0;
+
+  for (const item of pending) {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${BASE_URL}/investigaciones/${item.id}/evidencia`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(item.payload),
+      });
+
+      if (res.ok) {
+        await removePendingOfflineSurvey(item.id);
+        synced++;
+      } else {
+        failed++;
+      }
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  return { synced, failed };
+}
+
 export async function guardarEvidenciaInvestigacion(id, payload) {
-  const token = await AsyncStorage.getItem('userToken');
-  const res = await fetch(`${BASE_URL}/investigaciones/${id}/evidencia`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error al guardar captura');
-  return data;
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    const res = await fetch(`${BASE_URL}/investigaciones/${id}/evidencia`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al guardar captura');
+    return data;
+  } catch (err) {
+    if (err.message === 'Network request failed' || err.name === 'TypeError' || err.message?.includes('fetch')) {
+      await savePendingOfflineSurvey(id, payload);
+      return {
+        success: true,
+        offline: true,
+        message: 'Sin conexión a internet. La visita se guardó localmente y se enviará automáticamente cuando tengas señal.',
+      };
+    }
+    throw err;
+  }
 }
 
 export async function enviarUbicacionGPS(latitud, longitud, bateria_nivel) {
