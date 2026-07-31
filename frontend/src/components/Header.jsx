@@ -1,7 +1,12 @@
 import React from 'react';
 import { ShieldCheck, Activity, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-export default function Header({ user, onLogout }) {
+export default function Header({ user: propUser, onLogout: propLogout }) {
+  const { user: contextUser, logout: contextLogout } = useAuth();
+  const user = propUser || contextUser;
+  const handleLogout = propLogout || contextLogout;
+
   const userName = user?.nombre || user?.email || 'Superadministrador';
   const userRole = user?.rol || 'superadmin';
 
@@ -35,7 +40,7 @@ export default function Header({ user, onLogout }) {
           </div>
 
           <button
-            onClick={onLogout}
+            onClick={handleLogout}
             className="p-2 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white transition ml-2"
             title="Cerrar Sesión"
           >

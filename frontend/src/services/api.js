@@ -17,23 +17,34 @@ const getAuthHeaders = () => {
   return headers;
 };
 
+async function handleResponse(res, errorMessage) {
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cpo:unauthorized'));
+    }
+    throw new Error('Sesión expirada o token inválido');
+  }
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || errorMessage || 'Error en la petición');
+  }
+  return res.json();
+}
+
 export async function fetchStats() {
   const res = await fetch(`${getApiBaseUrl()}/stats`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error('Error al cargar estadísticas');
-  return res.json();
+  return handleResponse(res, 'Error al cargar estadísticas');
 }
 
 export async function fetchInvestigaciones(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await fetch(`${getApiBaseUrl()}/investigaciones?${query}`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error('Error al cargar investigaciones');
-  return res.json();
+  return handleResponse(res, 'Error al cargar investigaciones');
 }
 
 export async function fetchInvestigacionDetalle(id) {
   const res = await fetch(`${getApiBaseUrl()}/investigaciones/${id}`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error('Error al cargar detalle de investigación');
-  return res.json();
+  return handleResponse(res, 'Error al cargar detalle de investigación');
 }
 
 export async function asignarInvestigador(investigacionId, investigadorId) {
@@ -42,18 +53,15 @@ export async function asignarInvestigador(investigacionId, investigadorId) {
     headers: getAuthHeaders(),
     body: JSON.stringify({ investigador_id: investigadorId }),
   });
-  if (!res.ok) throw new Error('Error al asignar investigador');
-  return res.json();
+  return handleResponse(res, 'Error al asignar investigador');
 }
 
 export async function fetchInvestigadores() {
   const res = await fetch(`${getApiBaseUrl()}/investigadores`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error('Error al cargar investigadores');
-  return res.json();
+  return handleResponse(res, 'Error al cargar investigadores');
 }
 
 export async function fetchUbicacionesInvestigadores() {
   const res = await fetch(`${getApiBaseUrl()}/investigadores/ubicaciones`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error('Error al cargar ubicaciones');
-  return res.json();
+  return handleResponse(res, 'Error al cargar ubicaciones');
 }

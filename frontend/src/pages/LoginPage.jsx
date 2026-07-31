@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Lock, User, AlertCircle } from 'lucide-react';
 import { getApiBaseUrl } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
-export default function LoginPage({ onLoginSuccess }) {
+export default function LoginPage() {
   const [email, setEmail] = useState('jbb16');
   const [password, setPassword] = useState('Seguridad2026@');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,10 +31,7 @@ export default function LoginPage({ onLoginSuccess }) {
         throw new Error(data.error || 'Credenciales inválidas');
       }
 
-      localStorage.setItem('cpo_token', data.token);
-      localStorage.setItem('cpo_user', JSON.stringify(data.user));
-
-      if (onLoginSuccess) onLoginSuccess(data.user);
+      login(data.user, data.token);
       navigate('/');
     } catch (err) {
       setError(err.message);
