@@ -1,8 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput, Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { getAssignedInvestigaciones, enviarUbicacionGPS, getPendingOfflineSurveys, syncPendingSurveys } from '../api/apiClient';
+
+function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (isNaN(nLat1) || isNaN(nLon1) || isNaN(nLat2) || isNaN(nLon2)) return null;
+  if (nLat2 === 0 && nLon2 === 0) return null;
+
+  const R = 6371; // Radio de la Tierra en KM
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((nLon2 - nLon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((nLat1 * Math.PI) / 180) *
+      Math.cos((nLat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
 
 export default function VisitasScreen({ navigation, route }) {
   const [currentUser, setCurrentUser] = useState(route.params?.user || { nombre: 'Investigador' });
@@ -11,6 +33,8 @@ export default function VisitasScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('TODOS'); // TODOS | PENDIENTE | COMPLETADA
+  const [ordenarCercania, setOrdenarCercania] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
 
@@ -64,11 +88,24 @@ export default function VisitasScreen({ navigation, route }) {
       });
 
       if (loc && loc.coords) {
+        setUserLocation(loc.coords);
         await enviarUbicacionGPS(loc.coords.latitude, loc.coords.longitude, 100);
       }
     } catch (e) {
       console.log('Error transmitiendo ubicación GPS:', e);
     }
+  }
+
+  function abrirNavegacionSencilla(item) {
+    let dest = '';
+    if (item.latitud && item.longitud && Number(item.latitud) !== 0) {
+      dest = `${item.latitud},${item.longitud}`;
+    } else {
+      const query = [item.calle ? `${item.calle} #${item.numero_exterior || ''}` : '', item.colonia, item.municipio || 'Guadalajara', 'Jalisco'].filter(Boolean).join(', ');
+      dest = encodeURIComponent(query);
+    }
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+    Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir aplicación de mapas'));
   }
 
   async function initUserAndData() {
@@ -105,7 +142,14 @@ export default function VisitasScreen({ navigation, route }) {
     handleSyncManual();
   };
 
-  const visitasFiltradas = visitas.filter((item) => {
+  const listConDistancia = visitas.map((item) => {
+    const dist = userLocation
+      ? calcularDistanciaKm(userLocation.latitude, userLocation.longitude, item.latitud, item.longitud)
+      : null;
+    return { ...item, distanciaKm: dist };
+  });
+
+  const visitasFiltradas = listConDistancia.filter((item) => {
     if (filtroEstado !== 'TODOS') {
       if (filtroEstado === 'PENDIENTE') {
         if (item.estado === 'COMPLETADA') return false;
@@ -126,6 +170,14 @@ export default function VisitasScreen({ navigation, route }) {
 
     return enColonia || enCalle || enMunicipio || enEstado || enNombre || enFolio;
   });
+
+  if (ordenarCercania) {
+    visitasFiltradas.sort((a, b) => {
+      if (a.distanciaKm === null) return 1;
+      if (b.distanciaKm === null) return -1;
+      return a.distanciaKm - b.distanciaKm;
+    });
+  }
 
   return (
     <View style={styles.container}>
@@ -164,13 +216,13 @@ export default function VisitasScreen({ navigation, route }) {
         )}
       </View>
 
-      {/* BOTONES DE FILTRO RÁPIDO POR ESTADO */}
+      {/* BOTONES DE FILTRO RÁPIDO Y ORDENAMIENTO POR CERCANÍA */}
       <View style={styles.filterRow}>
         <TouchableOpacity
-          style={[styles.filterChip, filtroEstado === 'TODOS' && styles.filterChipActive]}
-          onPress={() => setFiltroEstado('TODOS')}
+          style={[styles.filterChip, filtroEstado === 'TODOS' && !ordenarCercania && styles.filterChipActive]}
+          onPress={() => { setFiltroEstado('TODOS'); setOrdenarCercania(false); }}
         >
-          <Text style={[styles.filterChipText, filtroEstado === 'TODOS' && styles.filterChipTextActive]}>
+          <Text style={[styles.filterChipText, filtroEstado === 'TODOS' && !ordenarCercania && styles.filterChipTextActive]}>
             Todos ({visitas.length})
           </Text>
         </TouchableOpacity>
@@ -190,12 +242,20 @@ export default function VisitasScreen({ navigation, route }) {
             Completadas
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, ordenarCercania && styles.filterChipActive]}
+          onPress={() => setOrdenarCercania(!ordenarCercania)}
+        >
+          <Text style={[styles.filterChipText, ordenarCercania && styles.filterChipTextActive]}>
+            📍 Cercanas
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* CONTADOR DE RESULTADOS */}
-      {searchQuery.length > 0 && (
+      {/* CONTADOR DE RESULTADOS Y CERCANÍA */}
+      {(searchQuery.length > 0 || ordenarCercania) && (
         <Text style={styles.resultCount}>
-          Mostrando {visitasFiltradas.length} de {visitas.length} investigaciones
+          {ordenarCercania ? '📍 Ordenado por cercanía a tu ubicación GPS' : `Mostrando ${visitasFiltradas.length} de ${visitas.length} investigaciones`}
         </Text>
       )}
 
@@ -231,6 +291,13 @@ export default function VisitasScreen({ navigation, route }) {
                     {item.tipo_sujeto === 'CLIENTE' ? 'SOLICITANTE' : 'AVAL'}
                   </Text>
                 </View>
+
+                {item.distanciaKm !== null && (
+                  <View style={styles.distanciaBadgeContainer}>
+                    <Text style={styles.distanciaBadgeText}>📏 a {item.distanciaKm} km</Text>
+                  </View>
+                )}
+
                 <Text style={styles.folio}>Folio: #{item.id_sif_research}</Text>
               </View>
 
@@ -249,9 +316,17 @@ export default function VisitasScreen({ navigation, route }) {
                 <Text style={styles.monto}>
                   Monto: ${parseFloat(item.monto_solicitado || 0).toLocaleString('es-MX')}
                 </Text>
-                <Text style={[styles.estado, item.estado === 'COMPLETADA' ? styles.estadoComp : styles.estadoPend]}>
-                  {item.estado}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <TouchableOpacity
+                    style={styles.navQuickBtn}
+                    onPress={() => abrirNavegacionSencilla(item)}
+                  >
+                    <Text style={styles.navQuickText}>🗺️ Ruta</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.estado, item.estado === 'COMPLETADA' ? styles.estadoComp : styles.estadoPend]}>
+                    {item.estado}
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
           )}
@@ -322,12 +397,29 @@ const styles = StyleSheet.create({
   badgeSol: { backgroundColor: 'rgba(2, 132, 199, 0.2)' },
   badgeAval: { backgroundColor: 'rgba(168, 85, 247, 0.2)' },
   badgeText: { color: '#38bdf8', fontSize: 10, fontWeight: 'bold' },
+  distanciaBadgeContainer: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  distanciaBadgeText: { color: '#34d399', fontSize: 10, fontWeight: 'bold' },
   folio: { color: '#64748b', fontSize: 12, fontFamily: 'monospace' },
   nombre: { fontSize: 16, fontWeight: 'bold', color: '#ffffff', marginBottom: 4 },
   direccion: { fontSize: 13, color: '#cbd5e1', marginBottom: 2 },
   ubicacionDetalle: { fontSize: 12, color: '#38bdf8', fontWeight: '500', marginBottom: 12 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTopWidth: 1, borderTopColor: '#334155' },
   monto: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
+  navQuickBtn: {
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 4,
+  },
+  navQuickText: { color: '#ffffff', fontSize: 11, fontWeight: 'bold' },
   estado: { fontSize: 11, fontWeight: 'bold', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   estadoComp: { color: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)' },
   estadoPend: { color: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)' },
