@@ -75,32 +75,55 @@ export default function InvestigacionesPage() {
 
   function exportarAExcel() {
     if (!data || data.length === 0) {
-      alert('No hay datos para exportar.');
+      setToast({ message: 'No hay datos de investigaciones para exportar.', type: 'warning' });
       return;
     }
 
-    const headers = ['ID Investigación', 'Solicitud Folio', 'Tipo Sujeto', 'Nombre del Socio', 'Calle', 'Colonia', 'Municipio', 'Estado', 'Investigador', 'Estado Estudio'];
+    const headers = [
+      'ID Investigación (SIF)',
+      'Folio Solicitud',
+      'Tipo Sujeto',
+      'Nombre Completo Socio',
+      'Monto Solicitado',
+      'Calle y Número',
+      'Colonia',
+      'Municipio',
+      'Estado',
+      'Investigador Asignado',
+      'Estatus Estudio',
+      'Fecha Asignación',
+      'Fecha Cumplimiento',
+    ];
+
     const rows = data.map((r) => [
       r.id_sif_research,
       r.solicitud_folio || 'N/A',
       r.tipo_sujeto === 'CLIENTE' ? 'SOLICITANTE' : 'AVAL',
       `"${(r.sujeto_nombre || '').replace(/"/g, '""')}"`,
-      `"${(r.calle || '').replace(/"/g, '""')}"`,
-      `"${(r.colonia || '').replace(/"/g, '""')}"`,
+      `$${parseFloat(r.monto_solicitado || 0).toFixed(2)}`,
+      `"${(r.calle ? `${r.calle} #${r.numero_exterior || ''}` : 'Sin Calle').replace(/"/g, '""')}"`,
+      `"${(r.colonia || 'Sin Colonia').replace(/"/g, '""')}"`,
       `"${(r.municipio || 'Guadalajara').replace(/"/g, '""')}"`,
       `"${(r.estado_provincia || 'Jalisco').replace(/"/g, '""')}"`,
       `"${(r.investigador_nombre || 'Sin Asignar').replace(/"/g, '""')}"`,
-      r.estado,
+      r.estado || 'PENDIENTE',
+      r.fecha_asignacion ? new Date(r.fecha_asignacion).toLocaleDateString('es-MX') : 'Sin Asignar',
+      r.fecha_cumplimiento ? new Date(r.fecha_cumplimiento).toLocaleDateString('es-MX') : 'En Proceso',
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvText = '\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.href = url;
     link.setAttribute('download', `Reporte_Investigaciones_CPO_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setToast({ message: `Exportados ${data.length} registros exitosamente a Excel / CSV`, type: 'success' });
   }
 
   const totalPages = Math.ceil(total / 25) || 1;

@@ -65,3 +65,8 @@ export async function fetchUbicacionesInvestigadores() {
   const res = await fetch(`${getApiBaseUrl()}/investigadores/ubicaciones`, { headers: getAuthHeaders() });
   return handleResponse(res, 'Error al cargar ubicaciones');
 }
+
+export async function fetchProductividadInvestigadores() {
+  const res = await fetch(`${getApiBaseUrl()}/stats/productividad`, { headers: getAuthHeaders() });
+  return handleResponse(res, 'Error al cargar productividad de investigadores');
+}
