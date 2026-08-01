@@ -166,12 +166,17 @@ async function getInvestigacionDetalle(req, res, next) {
         s.cliente_id_sif,
         d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.colonia, d.municipio, d.estado_provincia, d.referencias, d.latitud, d.longitud,
         inv_usr.nombre as investigador_nombre,
-        inv_usr.telefono as investigador_telefono
+        inv_usr.telefono as investigador_telefono,
+        inv.estado_validacion,
+        inv.fecha_validacion,
+        inv.comentarios_validacion,
+        val_usr.nombre as validador_nombre
       FROM investigaciones inv
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
       LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
+      LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
       WHERE CAST(inv.id_sif_research AS TEXT) = CAST($1 AS TEXT)
       LIMIT 1;
     `, [id]);
@@ -333,9 +338,70 @@ async function guardarEvidencia(req, res, next) {
   }
 }
 
+async function validarInvestigacion(req, res, next) {
+  try {
+    const id = req.params.id;
+    const { accion, comentarios } = req.body; // accion: 'VALIDAR' | 'RECHAZAR'
+
+    if (!accion || !['VALIDAR', 'RECHAZAR'].includes(accion)) {
+      return res.status(400).json({ error: 'Acción de validación inválida. Debe ser VALIDAR o RECHAZAR.' });
+    }
+
+    const nuevoEstado = accion === 'VALIDAR' ? 'VALIDADA' : 'RECHAZADA';
+    const validadorId = req.user?.id || null;
+
+    // Asegurar que existan las columnas
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS estado_validacion TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS validador_id INTEGER;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_validacion TIMESTAMP;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_validacion TEXT;`);
+
+    // Obtener estado anterior para audit log
+    const { rows: prev } = await db.query(
+      `SELECT estado, observaciones_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      [id]
+    );
+
+    if (prev.length === 0) {
+      return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+
+    await db.query(`
+      UPDATE investigaciones
+      SET estado = $1,
+          estado_validacion = $1,
+          validador_id = $2,
+          fecha_validacion = NOW(),
+          comentarios_validacion = $3,
+          updated_at = NOW()
+      WHERE CAST(id_sif_research AS TEXT) = CAST($4 AS TEXT);
+    `, [nuevoEstado, validadorId, comentarios || '', id]);
+
+    // Registrar en Audit Log
+    const accionAuditoria = accion === 'VALIDAR' ? 'VALIDAR_INVESTIGACION' : 'RECHAZAR_INVESTIGACION';
+    await registrarAuditoria(req, {
+      accion: accionAuditoria,
+      entidad: 'investigaciones',
+      entidad_id: id,
+      datos_anteriores: { estado: prev[0].estado },
+      datos_nuevos: { estado: nuevoEstado, comentarios_validacion: comentarios },
+    });
+
+    res.json({
+      success: true,
+      message: `Investigación marcada como ${nuevoEstado} correctamente`,
+      estado: nuevoEstado,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
   asignarInvestigador,
   guardarEvidencia,
+  validarInvestigacion,
 };
+

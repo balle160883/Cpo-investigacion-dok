@@ -81,3 +81,13 @@ export async function fetchAuditAcciones() {
   const res = await fetch(`${getApiBaseUrl()}/audit/acciones`, { headers: getAuthHeaders() });
   return handleResponse(res, 'Error al cargar tipos de acciones');
 }
+
+export async function validarInvestigacion(investigacionId, { accion, comentarios }) {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/${investigacionId}/validar`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ accion, comentarios }),
+  });
+  return handleResponse(res, 'Error al validar investigación');
+}
+

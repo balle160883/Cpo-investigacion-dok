@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchInvestigacionDetalle } from '../services/api';
-import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { fetchInvestigacionDetalle, validarInvestigacion } from '../services/api';
+import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import Toast from '../components/Toast';
 
 // Helper: formatea fecha en DD/Mon/AAAA
 function formatFechaCorta(fechaStr) {
@@ -20,19 +21,49 @@ export default function DetalleFormatoPage() {
   const [zoomScale, setZoomScale] = useState(1);
   const [rotation, setRotation] = useState(0);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetchInvestigacionDetalle(id);
-        setData(res);
-      } catch (err) {
-        console.error('Error cargando detalle:', err);
-      } finally {
-        setLoading(false);
-      }
+  // Validación
+  const [validating, setValidating] = useState(false);
+  const [showRechazoModal, setShowRechazoModal] = useState(false);
+  const [comentariosRechazo, setComentariosRechazo] = useState('');
+  const [toast, setToast] = useState({ message: '', type: 'success' });
+
+  const userRole = (localStorage.getItem('userRole') || '').toLowerCase();
+  const canValidate = ['superadmin', 'admin', 'validador'].includes(userRole);
+
+
+  async function loadData() {
+    try {
+      const res = await fetchInvestigacionDetalle(id);
+      setData(res);
+    } catch (err) {
+      console.error('Error cargando detalle:', err);
+    } finally {
+      setLoading(false);
     }
-    load();
+  }
+
+  useEffect(() => {
+    loadData();
   }, [id]);
+
+  async function handleEjecutarValidacion(accion, comentarios = '') {
+    setValidating(true);
+    try {
+      const res = await validarInvestigacion(id, { accion, comentarios });
+      setToast({
+        message: res.message || `Investigación ${accion === 'VALIDAR' ? 'VALIDADA' : 'RECHAZADA'} con éxito`,
+        type: accion === 'VALIDAR' ? 'success' : 'warning',
+      });
+      setShowRechazoModal(false);
+      setComentariosRechazo('');
+      await loadData();
+    } catch (err) {
+      setToast({ message: 'Error procesando validación: ' + err.message, type: 'error' });
+    } finally {
+      setValidating(false);
+    }
+  }
+
 
   if (loading) {
     return <div className="p-12 text-center text-slate-500">Cargando formato de investigación...</div>;
@@ -117,6 +148,111 @@ export default function DetalleFormatoPage() {
           </button>
         </div>
       </div>
+
+      {/* Toast Alert */}
+      {toast.message && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />}
+
+      {/* PANEL DE VALIDACIÓN Y DICTAMEN DE ANÁLISIS DE CRÉDITO (Oculto en impresión) */}
+      <div className="no-print bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Estado de Validación:</span>
+            {inv.estado === 'VALIDADA' ? (
+              <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" /> ESTUDIO VALIDADO Y APROBADO
+              </span>
+            ) : inv.estado === 'RECHAZADA' ? (
+              <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 text-xs font-bold flex items-center gap-1.5">
+                <XCircle className="w-4 h-4" /> RECHAZADO / CORRECCIÓN SOLICITADA
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-xs font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4" /> PENDIENTE DE VALIDACIÓN
+              </span>
+            )}
+          </div>
+
+          {/* Botones de acción para Validador / Admin / Superadmin */}
+          {canValidate && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleEjecutarValidacion('VALIDAR', 'Estudio socioeconómico validado correctamente')}
+                disabled={validating || inv.estado === 'VALIDADA'}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30"
+              >
+                <CheckCircle2 className="w-4 h-4" /> {validating ? 'Procesando...' : '✅ Aprobar y Validar Estudio'}
+              </button>
+
+              <button
+                onClick={() => setShowRechazoModal(true)}
+                disabled={validating}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-600/30"
+              >
+                <XCircle className="w-4 h-4" /> ❌ Rechazar Estudio
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Detalle de validación previo si existe */}
+        {inv.validador_nombre && (
+          <div className="text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-1">
+            <div className="flex items-center justify-between text-slate-400">
+              <span><strong>Validador / Analista:</strong> {inv.validador_nombre}</span>
+              <span><strong>Fecha de Dictamen:</strong> {formatFechaCorta(inv.fecha_validacion)}</span>
+            </div>
+            {inv.comentarios_validacion && (
+              <div className="text-slate-200 pt-1 font-mono text-[11px]">
+                <strong>Comentarios del Dictamen:</strong> {inv.comentarios_validacion}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* MODAL DE RECHAZO */}
+      {showRechazoModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-rose-400 flex items-center gap-2">
+                <XCircle className="w-5 h-5" /> Rechazar / Solicitud de Corrección
+              </h3>
+              <button onClick={() => setShowRechazoModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Escriba el motivo por el cual se rechaza el estudio. Este comentario se mostrará al investigador en la app móvil para que pueda corregir o complementar la información:
+            </p>
+
+            <textarea
+              value={comentariosRechazo}
+              onChange={(e) => setComentariosRechazo(e.target.value)}
+              placeholder="Ej. La fotografía de la fachada está borrosa, por favor tomar nuevamente..."
+              className="w-full h-28 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 resize-none"
+            />
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowRechazoModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleEjecutarValidacion('RECHAZAR', comentariosRechazo)}
+                disabled={validating || !comentariosRechazo.trim()}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5"
+              >
+                Confirmar Rechazo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* BANNER VIGENCIA 90 DÍAS (oculto en impresión) */}
       {vigenciaPrevia && vigenciaPrevia.visita_vigente && (

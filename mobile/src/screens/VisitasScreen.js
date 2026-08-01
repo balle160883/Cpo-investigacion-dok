@@ -357,6 +357,16 @@ export default function VisitasScreen({ navigation, route }) {
                 </View>
               )}
 
+              {/* RECHAZO MOTIVO BANNER */}
+              {item.estado === 'RECHAZADA' && (
+                <View style={styles.rechazoBadge}>
+                  <Text style={styles.rechazoBadgeTitle}>❌ RECHAZADA — Corrección Requerida:</Text>
+                  <Text style={styles.rechazoBadgeText}>
+                    {item.comentarios_validacion || 'Se solicitó corregir la información o fotografías enviadas.'}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.cardFooter}>
                 <Text style={styles.monto}>
                   Monto: ${parseFloat(item.monto_solicitado || 0).toLocaleString('es-MX')}
@@ -368,11 +378,17 @@ export default function VisitasScreen({ navigation, route }) {
                   >
                     <Text style={styles.navQuickText}>🗺️ Ruta</Text>
                   </TouchableOpacity>
-                  <Text style={[styles.estado, item.estado === 'COMPLETADA' ? styles.estadoComp : styles.estadoPend]}>
-                    {item.estado}
+                  <Text style={[
+                    styles.estado,
+                    item.estado === 'VALIDADA' ? styles.estadoValidadas :
+                    item.estado === 'RECHAZADA' ? styles.estadoRechazadas :
+                    item.estado === 'COMPLETADA' ? styles.estadoComp : styles.estadoPend
+                  ]}>
+                    {item.estado === 'VALIDADA' ? 'VALIDADA ✅' : item.estado === 'RECHAZADA' ? 'RECHAZADA ❌' : item.estado}
                   </Text>
                 </View>
               </View>
+
             </TouchableOpacity>
           )}
         />
@@ -474,6 +490,20 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 13, color: '#94a3b8', textAlign: 'center', marginBottom: 20 },
   refreshBtn: { backgroundColor: '#0284c7', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
   refreshBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 14 },
+  estadoValidadas: { color: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.2)' },
+  estadoRechazadas: { color: '#f87171', backgroundColor: 'rgba(248, 113, 113, 0.2)' },
+  rechazoBadge: {
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.35)',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  rechazoBadgeTitle: { color: '#f87171', fontSize: 11, fontWeight: 'bold' },
+  rechazoBadgeText: { color: '#fca5a5', fontSize: 11, marginTop: 2 },
   vigenciaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -492,5 +522,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
 
 

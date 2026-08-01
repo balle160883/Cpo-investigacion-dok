@@ -171,6 +171,8 @@ export default function InvestigacionesPage() {
               <option value="PENDIENTE">Pendientes</option>
               <option value="EN_PROCESO">En Proceso</option>
               <option value="COMPLETADA">Completadas</option>
+              <option value="VALIDADA">Validadas ✅</option>
+              <option value="RECHAZADA">Rechazadas ❌</option>
             </select>
           </form>
 
@@ -203,13 +205,13 @@ export default function InvestigacionesPage() {
             <tbody className="divide-y divide-slate-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-12 text-slate-500">
+                  <td colSpan="8" className="text-center py-12 text-slate-500">
                     Cargando catálogo de investigaciones...
                   </td>
                 </tr>
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-12 text-slate-500">
+                  <td colSpan="8" className="text-center py-12 text-slate-500">
                     No se encontraron registros de investigación.
                   </td>
                 </tr>
@@ -271,13 +273,17 @@ export default function InvestigacionesPage() {
 
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        row.estado === 'COMPLETADA'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        row.estado === 'VALIDADA'
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold'
+                          : row.estado === 'RECHAZADA'
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold'
+                          : row.estado === 'COMPLETADA'
+                          ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                           : row.estado === 'EN_PROCESO'
                           ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                           : 'bg-slate-800 text-slate-400 border border-slate-700'
                       }`}>
-                        {row.estado}
+                        {row.estado === 'VALIDADA' ? 'VALIDADA ✅' : row.estado === 'RECHAZADA' ? 'RECHAZADA ❌' : row.estado}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right space-x-2">
