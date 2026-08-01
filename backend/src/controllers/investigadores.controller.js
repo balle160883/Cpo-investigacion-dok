@@ -4,6 +4,18 @@ const { JWT_SECRET } = require('../middlewares/auth.middleware');
 
 async function getInvestigadores(req, res, next) {
   try {
+    try {
+      await db.query(`
+        UPDATE investigadores
+        SET rol = 'analista'
+        WHERE UPPER(nombre) LIKE '%NORMA%' 
+           OR UPPER(nombre) LIKE '%BERMEJO%'
+           OR UPPER(nombre) LIKE '%PALOS%'
+           OR UPPER(email) LIKE '%NORMA%'
+           OR UPPER(email) LIKE '%BERMEJO%';
+      `);
+    } catch (e) {}
+
     const { rows } = await db.query(
       'SELECT id, nombre, email, telefono, rol, activo, created_at FROM investigadores ORDER BY nombre ASC;'
     );

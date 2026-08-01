@@ -129,9 +129,11 @@ async function initDb() {
       await db.query(`
         UPDATE investigadores
         SET rol = 'analista'
-        WHERE UPPER(nombre) LIKE '%NORMA%BERMEJO%' 
-           OR UPPER(nombre) LIKE '%LIZETTE%BERMEJO%'
-           OR UPPER(nombre) LIKE '%NORMA%LIZETTE%';
+        WHERE UPPER(nombre) LIKE '%NORMA%' 
+           OR UPPER(nombre) LIKE '%BERMEJO%'
+           OR UPPER(nombre) LIKE '%PALOS%'
+           OR UPPER(email) LIKE '%NORMA%'
+           OR UPPER(email) LIKE '%BERMEJO%';
       `);
     } catch (e) {}
 
