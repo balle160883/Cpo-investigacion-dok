@@ -124,6 +124,17 @@ async function initDb() {
       ]);
     }
 
+    // Actualización automática de rol para Norma Lizette Bermejo Palos
+    try {
+      await db.query(`
+        UPDATE investigadores
+        SET rol = 'analista'
+        WHERE UPPER(nombre) LIKE '%NORMA%BERMEJO%' 
+           OR UPPER(nombre) LIKE '%LIZETTE%BERMEJO%'
+           OR UPPER(nombre) LIKE '%NORMA%LIZETTE%';
+      `);
+    } catch (e) {}
+
     console.log('✅ Esquema inicializado correctamente.');
   } catch (err) {
     console.error('Error inicializando base de datos:', err);
