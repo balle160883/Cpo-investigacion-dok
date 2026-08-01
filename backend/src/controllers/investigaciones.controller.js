@@ -144,6 +144,12 @@ async function getInvestigacionDetalle(req, res, next) {
   try {
     const id = req.params.id;
 
+    // Garantizar que existen las columnas de validación antes de consultarlas
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS estado_validacion TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS validador_id INTEGER;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_validacion TIMESTAMP;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_validacion TEXT;`);
+
     // 1. Investigacion principal
     const invRes = await db.query(`
       SELECT 
