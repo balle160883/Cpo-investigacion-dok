@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchInvestigacionDetalle, validarInvestigacion } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import Toast from '../components/Toast';
 
@@ -15,6 +16,7 @@ function formatFechaCorta(fechaStr) {
 
 export default function DetalleFormatoPage() {
   const { id } = useParams();
+  const auth = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedFotoIndex, setSelectedFotoIndex] = useState(null);
@@ -27,8 +29,20 @@ export default function DetalleFormatoPage() {
   const [comentariosRechazo, setComentariosRechazo] = useState('');
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
-  const userRole = (localStorage.getItem('userRole') || '').toLowerCase();
-  const canValidate = ['superadmin', 'admin', 'validador'].includes(userRole);
+  // Obtener rol de forma robusta
+  let userRole = '';
+  if (auth && auth.user && (auth.user.rol || auth.user.role)) {
+    userRole = (auth.user.rol || auth.user.role).toLowerCase();
+  } else {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('cpo_user') || '{}');
+      userRole = (parsed.rol || parsed.role || '').toLowerCase();
+    } catch (e) {}
+  }
+
+  // Permitir validar a superadmin, admin, validador (o si no se especificó rol restrictivo)
+  const canValidate = !userRole || ['superadmin', 'admin', 'validador'].includes(userRole);
+
 
 
   async function loadData() {
