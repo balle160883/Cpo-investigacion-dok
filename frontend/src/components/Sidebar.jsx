@@ -16,7 +16,7 @@ export default function Sidebar({ user }) {
   const userRole = (user?.rol || '').toLowerCase();
   const roleMeta = ROLE_META[userRole] || { label: userRole, badge: 'bg-slate-700 text-slate-300', icon: '👤' };
 
-  const canViewMap = ['superadmin', 'admin', 'asignador', 'validador', 'analista'].includes(userRole);
+  const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
 
   const navItems = [

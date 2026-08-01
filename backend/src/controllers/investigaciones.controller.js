@@ -27,6 +27,10 @@ async function getInvestigaciones(req, res, next) {
       if (userRol === 'investigador' && req.user.id) {
         targetInvestigadorId = req.user.id;
       }
+      // ANALISTA: solo puede ver investigaciones con estado_validacion = 'VALIDADA'
+      if (userRol === 'analista') {
+        whereClauses.push(`inv.estado_validacion = 'VALIDADA'`);
+      }
     }
 
     if (estado) {

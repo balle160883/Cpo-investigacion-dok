@@ -3,6 +3,7 @@ import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador } from '
 import { Search, Filter, Eye, UserPlus, MapPin, CheckCircle, Clock, FileText, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 
 // Helper: formatea fecha en DD/Mon/AAAA
 function formatFechaCorta(fechaStr) {
@@ -14,6 +15,13 @@ function formatFechaCorta(fechaStr) {
 }
 
 export default function InvestigacionesPage() {
+  const auth = useAuth();
+  const userRole = (() => {
+    if (auth?.user?.rol) return auth.user.rol.toLowerCase();
+    try { return (JSON.parse(localStorage.getItem('cpo_user') || '{}').rol || '').toLowerCase(); } catch { return ''; }
+  })();
+  const isAnalista = userRole === 'analista';
+
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -141,11 +149,17 @@ export default function InvestigacionesPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Investigaciones Domiciliarias</h2>
-          <p className="text-slate-400 text-sm">Administración, asignación y exportación de estudios a Solicitantes y Avales.</p>
+          <h2 className="text-2xl font-bold text-white tracking-tight">
+            {isAnalista ? '📊 Investigaciones Validadas — Revisión' : 'Investigaciones Domiciliarias'}
+          </h2>
+          <p className="text-slate-400 text-sm">
+            {isAnalista
+              ? 'Vista de solo lectura. Aquí aparecen únicamente las investigaciones que ya fueron aprobadas por el Validador.'
+              : 'Administración, asignación y exportación de estudios a Solicitantes y Avales.'}
+          </p>
         </div>
 
-        {/* Search, Export & Filter Bar */}
+        {/* Search & Filter Bar — ocultar botones de acción para Analista */}
         <div className="flex flex-wrap items-center gap-2">
           <form onSubmit={handleSearch} className="flex items-center gap-2">
             <div className="relative">
@@ -159,32 +173,48 @@ export default function InvestigacionesPage() {
               />
             </div>
 
-            <select
-              value={estado}
-              onChange={(e) => {
-                setEstado(e.target.value);
-                setPage(1);
-              }}
-              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-300 focus:outline-none focus:border-sky-500"
-            >
-              <option value="">Todos los Estados</option>
-              <option value="PENDIENTE">Pendientes</option>
-              <option value="EN_PROCESO">En Proceso</option>
-              <option value="COMPLETADA">Completadas</option>
-              <option value="VALIDADA">Validadas ✅</option>
-              <option value="RECHAZADA">Rechazadas ❌</option>
-            </select>
+            {/* El Analista solo ve sus investigaciones VALIDADAS — no tiene filtro de estado */}
+            {!isAnalista && (
+              <select
+                value={estado}
+                onChange={(e) => {
+                  setEstado(e.target.value);
+                  setPage(1);
+                }}
+                className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-300 focus:outline-none focus:border-sky-500"
+              >
+                <option value="">Todos los Estados</option>
+                <option value="PENDIENTE">Pendientes</option>
+                <option value="EN_PROCESO">En Proceso</option>
+                <option value="COMPLETADA">Completadas</option>
+                <option value="VALIDADA">Validadas ✅</option>
+                <option value="RECHAZADA">Rechazadas ❌</option>
+              </select>
+            )}
           </form>
 
-          <button
-            onClick={exportarAExcel}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5"
-            title="Exportar listado actual a Excel / CSV"
-          >
-            <FileText className="w-4 h-4" /> Exportar a Excel
-          </button>
+          {!isAnalista && (
+            <button
+              onClick={exportarAExcel}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5"
+              title="Exportar listado actual a Excel / CSV"
+            >
+              <FileText className="w-4 h-4" /> Exportar a Excel
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Banner informativo para Analista */}
+      {isAnalista && (
+        <div className="flex items-center gap-3 bg-teal-900/40 border border-teal-700/60 rounded-xl px-4 py-3 text-teal-300 text-sm">
+          <ShieldCheck className="w-5 h-5 flex-shrink-0" />
+          <span>
+            <strong>Modo Solo Lectura — Analista.</strong> Solo puedes consultar el formato completo de las investigaciones que el Validador ya aprobó. No puedes crear, modificar ni validar investigaciones.
+          </span>
+        </div>
+      )}
+
 
       {/* Data Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
@@ -287,21 +317,23 @@ export default function InvestigacionesPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => openAssignModal(row)}
-                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-sky-600 text-sky-400 hover:text-white text-xs font-semibold transition"
-                        title="Asignar Investigador"
-                      >
-                        <UserPlus className="w-3.5 h-3.5 inline mr-1" />
-                        Asignar
-                      </button>
+                      {!isAnalista && (
+                        <button
+                          onClick={() => openAssignModal(row)}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-sky-600 text-sky-400 hover:text-white text-xs font-semibold transition"
+                          title="Asignar Investigador"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 inline mr-1" />
+                          Asignar
+                        </button>
+                      )}
 
                       <Link
                         to={`/investigaciones/${row.id_sif_research}`}
                         className="px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition inline-flex items-center gap-1 shadow-md shadow-sky-600/20"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        Ver Formato
+                        {isAnalista ? 'Consultar' : 'Ver Formato'}
                       </Link>
                     </td>
                   </tr>
