@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador } from '../services/api';
-import { Search, Filter, Eye, UserPlus, MapPin, CheckCircle, Clock, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, Eye, UserPlus, MapPin, CheckCircle, Clock, FileText, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
+
+// Helper: formatea fecha en DD/Mon/AAAA
+function formatFechaCorta(fechaStr) {
+  if (!fechaStr) return '—';
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const d = new Date(fechaStr);
+  if (isNaN(d)) return '—';
+  return `${String(d.getDate()).padStart(2,'0')}/${meses[d.getMonth()]}/${d.getFullYear()}`;
+}
 
 export default function InvestigacionesPage() {
   const [data, setData] = useState([]);
@@ -186,6 +195,7 @@ export default function InvestigacionesPage() {
                 <th className="px-5 py-3.5">Nombre del Socio</th>
                 <th className="px-5 py-3.5">Domicilio y Colonia</th>
                 <th className="px-5 py-3.5">Investigador Asignado</th>
+                <th className="px-5 py-3.5">Vigencia Visita</th>
                 <th className="px-5 py-3.5">Estado</th>
                 <th className="px-5 py-3.5 text-right">Acciones</th>
               </tr>
@@ -238,6 +248,27 @@ export default function InvestigacionesPage() {
                         <span className="text-slate-500 italic">Sin Asignar</span>
                       )}
                     </td>
+
+                    {/* COLUMNA VIGENCIA 90 DÍAS */}
+                    <td className="px-5 py-4 text-xs">
+                      {row.visita_vigente ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 text-[10px] font-bold">
+                            <ShieldCheck className="w-3 h-3" />
+                            Vigente hasta {formatFechaCorta(row.visita_vigente_hasta)}
+                          </span>
+                          <Link
+                            to={`/investigaciones/${row.visita_previa_id}`}
+                            className="text-[10px] text-sky-500 hover:text-sky-300 underline pl-0.5"
+                          >
+                            Ver visita #{row.visita_previa_id}
+                          </Link>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-[10px] italic">Sin visita previa</span>
+                      )}
+                    </td>
+
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                         row.estado === 'COMPLETADA'

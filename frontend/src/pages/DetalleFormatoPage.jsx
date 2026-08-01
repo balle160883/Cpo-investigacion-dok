@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchInvestigacionDetalle } from '../services/api';
-import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X } from 'lucide-react';
+import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X, ShieldCheck, AlertTriangle } from 'lucide-react';
+
+// Helper: formatea fecha en DD/Mon/AAAA
+function formatFechaCorta(fechaStr) {
+  if (!fechaStr) return '—';
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const d = new Date(fechaStr);
+  if (isNaN(d)) return '—';
+  return `${String(d.getDate()).padStart(2,'0')}/${meses[d.getMonth()]}/${d.getFullYear()}`;
+}
 
 export default function DetalleFormatoPage() {
   const { id } = useParams();
@@ -35,7 +44,8 @@ export default function DetalleFormatoPage() {
 
   const inv = data.investigacion;
   const ev = data.evidencia || {};
-  
+  const vigenciaPrevia = data.vigenciaPrevia || null;
+
   let est = {};
   try {
     est = typeof ev.estudio_socioeconomico === 'string' ? JSON.parse(ev.estudio_socioeconomico) : (ev.estudio_socioeconomico || {});
@@ -107,6 +117,32 @@ export default function DetalleFormatoPage() {
           </button>
         </div>
       </div>
+
+      {/* BANNER VIGENCIA 90 DÍAS (oculto en impresión) */}
+      {vigenciaPrevia && vigenciaPrevia.visita_vigente && (
+        <div className="no-print flex items-start gap-3 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 rounded-2xl p-4 shadow-lg shadow-emerald-500/10">
+          <ShieldCheck className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" />
+          <div className="text-sm leading-relaxed">
+            <p className="font-bold text-emerald-300 text-base">
+              ✅ Visita de Campo Vigente — No requiere nueva visita
+            </p>
+            <p className="text-emerald-400 mt-0.5">
+              Esta persona ya fue investigada el{' '}
+              <strong>{formatFechaCorta(vigenciaPrevia.visita_realizada_en)}</strong>{' '}
+              como{' '}
+              <strong>{vigenciaPrevia.tipo_previo === 'CLIENTE' ? 'Solicitante' : 'Aval'}</strong>.
+              La vigencia de esa visita expira el{' '}
+              <strong className="text-white">{formatFechaCorta(vigenciaPrevia.visita_vigente_hasta)}</strong>.
+            </p>
+            <Link
+              to={`/investigaciones/${vigenciaPrevia.visita_previa_id}`}
+              className="inline-block mt-1.5 text-xs font-semibold text-emerald-300 hover:text-white underline"
+            >
+              📎 Ver formato de la visita anterior #{vigenciaPrevia.visita_previa_id}
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Official Form Document Container */}
       <div className="bg-white text-slate-900 rounded-xl p-8 shadow-2xl border border-slate-200 print-area space-y-6">

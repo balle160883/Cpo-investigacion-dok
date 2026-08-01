@@ -92,12 +92,31 @@ async function getInvestigaciones(req, res, next) {
         d.colonia,
         d.municipio,
         d.estado_provincia,
-        inv_usr.nombre as investigador_nombre
+        inv_usr.nombre as investigador_nombre,
+        -- VIGENCIA 90 DÍAS: busca si esta persona tiene evidencia reciente en CUALQUIER investigación
+        vigencia.visita_previa_id,
+        vigencia.visita_realizada_en,
+        vigencia.visita_vigente_hasta,
+        (vigencia.visita_vigente_hasta IS NOT NULL AND vigencia.visita_vigente_hasta > NOW()) AS visita_vigente
       FROM investigaciones inv
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
       LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
+      -- Subconsulta de vigencia: busca la evidencia más reciente de la misma persona en los últimos 90 días
+      LEFT JOIN LATERAL (
+        SELECT
+          inv2.id_sif_research AS visita_previa_id,
+          ev2.created_at AS visita_realizada_en,
+          (ev2.created_at + INTERVAL '90 days') AS visita_vigente_hasta
+        FROM evidencias_visita ev2
+        JOIN investigaciones inv2 ON CAST(ev2.investigacion_id_sif AS TEXT) = CAST(inv2.id_sif_research AS TEXT)
+        WHERE CAST(inv2.persona_id_sif AS TEXT) = CAST(inv.persona_id_sif AS TEXT)
+          AND ev2.created_at >= NOW() - INTERVAL '90 days'
+          AND CAST(inv2.id_sif_research AS TEXT) != CAST(inv.id_sif_research AS TEXT)
+        ORDER BY ev2.created_at DESC
+        LIMIT 1
+      ) vigencia ON TRUE
       ${whereSql}
       ORDER BY inv.id_sif_research DESC
       LIMIT $${limitIndex} OFFSET $${offsetIndex};
@@ -184,10 +203,35 @@ async function getInvestigacionDetalle(req, res, next) {
 
     const evidencia = evRes.rows.length > 0 ? evRes.rows[0] : null;
 
+    // 4. Vigencia 90 días: ¿Esta persona tiene una visita anterior válida en otra investigación?
+    let vigenciaPrevia = null;
+    if (investigacion.persona_id_sif) {
+      const vigenciaRes = await db.query(`
+        SELECT
+          inv2.id_sif_research AS visita_previa_id,
+          inv2.tipo_sujeto AS tipo_previo,
+          ev2.created_at AS visita_realizada_en,
+          (ev2.created_at + INTERVAL '90 days') AS visita_vigente_hasta,
+          ((ev2.created_at + INTERVAL '90 days') > NOW()) AS visita_vigente
+        FROM evidencias_visita ev2
+        JOIN investigaciones inv2 ON CAST(ev2.investigacion_id_sif AS TEXT) = CAST(inv2.id_sif_research AS TEXT)
+        WHERE CAST(inv2.persona_id_sif AS TEXT) = CAST($1 AS TEXT)
+          AND ev2.created_at >= NOW() - INTERVAL '90 days'
+          AND CAST(inv2.id_sif_research AS TEXT) != CAST($2 AS TEXT)
+        ORDER BY ev2.created_at DESC
+        LIMIT 1;
+      `, [investigacion.persona_id_sif, id]);
+
+      if (vigenciaRes.rows.length > 0) {
+        vigenciaPrevia = vigenciaRes.rows[0];
+      }
+    }
+
     res.json({
       investigacion,
       avales,
       evidencia,
+      vigenciaPrevia,
     });
   } catch (err) {
     next(err);

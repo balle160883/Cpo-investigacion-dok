@@ -30,6 +30,15 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   return Math.round(R * c * 10) / 10;
 }
 
+// Helper: formatea fecha en DD/Mon/AAAA
+function formatFechaCorta(fechaStr) {
+  if (!fechaStr) return '';
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const d = new Date(fechaStr);
+  if (isNaN(d)) return '';
+  return `${String(d.getDate()).padStart(2,'0')}/${meses[d.getMonth()]}/${d.getFullYear()}`;
+}
+
 export default function VisitasScreen({ navigation, route }) {
   const [currentUser, setCurrentUser] = useState(route.params?.user || { nombre: 'Investigador' });
   const [visitas, setVisitas] = useState([]);
@@ -339,6 +348,15 @@ export default function VisitasScreen({ navigation, route }) {
                 🏡 {item.colonia ? `Col. ${item.colonia}` : 'Sin Colonia'}, {item.municipio || 'Guadalajara'}, {item.estado_provincia || 'Jalisco'}
               </Text>
 
+              {/* BADGE VIGENCIA 90 DÍAS */}
+              {item.visita_vigente && (
+                <View style={styles.vigenciaBadge}>
+                  <Text style={styles.vigenciaBadgeText}>
+                    ✅ Visita vigente hasta {formatFechaCorta(item.visita_vigente_hasta)} — Puede reutilizarse
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.cardFooter}>
                 <Text style={styles.monto}>
                   Monto: ${parseFloat(item.monto_solicitado || 0).toLocaleString('es-MX')}
@@ -456,5 +474,23 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 13, color: '#94a3b8', textAlign: 'center', marginBottom: 20 },
   refreshBtn: { backgroundColor: '#0284c7', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
   refreshBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 14 },
+  vigenciaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(52, 211, 153, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.35)',
+    borderRadius: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  vigenciaBadgeText: {
+    color: '#34d399',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
 });
+
 
