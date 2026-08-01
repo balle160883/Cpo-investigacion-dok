@@ -6,7 +6,8 @@ const ROLE_META = {
   superadmin: { label: 'Super Admin', badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/40', icon: '👑' },
   admin:       { label: 'Administrador', badge: 'bg-sky-500/20 text-sky-300 border border-sky-500/40', icon: '🛡️' },
   asignador:   { label: 'Asignador de Zonas', badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/40', icon: '📍' },
-  validador:   { label: 'Analista de Crédito', badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40', icon: '✅' },
+  validador:   { label: 'Validador de Crédito', badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40', icon: '✅' },
+  analista:    { label: 'Analista de Investigaciones', badge: 'bg-teal-500/20 text-teal-300 border border-teal-500/40', icon: '📊' },
   investigador:{ label: 'Investigador en Campo', badge: 'bg-blue-500/20 text-blue-300 border border-blue-500/40', icon: '🔍' },
   auditor:     { label: 'Auditor', badge: 'bg-rose-500/20 text-rose-300 border border-rose-500/40', icon: '📋' },
 };
@@ -15,7 +16,7 @@ export default function Sidebar({ user }) {
   const userRole = (user?.rol || '').toLowerCase();
   const roleMeta = ROLE_META[userRole] || { label: userRole, badge: 'bg-slate-700 text-slate-300', icon: '👤' };
 
-  const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].includes(userRole);
+  const canViewMap = ['superadmin', 'admin', 'asignador', 'validador', 'analista'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
 
   const navItems = [

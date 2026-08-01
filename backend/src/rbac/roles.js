@@ -15,6 +15,7 @@ const ROLES = {
   ADMIN: 'admin',
   ASIGNADOR: 'asignador',
   VALIDADOR: 'validador',
+  ANALISTA: 'analista',
   INVESTIGADOR: 'investigador',
   AUDITOR: 'auditor',
 };
@@ -78,6 +79,15 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.EXPORTAR_DATOS,
   ],
 
+  [ROLES.ANALISTA]: [
+    PERMISSIONS.VER_INVESTIGACIONES,
+    PERMISSIONS.VALIDAR_INVESTIGACION,
+    PERMISSIONS.VER_MAPA,
+    PERMISSIONS.VER_DASHBOARD,
+    PERMISSIONS.VER_PRODUCTIVIDAD,
+    PERMISSIONS.EXPORTAR_DATOS,
+  ],
+
   [ROLES.INVESTIGADOR]: [
     PERMISSIONS.VER_INVESTIGACIONES, // Solo las propias (filtrado en API)
   ],
@@ -115,11 +125,18 @@ const ROLE_META = {
     description: 'Asignación y seguimiento de investigaciones',
   },
   [ROLES.VALIDADOR]: {
-    label: 'Analista de Crédito',
+    label: 'Validador de Crédito',
     color: 'emerald',
     badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
     icon: '✅',
     description: 'Validación y aprobación de estudios',
+  },
+  [ROLES.ANALISTA]: {
+    label: 'Analista de Investigaciones',
+    color: 'teal',
+    badge: 'bg-teal-500/20 text-teal-300 border border-teal-500/40',
+    icon: '📊',
+    description: 'Revisión y dictamen de formatos e investigaciones',
   },
   [ROLES.INVESTIGADOR]: {
     label: 'Investigador en Campo',

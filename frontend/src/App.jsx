@@ -28,7 +28,7 @@ function AppRoutes() {
   }
 
   const userRole = (user?.rol || '').toLowerCase();
-  const canViewMap = ['superadmin', 'asignador', 'validador', 'admin'].includes(userRole);
+  const canViewMap = ['superadmin', 'asignador', 'validador', 'analista', 'admin'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
 
   return (

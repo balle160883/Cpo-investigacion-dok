@@ -40,8 +40,8 @@ export default function DetalleFormatoPage() {
     } catch (e) {}
   }
 
-  // Permitir validar a superadmin, admin, validador (o si no se especificó rol restrictivo)
-  const canValidate = !userRole || ['superadmin', 'admin', 'validador'].includes(userRole);
+  // Permitir validar a superadmin, admin, validador, analista (o si no se especificó rol restrictivo)
+  const canValidate = !userRole || ['superadmin', 'admin', 'validador', 'analista'].includes(userRole);
 
 
 
