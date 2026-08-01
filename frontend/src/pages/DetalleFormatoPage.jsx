@@ -521,24 +521,32 @@ export default function DetalleFormatoPage() {
         {/* Section 4: OBSERVACIONES DEL INVESTIGADOR Y DICTAMEN */}
         <div className="border border-slate-800 rounded-lg p-4 space-y-3 bg-slate-50">
           <div className="font-bold text-xs uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1">
-            4. OBSERVACIONES Y DICTAMEN DEL INVESTIGADOR
+            4. OBSERVACIONES Y DICTAMEN DEL INVESTIGADOR DE CAMPO
           </div>
           <div className="text-xs text-slate-800 min-h-[60px] whitespace-pre-wrap font-mono bg-white p-3 rounded border border-slate-300">
-            {ev.notas_investigador || inv.observaciones_sif || 'El domicilio fue verificado satisfactoriamente. Se corroboró la identidad y estancia del socio en la vivienda indicada.'}
+            {ev.notas_investigador || inv.observaciones_sif || 'Sin observaciones adicionales.'}
           </div>
 
           <div className="flex items-center justify-between pt-2 text-xs font-bold">
             <div className="flex items-center gap-2">
-              <span>Dictamen Final:</span>
-              <span className="px-3 py-1 rounded bg-slate-900 text-white uppercase text-[11px]">
-                {inv.estado === 'COMPLETADA' ? 'APROBADO - DOMICILIO CONFIRMADO' : 'EN REVISIÓN'}
-              </span>
+              <span>Dictamen de Campo:</span>
+              {(() => {
+                const dictText = (est.dictamen || ev.notas_investigador || '').toUpperCase();
+                if (dictText.includes('PENDIENTE')) {
+                  return <span className="px-3 py-1 rounded bg-amber-600 text-white uppercase text-[11px]">⏳ PENDIENTE DE VISITA</span>;
+                } else if (dictText.includes('NO LOCALIZADO')) {
+                  return <span className="px-3 py-1 rounded bg-rose-600 text-white uppercase text-[11px]">✕ DOMICILIO NO LOCALIZADO</span>;
+                } else {
+                  return <span className="px-3 py-1 rounded bg-sky-700 text-white uppercase text-[11px]">✓ DOMICILIO CONFIRMADO</span>;
+                }
+              })()}
             </div>
             <div>
-              Investigador: <span className="font-semibold">{inv.investigador_nombre || 'Carlos Mendoza'}</span>
+              Investigador: <span className="font-semibold">{inv.investigador_nombre || 'Asignado'}</span>
             </div>
           </div>
         </div>
+
 
         {/* Section 5: EVIDENCIA FOTOGRÁFICA REGISTRADA DESDE LA APP MÓVIL */}
         <div className="border border-slate-800 rounded-lg overflow-hidden">

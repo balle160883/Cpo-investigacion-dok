@@ -180,6 +180,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       }
 
       const estudio_socioeconomico = {
+        dictamen: dictamen,
         quien_atendio: quienAtendio,
         nombre_atendio: nombreAtendio,
         parentesco_atendio: parentescoAtendio,
@@ -709,14 +710,20 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>6. Observaciones y Dictamen</Text>
         <Text style={styles.label}>Dictamen:</Text>
-        <View style={styles.row}>
-          <TouchableOpacity style={[styles.chip, dictamen === 'DOMICILIO CONFIRMADO' && styles.chipActive]} onPress={() => setDictamen('DOMICILIO CONFIRMADO')}>
-            <Text style={styles.chipText}>✓ Confirmado</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.chip, dictamen === 'DOMICILIO NO LOCALIZADO' && styles.chipActive]} onPress={() => setDictamen('DOMICILIO NO LOCALIZADO')}>
-            <Text style={styles.chipText}>✕ No Localizado</Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 4 }}>
+          <View style={styles.row}>
+            <TouchableOpacity style={[styles.chip, dictamen === 'DOMICILIO CONFIRMADO' && styles.chipActive]} onPress={() => setDictamen('DOMICILIO CONFIRMADO')}>
+              <Text style={styles.chipText}>✓ Confirmado</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.chip, dictamen === 'DOMICILIO NO LOCALIZADO' && styles.chipActive]} onPress={() => setDictamen('DOMICILIO NO LOCALIZADO')}>
+              <Text style={styles.chipText}>✕ No Localizado</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.chip, dictamen === 'PENDIENTE DE VISITA' && styles.chipActive]} onPress={() => setDictamen('PENDIENTE DE VISITA')}>
+              <Text style={styles.chipText}>⏳ Pendiente de Visita</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
 
         <Text style={styles.label}>Observaciones:</Text>
         <TextInput
