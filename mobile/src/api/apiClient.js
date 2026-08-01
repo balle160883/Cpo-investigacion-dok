@@ -233,3 +233,24 @@ export async function enviarUbicacionGPS(latitud, longitud, bateria_nivel) {
     // Falla silenciosa de rastreo GPS en segundo plano
   }
 }
+
+/**
+ * Envía una imagen en base64 al backend para que Tesseract.js
+ * extraiga automáticamente los campos del frente del INE mexicano.
+ * @param {string} base64Image - Imagen del INE en formato base64 (con o sin prefijo data:image)
+ * @returns {Promise<Object>} - Campos extraídos: curp, clave_elector, folio_cic, nombre_completo, domicilio, etc.
+ */
+export async function escanearINEConFoto(base64Image) {
+  const token = await getToken();
+  const res = await fetch(`${BASE_URL}/ocr/ine`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : '',
+    },
+    body: JSON.stringify({ imagen_base64: base64Image }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al procesar la imagen del INE');
+  return data;
+}

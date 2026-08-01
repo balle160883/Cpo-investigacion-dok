@@ -14,6 +14,7 @@ const statsRoutes = require('./src/routes/stats.routes');
 const investigadoresRoutes = require('./src/routes/investigadores.routes');
 const investigacionesRoutes = require('./src/routes/investigaciones.routes');
 const auditRoutes = require('./src/routes/audit.routes');
+const ocrRoutes = require('./src/routes/ocr.routes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -57,6 +58,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/investigadores', investigadoresRoutes);
 app.use('/api/investigaciones', investigacionesRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/ocr', ocrRoutes);
 
 // Middleware Global de Manejo de Errores
 app.use(errorHandler);

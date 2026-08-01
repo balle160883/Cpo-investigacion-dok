@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { guardarEvidenciaInvestigacion } from '../api/apiClient';
+import { guardarEvidenciaInvestigacion, escanearINEConFoto } from '../api/apiClient';
 import SignaturePad from '../components/SignaturePad';
 
 export default function CapturaFormatoScreen({ route, navigation }) {
@@ -63,6 +63,88 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [location, setLocation] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [scanningIne, setScanningIne] = useState(false);
+
+  async function handleEscanearINE() {
+    Alert.alert(
+      '📷 Escanear INE Oficial',
+      'Selecciona el origen de la fotografía del frente de la credencial del INE:',
+      [
+        {
+          text: 'Tomar Foto (Cámara)',
+          onPress: async () => {
+            const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permissionResult.granted) {
+              Alert.alert('Permiso requerido', 'Se necesita acceso a la cámara para escanear el INE.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              quality: 0.8,
+              base64: true,
+            });
+            if (!result.canceled && result.assets && result.assets[0]?.base64) {
+              procesarFotoINEBase64(result.assets[0].base64);
+            }
+          },
+        },
+        {
+          text: 'Seleccionar (Galería)',
+          onPress: async () => {
+            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permissionResult.granted) {
+              Alert.alert('Permiso requerido', 'Se necesita acceso a la galería para seleccionar la foto del INE.');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              quality: 0.8,
+              base64: true,
+            });
+            if (!result.canceled && result.assets && result.assets[0]?.base64) {
+              procesarFotoINEBase64(result.assets[0].base64);
+            }
+          },
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  }
+
+  async function procesarFotoINEBase64(base64Data) {
+    setScanningIne(true);
+    try {
+      const res = await escanearINEConFoto(base64Data);
+      if (res.success && res.campos) {
+        const c = res.campos;
+        const folioExtraido = c.folio_cic || c.clave_elector || c.curp;
+
+        if (folioExtraido) {
+          setFolioId(folioExtraido);
+        }
+
+        if (c.domicilio && !tieneDireccionDiferente) {
+          setTieneDireccionDiferente(true);
+          setCalleReal(c.domicilio);
+          if (c.colonia) setColoniaReal(c.colonia);
+        }
+
+        let msg = 'Se extrajeron los siguientes datos del INE:\n\n';
+        if (c.nombre_completo) msg += `• Nombre: ${c.nombre_completo}\n`;
+        if (c.curp) msg += `• CURP: ${c.curp}\n`;
+        if (c.clave_elector) msg += `• Clave Elector: ${c.clave_elector}\n`;
+        if (c.folio_cic) msg += `• Folio CIC/OCR: ${c.folio_cic}\n`;
+        if (c.domicilio) msg += `• Domicilio: ${c.domicilio}\n`;
+
+        Alert.alert('✅ INE Escaneada con Éxito', msg);
+      } else {
+        Alert.alert('⚠️ OCR INE', 'No se pudieron extraer datos legibles. Asegúrate de tomar la foto con buena iluminación y sin reflejos.');
+      }
+    } catch (err) {
+      Alert.alert('Error al procesar INE', err.message || 'Ocurrió un error al procesar la imagen con OCR.');
+    } finally {
+      setScanningIne(false);
+    }
+  }
+
 
   useEffect(() => {
     obtenerUbicacionGPS();
@@ -312,6 +394,33 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
         <Text style={styles.label}>Identificación Oficial:</Text>
         <TextInput style={styles.input} placeholder="Folio de INE/Pasaporte" placeholderTextColor="#64748b" value={folioId} onChangeText={setFolioId} />
+
+        {/* BOTÓN DE ESCANEO OCR AUTOMÁTICO DE INE */}
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#0284c7',
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginVertical: 8,
+            borderWidth: 1,
+            borderColor: '#38bdf8',
+          }}
+          onPress={handleEscanearINE}
+          disabled={scanningIne}
+        >
+          {scanningIne ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 13 }}>
+              📷 Escanear INE con OCR (Captura Automática)
+            </Text>
+          )}
+        </TouchableOpacity>
+
 
         <Text style={styles.label}>Ocupación ({isAval ? 'del Aval' : 'del Solicitante'}):</Text>
         <TextInput
