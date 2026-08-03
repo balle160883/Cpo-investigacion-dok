@@ -379,13 +379,13 @@ async function validarInvestigacion(req, res, next) {
     await db.query(`
       UPDATE investigaciones
       SET estado = $1,
-          estado_validacion = $1,
-          validador_id = $2,
+          estado_validacion = $2,
+          validador_id = $3,
           fecha_validacion = NOW(),
-          comentarios_validacion = $3,
+          comentarios_validacion = $4,
           updated_at = NOW()
-      WHERE CAST(id_sif_research AS TEXT) = CAST($4 AS TEXT);
-    `, [nuevoEstado, validadorId, comentarios || '', id]);
+      WHERE CAST(id_sif_research AS TEXT) = CAST($5 AS TEXT);
+    `, [nuevoEstado, nuevoEstado, validadorId, comentarios || '', id]);
 
     // Registrar en Audit Log
     const accionAuditoria = accion === 'VALIDAR' ? 'VALIDAR_INVESTIGACION' : 'RECHAZAR_INVESTIGACION';
@@ -447,13 +447,13 @@ async function revalidarInvestigacion(req, res, next) {
     await db.query(`
       UPDATE investigaciones
       SET estado = $1,
-          estado_validacion = $1,
-          analista_id = $2,
+          estado_validacion = $2,
+          analista_id = $3,
           fecha_revalidacion = NOW(),
-          comentarios_revalidacion = $3,
+          comentarios_revalidacion = $4,
           updated_at = NOW()
-      WHERE CAST(id_sif_research AS TEXT) = CAST($4 AS TEXT);
-    `, [nuevoEstado, analistaId, comentarios || '', id]);
+      WHERE CAST(id_sif_research AS TEXT) = CAST($5 AS TEXT);
+    `, [nuevoEstado, nuevoEstado, analistaId, comentarios || '', id]);
 
     // Registrar en Audit Log
     const accionAuditoria = accion === 'APROBAR_FINAL' ? 'APROBAR_INVESTIGACION_FINAL' : 'DEVOLVER_A_VALIDADOR';
