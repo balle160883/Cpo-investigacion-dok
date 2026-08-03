@@ -303,7 +303,11 @@ export default function InvestigacionesPage() {
 
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        row.estado === 'VALIDADA'
+                        row.estado === 'APROBADA_FINAL'
+                          ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30 font-bold'
+                          : row.estado === 'DEVUELTA_A_VALIDADOR'
+                          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold'
+                          : row.estado === 'VALIDADA'
                           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold'
                           : row.estado === 'RECHAZADA'
                           ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold'
@@ -313,9 +317,14 @@ export default function InvestigacionesPage() {
                           ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                           : 'bg-slate-800 text-slate-400 border border-slate-700'
                       }`}>
-                        {row.estado === 'VALIDADA' ? 'VALIDADA ✅' : row.estado === 'RECHAZADA' ? 'RECHAZADA ❌' : row.estado}
+                        {row.estado === 'APROBADA_FINAL' ? '✅✅ APROBADA FINAL'
+                          : row.estado === 'DEVUELTA_A_VALIDADOR' ? '🔄 DEVUELTA'
+                          : row.estado === 'VALIDADA' ? 'VALIDADA ✅'
+                          : row.estado === 'RECHAZADA' ? 'RECHAZADA ❌'
+                          : row.estado}
                       </span>
                     </td>
+
                     <td className="px-5 py-4 text-right space-x-2">
                       {!isAnalista && (
                         <button

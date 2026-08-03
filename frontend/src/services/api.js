@@ -91,3 +91,11 @@ export async function validarInvestigacion(investigacionId, { accion, comentario
   return handleResponse(res, 'Error al validar investigación');
 }
 
+export async function revalidarInvestigacion(investigacionId, { accion, comentarios }) {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/${investigacionId}/revalidar`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ accion, comentarios }),
+  });
+  return handleResponse(res, 'Error al revalidar investigación');
+}

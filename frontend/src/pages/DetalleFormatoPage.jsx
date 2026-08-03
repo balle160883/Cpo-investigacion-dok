@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchInvestigacionDetalle, validarInvestigacion } from '../services/api';
+import { fetchInvestigacionDetalle, validarInvestigacion, revalidarInvestigacion } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import Toast from '../components/Toast';
@@ -23,11 +23,16 @@ export default function DetalleFormatoPage() {
   const [zoomScale, setZoomScale] = useState(1);
   const [rotation, setRotation] = useState(0);
 
-  // Validación
+  // Validación del Validador
   const [validating, setValidating] = useState(false);
   const [showRechazoModal, setShowRechazoModal] = useState(false);
   const [comentariosRechazo, setComentariosRechazo] = useState('');
   const [toast, setToast] = useState({ message: '', type: 'success' });
+
+  // Revalidación del Analista
+  const [revalidating, setRevalidating] = useState(false);
+  const [showDevolucionModal, setShowDevolucionModal] = useState(false);
+  const [comentariosDevolucion, setComentariosDevolucion] = useState('');
 
   // Obtener rol de forma robusta
   let userRole = '';
@@ -40,8 +45,11 @@ export default function DetalleFormatoPage() {
     } catch (e) {}
   }
 
-  // Permitir validar solo a superadmin, admin y validador — el analista es solo lectura
+  const isAnalista = userRole === 'analista';
+  // Permitir validar solo a superadmin, admin y validador — el analista es solo lectura en el primer paso
   const canValidate = !userRole || ['superadmin', 'admin', 'validador'].includes(userRole);
+  // El analista puede revalidar solo cuando el estado es VALIDADA
+  const canRevalidar = isAnalista;
 
 
 
@@ -75,6 +83,24 @@ export default function DetalleFormatoPage() {
       setToast({ message: 'Error procesando validación: ' + err.message, type: 'error' });
     } finally {
       setValidating(false);
+    }
+  }
+
+  async function handleEjecutarRevalidacion(accion, comentarios = '') {
+    setRevalidating(true);
+    try {
+      const res = await revalidarInvestigacion(id, { accion, comentarios });
+      setToast({
+        message: res.message || `Investigación procesada con éxito`,
+        type: accion === 'APROBAR_FINAL' ? 'success' : 'warning',
+      });
+      setShowDevolucionModal(false);
+      setComentariosDevolucion('');
+      await loadData();
+    } catch (err) {
+      setToast({ message: 'Error procesando revalidación: ' + err.message, type: 'error' });
+    } finally {
+      setRevalidating(false);
     }
   }
 
@@ -167,13 +193,22 @@ export default function DetalleFormatoPage() {
       {toast.message && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />}
 
       {/* PANEL DE VALIDACIÓN Y DICTAMEN DE ANÁLISIS DE CRÉDITO (Oculto en impresión) */}
+
       <div className="no-print bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4 shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Estado de Validación:</span>
-            {inv.estado === 'VALIDADA' ? (
+            {inv.estado === 'APROBADA_FINAL' ? (
+              <span className="px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/40 text-xs font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" /> ✅✅ APROBACIÓN FINAL DEL ANALISTA
+              </span>
+            ) : inv.estado === 'DEVUELTA_A_VALIDADOR' ? (
+              <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/40 text-xs font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4" /> 🔄 DEVUELTA AL VALIDADOR
+              </span>
+            ) : inv.estado === 'VALIDADA' ? (
               <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" /> ESTUDIO VALIDADO Y APROBADO
+                <CheckCircle2 className="w-4 h-4" /> VALIDADO POR ANALISTA DE CRÉDITO
               </span>
             ) : inv.estado === 'RECHAZADA' ? (
               <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 text-xs font-bold flex items-center gap-1.5">
@@ -186,15 +221,15 @@ export default function DetalleFormatoPage() {
             )}
           </div>
 
-          {/* Botones de acción para Validador / Admin / Superadmin */}
+          {/* Botones VALIDADOR: Aprobar o Rechazar el estudio del investigador */}
           {canValidate && (
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleEjecutarValidacion('VALIDAR', 'Estudio socioeconómico validado correctamente')}
-                disabled={validating || inv.estado === 'VALIDADA'}
+                onClick={() => handleEjecutarValidacion('VALIDAR', 'Estudio socioecónómico validado correctamente')}
+                disabled={validating || ['VALIDADA','APROBADA_FINAL','DEVUELTA_A_VALIDADOR'].includes(inv.estado)}
                 className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30"
               >
-                <CheckCircle2 className="w-4 h-4" /> {validating ? 'Procesando...' : '✅ Aprobar y Validar Estudio'}
+                <CheckCircle2 className="w-4 h-4" /> {validating ? 'Procesando...' : '✅ Validar Estudio'}
               </button>
 
               <button
@@ -208,16 +243,80 @@ export default function DetalleFormatoPage() {
           )}
         </div>
 
-        {/* Detalle de validación previo si existe */}
+        {/* Detalle de validación del Validador si existe */}
         {inv.validador_nombre && (
           <div className="text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800 space-y-1">
+            <div className="text-[10px] text-teal-400 font-bold uppercase tracking-wider mb-1">Paso 1 — Dictamen del Validador de Crédito</div>
             <div className="flex items-center justify-between text-slate-400">
-              <span><strong>Validador / Analista:</strong> {inv.validador_nombre}</span>
-              <span><strong>Fecha de Dictamen:</strong> {formatFechaCorta(inv.fecha_validacion)}</span>
+              <span><strong>Validador:</strong> {inv.validador_nombre}</span>
+              <span><strong>Fecha:</strong> {formatFechaCorta(inv.fecha_validacion)}</span>
             </div>
             {inv.comentarios_validacion && (
               <div className="text-slate-200 pt-1 font-mono text-[11px]">
-                <strong>Comentarios del Dictamen:</strong> {inv.comentarios_validacion}
+                <strong>Comentarios:</strong> {inv.comentarios_validacion}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* PANEL DE REVALIDACIÓN DEL ANALISTA — solo visible para el Analista cuando el estado es VALIDADA */}
+        {canRevalidar && inv.estado === 'VALIDADA' && (
+          <div className="border border-teal-700/50 bg-teal-950/40 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2 text-teal-300 text-xs font-bold uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4" />
+              Paso 2 — Tu Revisión Final como Analista
+            </div>
+            <p className="text-xs text-slate-400">
+              El Validador ya aprobó este estudio. Revisa el formato completo y emite tu dictamen final:
+            </p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => handleEjecutarRevalidacion('APROBAR_FINAL', 'Investigación aprobada definitivamente por el Analista.')}
+                disabled={revalidating}
+                className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-teal-600/30"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {revalidating ? 'Procesando...' : '✅✅ Aprobar Definitivamente'}
+              </button>
+              <button
+                onClick={() => setShowDevolucionModal(true)}
+                disabled={revalidating}
+                className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-orange-600/30"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                🔄 Devolver al Validador
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Ficha de aprobación final del Analista */}
+        {inv.estado === 'APROBADA_FINAL' && inv.fecha_revalidacion && (
+          <div className="text-xs text-slate-300 bg-teal-950/40 p-3 rounded-xl border border-teal-700/50 space-y-1">
+            <div className="text-[10px] text-teal-300 font-bold uppercase tracking-wider mb-1">Paso 2 — Aprobación Final del Analista</div>
+            <div className="flex items-center justify-between text-slate-400">
+              <span><strong>Analista:</strong> {inv.analista_nombre || 'Analista'}</span>
+              <span><strong>Fecha Aprobación Final:</strong> {formatFechaCorta(inv.fecha_revalidacion)}</span>
+            </div>
+            {inv.comentarios_revalidacion && (
+              <div className="text-teal-200 pt-1 font-mono text-[11px]">
+                <strong>Comentarios Analista:</strong> {inv.comentarios_revalidacion}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Ficha de devolución al Validador */}
+        {inv.estado === 'DEVUELTA_A_VALIDADOR' && inv.fecha_revalidacion && (
+          <div className="text-xs text-slate-300 bg-orange-950/40 p-3 rounded-xl border border-orange-700/50 space-y-1">
+            <div className="text-[10px] text-orange-300 font-bold uppercase tracking-wider mb-1">Paso 2 — Devuelta al Validador por el Analista</div>
+            <div className="flex items-center justify-between text-slate-400">
+              <span><strong>Analista:</strong> {inv.analista_nombre || 'Analista'}</span>
+              <span><strong>Fecha Devolución:</strong> {formatFechaCorta(inv.fecha_revalidacion)}</span>
+            </div>
+            {inv.comentarios_revalidacion && (
+              <div className="text-orange-200 pt-1 font-mono text-[11px]">
+                <strong>Motivo de devolución:</strong> {inv.comentarios_revalidacion}
               </div>
             )}
           </div>
@@ -267,6 +366,48 @@ export default function DetalleFormatoPage() {
         </div>
       )}
 
+      {/* MODAL DE DEVOLUCIÓN AL VALIDADOR (por el Analista) */}
+      {showDevolucionModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-orange-400 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> Devolver al Validador
+              </h3>
+              <button onClick={() => setShowDevolucionModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Indique el motivo por el cual devuelve el estudio al Validador para que lo revise nuevamente. Este comentario quedará registrado en el historial:
+            </p>
+
+            <textarea
+              value={comentariosDevolucion}
+              onChange={(e) => setComentariosDevolucion(e.target.value)}
+              placeholder="Ej. Falta documentación del domicilio, el formato del aval está incompleto..."
+              className="w-full h-28 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 resize-none"
+            />
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowDevolucionModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleEjecutarRevalidacion('DEVOLVER_VALIDADOR', comentariosDevolucion)}
+                disabled={revalidating || !comentariosDevolucion.trim()}
+                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5"
+              >
+                🔄 Confirmar Devolución
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* BANNER VIGENCIA 90 DÍAS (oculto en impresión) */}
       {vigenciaPrevia && vigenciaPrevia.visita_vigente && (

@@ -407,11 +407,81 @@ async function validarInvestigacion(req, res, next) {
   }
 }
 
+async function revalidarInvestigacion(req, res, next) {
+  try {
+    const id = req.params.id;
+    // accion: 'APROBAR_FINAL' | 'DEVOLVER_VALIDADOR'
+    const { accion, comentarios } = req.body;
+
+    if (!accion || !['APROBAR_FINAL', 'DEVOLVER_VALIDADOR'].includes(accion)) {
+      return res.status(400).json({ error: 'Acción de revalidación inválida. Debe ser APROBAR_FINAL o DEVOLVER_VALIDADOR.' });
+    }
+
+    // Verificar que la investigación exista y esté VALIDADA (solo se puede revalidar tras el validador)
+    const { rows: prev } = await db.query(
+      `SELECT estado, estado_validacion FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      [id]
+    );
+
+    if (prev.length === 0) {
+      return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+
+    const estadoActual = prev[0].estado_validacion || prev[0].estado;
+    if (estadoActual !== 'VALIDADA') {
+      return res.status(422).json({
+        error: `Solo se puede revalidar una investigación con estado VALIDADA. Estado actual: ${estadoActual}`,
+      });
+    }
+
+    const nuevoEstado = accion === 'APROBAR_FINAL' ? 'APROBADA_FINAL' : 'DEVUELTA_A_VALIDADOR';
+    const analistaId = req.user?.id || null;
+
+    // Garantizar columnas de revalidacion
+    try {
+      await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS analista_id INTEGER;`);
+      await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_revalidacion TIMESTAMP;`);
+      await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_revalidacion TEXT;`);
+    } catch (e) {}
+
+    await db.query(`
+      UPDATE investigaciones
+      SET estado = $1,
+          estado_validacion = $1,
+          analista_id = $2,
+          fecha_revalidacion = NOW(),
+          comentarios_revalidacion = $3,
+          updated_at = NOW()
+      WHERE CAST(id_sif_research AS TEXT) = CAST($4 AS TEXT);
+    `, [nuevoEstado, analistaId, comentarios || '', id]);
+
+    // Registrar en Audit Log
+    const accionAuditoria = accion === 'APROBAR_FINAL' ? 'APROBAR_INVESTIGACION_FINAL' : 'DEVOLVER_A_VALIDADOR';
+    await registrarAuditoria(req, {
+      accion: accionAuditoria,
+      entidad: 'investigaciones',
+      entidad_id: id,
+      datos_anteriores: { estado: estadoActual },
+      datos_nuevos: { estado: nuevoEstado, comentarios_revalidacion: comentarios },
+    });
+
+    res.json({
+      success: true,
+      message: accion === 'APROBAR_FINAL'
+        ? `✅ Investigación aprobada definitivamente (APROBADA_FINAL).`
+        : `🔄 Investigación devuelta al Validador para revisión.`,
+      estado: nuevoEstado,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
   asignarInvestigador,
   guardarEvidencia,
   validarInvestigacion,
+  revalidarInvestigacion,
 };
-
