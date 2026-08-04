@@ -10,6 +10,7 @@ import DetalleFormatoPage from './pages/DetalleFormatoPage';
 import MapaPage from './pages/MapaPage';
 import InvestigadoresPage from './pages/InvestigadoresPage';
 import AuditLogPage from './pages/AuditLogPage';
+import AjustesPage from './pages/AjustesPage';
 
 function AppRoutes() {
   const { user, isAuthenticated, loading, logout, theme } = useAuth();
@@ -50,6 +51,7 @@ function AppRoutes() {
               path="/auditoria"
               element={canViewAudit ? <AuditLogPage /> : <Navigate to="/" replace />}
             />
+            <Route path="/ajustes" element={<AjustesPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

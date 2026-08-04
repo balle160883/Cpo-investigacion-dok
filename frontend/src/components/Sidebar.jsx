@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, MapPin, Users, Printer, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, FileText, MapPin, Users, Printer, ShieldAlert, Settings } from 'lucide-react';
 
 const ROLE_META = {
   superadmin: { label: 'Super Admin', badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/40', icon: '👑' },
@@ -25,6 +25,7 @@ export default function Sidebar({ user }) {
     canViewMap && { to: '/mapa', label: 'Mapa GPS', icon: MapPin },
     { to: '/investigadores', label: 'Investigadores', icon: Users },
     canViewAudit && { to: '/auditoria', label: 'Bitácora', icon: ShieldAlert },
+    { to: '/ajustes', label: 'Ajustes', icon: Settings },
   ].filter(Boolean);
 
   return (

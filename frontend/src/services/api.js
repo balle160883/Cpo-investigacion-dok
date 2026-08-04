@@ -226,3 +226,80 @@ export async function validarContactoApi(data) {
   });
   return handleResponse(res, 'Error al validar contacto');
 }
+
+export async function recuperarPasswordApi(email) {
+  const res = await fetch(`${getApiBaseUrl()}/auth/recuperar-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse(res, 'Error al solicitar recuperación de contraseña');
+}
+
+export async function restablecerPasswordApi(token, nuevaPassword) {
+  const res = await fetch(`${getApiBaseUrl()}/auth/restablecer-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, nuevaPassword }),
+  });
+  return handleResponse(res, 'Error al restablecer contraseña');
+}
+
+export async function enviarResetAdminApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/auth/enviar-reset-admin`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al enviar correo de restablecimiento');
+}
+
+export async function fetchConfiguracionCorreo() {
+  const res = await fetch(`${getApiBaseUrl()}/configuracion/correo`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al cargar configuración de correo');
+}
+
+export async function guardarConfiguracionCorreoApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/configuracion/correo`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al guardar configuración de correo');
+}
+
+export async function probarConexionCorreoApi(emailDestino) {
+  const res = await fetch(`${getApiBaseUrl()}/configuracion/correo/prueba`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ emailDestino }),
+  });
+  return handleResponse(res, 'Error al enviar correo de prueba');
+}
+
+export async function fetchSuscripcionRenta() {
+  const res = await fetch(`${getApiBaseUrl()}/suscripcion`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al cargar datos de renta mensual');
+}
+
+export async function actualizarPlanSuscripcionApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/suscripcion/plan`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al actualizar plan de suscripción');
+}
+
+export async function registrarPagoRentaApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/suscripcion/pago`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al registrar pago de renta');
+}

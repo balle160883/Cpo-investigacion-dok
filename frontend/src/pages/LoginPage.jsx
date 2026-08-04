@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Lock, User, AlertCircle } from 'lucide-react';
-import { getApiBaseUrl } from '../services/api';
+import { getApiBaseUrl, recuperarPasswordApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -9,8 +9,32 @@ export default function LoginPage() {
   const [password, setPassword] = useState('Seguridad2026@');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Recuperación de Contraseña Modal State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmailInput, setResetEmailInput] = useState('');
+  const [sendingResetReq, setSendingResetReq] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
+
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  const handleSolicitarRecuperacion = async () => {
+    if (!resetEmailInput.trim()) {
+      setResetMsg('Ingresa un correo electrónico válido.');
+      return;
+    }
+    setSendingResetReq(true);
+    setResetMsg('');
+    try {
+      const res = await recuperarPasswordApi(resetEmailInput.trim());
+      setResetMsg(res.mensaje || 'Si el correo está registrado, se enviaron las instrucciones.');
+    } catch (err) {
+      setResetMsg('Error: ' + err.message);
+    } finally {
+      setSendingResetReq(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -98,6 +122,16 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <div className="flex items-center justify-end text-xs">
+            <button
+              type="button"
+              onClick={() => setShowResetModal(true)}
+              className="text-sky-400 hover:text-sky-300 transition font-medium"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -111,6 +145,48 @@ export default function LoginPage() {
           Acceso Autorizado • Caja Oblatos Ahorro y Crédito
         </div>
       </div>
+
+      {/* Modal Solicitar Recuperación por Correo */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <h3 className="font-bold text-slate-100 text-base">🔑 Recuperación de Contraseña</h3>
+            <p className="text-xs text-slate-400">Ingresa tu correo electrónico registrado para enviarte las instrucciones y enlace de restablecimiento.</p>
+            
+            <input
+              type="email"
+              value={resetEmailInput}
+              onChange={(e) => setResetEmailInput(e.target.value)}
+              placeholder="ejemplo@cajaoblatos.com.mx"
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 font-mono"
+            />
+
+            {resetMsg && (
+              <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-xl text-sky-300 text-xs">
+                {resetMsg}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => { setShowResetModal(false); setResetMsg(''); }}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={sendingResetReq}
+                onClick={handleSolicitarRecuperacion}
+                className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition"
+              >
+                {sendingResetReq ? 'Enviando...' : 'Enviar Correo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

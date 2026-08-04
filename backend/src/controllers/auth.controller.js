@@ -71,7 +71,127 @@ async function me(req, res) {
   res.json({ user: req.user });
 }
 
+// 1. Solicitar recuperación de contraseña por correo
+async function recuperarPassword(req, res, next) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'El correo electrónico es requerido' });
+    }
+
+    const { rows } = await db.query(
+      `SELECT * FROM investigadores WHERE LOWER(email) = LOWER($1) AND activo = TRUE`,
+      [email.trim()]
+    );
+
+    if (rows.length === 0) {
+      // Para evitar ataques de enumeración, retornamos un mensaje positivo genérico
+      return res.json({ mensaje: 'Si el correo está registrado, recibirás las instrucciones en tu bandeja de entrada.' });
+    }
+
+    const user = rows[0];
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(24).toString('hex');
+    const expiracion = new Date(Date.now() + 3600000); // 1 hora de vigencia
+
+    await db.query(
+      `INSERT INTO password_resets (email, token, expiracion) VALUES ($1, $2, $3)`,
+      [user.email, token, expiracion]
+    );
+
+    const { sendPasswordResetEmail } = require('../utils/mailer.service');
+    await sendPasswordResetEmail(user.email, token, user.nombre);
+
+    res.json({ mensaje: 'Instrucciones enviadas por correo con éxito', email: user.email });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// 2. Restablecer contraseña mediante Token de recuperación
+async function restablecerPassword(req, res, next) {
+  try {
+    const { token, nuevaPassword } = req.body;
+    if (!token || !nuevaPassword) {
+      return res.status(400).json({ error: 'El token y la nueva contraseña son requeridos' });
+    }
+
+    const { rows } = await db.query(
+      `SELECT * FROM password_resets WHERE token = $1 AND utilizado = FALSE AND expiracion > NOW()`,
+      [token]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'El enlace de recuperación es inválido o ha expirado.' });
+    }
+
+    const resetItem = rows[0];
+    const hashedPassword = await bcrypt.hash(nuevaPassword, 10);
+
+    // Actualizar contraseña del usuario
+    await db.query(
+      `UPDATE investigadores SET password = $1 WHERE LOWER(email) = LOWER($2)`,
+      [hashedPassword, resetItem.email]
+    );
+
+    // Marcar token como consumido
+    await db.query(
+      `UPDATE password_resets SET utilizado = TRUE WHERE id = $1`,
+      [resetItem.id]
+    );
+
+    res.json({ mensaje: 'Contraseña actualizada con éxito. Ya puedes iniciar sesión.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// 3. Enviar correo de restablecimiento desde el Panel de Administración por un Super Admin/Admin
+async function enviarResetAdmin(req, res, next) {
+  try {
+    const { usuarioId, email } = req.body;
+
+    let targetEmail = email;
+    let targetNombre = 'Usuario';
+
+    if (usuarioId) {
+      const { rows } = await db.query(`SELECT email, nombre FROM investigadores WHERE id = $1`, [usuarioId]);
+      if (rows.length > 0) {
+        targetEmail = rows[0].email;
+        targetNombre = rows[0].nombre;
+      }
+    }
+
+    if (!targetEmail) {
+      return res.status(400).json({ error: 'Se requiere usuarioId o email del destinatario' });
+    }
+
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(24).toString('hex');
+    const expiracion = new Date(Date.now() + 3600000);
+
+    await db.query(
+      `INSERT INTO password_resets (email, token, expiracion) VALUES ($1, $2, $3)`,
+      [targetEmail, token, expiracion]
+    );
+
+    const { sendPasswordResetEmail } = require('../utils/mailer.service');
+    const mailResult = await sendPasswordResetEmail(targetEmail, token, targetNombre);
+
+    res.json({
+      mensaje: `Correo de restablecimiento enviado a ${targetEmail}`,
+      simulado: !!mailResult.mock,
+      details: mailResult.message,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   login,
   me,
+  recuperarPassword,
+  restablecerPassword,
+  enviarResetAdmin,
 };

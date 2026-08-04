@@ -278,6 +278,106 @@ async function initDb() {
     try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS fecha_validacion_contacto TIMESTAMP WITH TIME ZONE;`); } catch (e) {}
     try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS usuario_validacion_contacto VARCHAR(255);`); } catch (e) {}
 
+    // 11. Configuración General del Sistema y Servidor de Correo (SMTP)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS configuracion_sistema (
+        id SERIAL PRIMARY KEY,
+        clave VARCHAR(100) UNIQUE NOT NULL,
+        valor JSONB NOT NULL,
+        descripcion TEXT,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    // 12. Fichas de Restablecimiento de Contraseña por Correo
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        token VARCHAR(255) UNIQUE NOT NULL,
+        expiracion TIMESTAMP WITH TIME ZONE NOT NULL,
+        utilizado BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_reset_token ON password_resets(token);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_reset_email ON password_resets(email);`); } catch (e) {}
+
+    // 13. Licenciamiento SaaS y Renta Mensual (Exclusivo Super Admin)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS suscripcion_empresa (
+        id SERIAL PRIMARY KEY,
+        nombre_empresa VARCHAR(255) NOT NULL DEFAULT 'Caja Popular Oblatos',
+        rfc_identificacion VARCHAR(50) DEFAULT 'CPO850101XXX',
+        plan_nombre VARCHAR(100) DEFAULT 'PLAN ENTERPRISE CPO',
+        precio_mensual NUMERIC(12, 2) DEFAULT 4500.00,
+        estado_suscripcion VARCHAR(50) DEFAULT 'ACTIVA', -- 'ACTIVA', 'PENDIENTE_PAGO', 'SUSPENDIDA'
+        fecha_inicio TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        fecha_proximo_pago TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '30 days'),
+        dias_gracia INT DEFAULT 5,
+        limite_usuarios INT DEFAULT 100,
+        observaciones_renta TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS historial_pagos_suscripcion (
+        id SERIAL PRIMARY KEY,
+        suscripcion_id INT REFERENCES suscripcion_empresa(id),
+        monto NUMERIC(12, 2) NOT NULL,
+        fecha_pago TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        metodo_pago VARCHAR(50) DEFAULT 'TRANSFERENCIA',
+        folio_factura VARCHAR(100),
+        estatus VARCHAR(50) DEFAULT 'PAGADO',
+        observaciones TEXT
+      );
+    `);
+
+    // Sembrar configuración SMTP por defecto si está vacía
+    const { rows: existingConfig } = await db.query("SELECT count(*) FROM configuracion_sistema WHERE clave = 'smtp_config';");
+    if (parseInt(existingConfig[0].count) === 0) {
+      console.log('Sembrando configuración inicial SMTP de correo...');
+      await db.query(`
+        INSERT INTO configuracion_sistema (clave, valor, descripcion) VALUES
+        ('smtp_config', $1, 'Configuración de servidor SMTP y notificaciones por correo'),
+        ('email_triggers', $2, 'Interruptores para el envío de notificaciones automáticas');
+      `, [
+        JSON.stringify({
+          host: 'smtp.gmail.com',
+          port: 587,
+          secure: false,
+          user: 'notificaciones@cajaoblatos.com.mx',
+          pass: '',
+          from_email: 'notificaciones@cajaoblatos.com.mx',
+          from_name: 'CPO Investigaciones — Notificaciones',
+          enabled: false,
+        }),
+        JSON.stringify({
+          notificar_validador_al_completar: true,
+          notificar_analista_al_validar: true,
+          notificar_sucursal_devolucion: true,
+          notificar_alerta_renta_vencida: true,
+        })
+      ]);
+    }
+
+    // Sembrar suscripción empresa si está vacía
+    const { rows: existingSusc } = await db.query("SELECT count(*) FROM suscripcion_empresa;");
+    if (parseInt(existingSusc[0].count) === 0) {
+      console.log('Sembrando registro inicial de renta mensual...');
+      await db.query(`
+        INSERT INTO suscripcion_empresa (nombre_empresa, rfc_identificacion, plan_nombre, precio_mensual, estado_suscripcion, fecha_proximo_pago)
+        VALUES ('Caja Popular Oblatos S.C. de A.P. de R.L. de C.V.', 'CPO850101XXX', 'PLAN ENTERPRISE CPO', 4500.00, 'ACTIVA', NOW() + INTERVAL '30 days');
+      `);
+    }
+
+    // Actualizar rol 'superadmin' para admin
+    try {
+      await db.query(`UPDATE investigadores SET rol = 'superadmin' WHERE email = 'admin@cajaoblatos.com.mx';`);
+    } catch (e) {}
+
     console.log('✅ Esquema inicializado correctamente.');
   } catch (err) {
     console.error('Error inicializando base de datos:', err);

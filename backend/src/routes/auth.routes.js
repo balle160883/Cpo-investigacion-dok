@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { login, me } = require('../controllers/auth.controller');
+const { login, me, recuperarPassword, restablecerPassword, enviarResetAdmin } = require('../controllers/auth.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 
 const router = express.Router();

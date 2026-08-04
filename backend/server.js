@@ -19,6 +19,8 @@ const documentosRoutes = require('./src/routes/documentos.routes');
 const notificacionesRoutes = require('./src/routes/notificaciones.routes');
 const agendaRoutes = require('./src/routes/agenda.routes');
 const contactosRoutes = require('./src/routes/contactos.routes');
+const configuracionRoutes = require('./src/routes/configuracion.routes');
+const suscripcionRoutes = require('./src/routes/suscripcion.routes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -67,6 +69,8 @@ app.use('/api/documentos', documentosRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
 app.use('/api/agenda', agendaRoutes);
 app.use('/api/contactos', contactosRoutes);
+app.use('/api/configuracion', configuracionRoutes);
+app.use('/api/suscripcion', suscripcionRoutes);
 
 // Middleware Global de Manejo de Errores
 app.use(errorHandler);
