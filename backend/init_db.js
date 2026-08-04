@@ -137,6 +137,147 @@ async function initDb() {
       `);
     } catch (e) {}
 
+    // 6. Catálogo de Documentos Requeridos por Tipo de Crédito (Checklist Inteligente)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS catalogo_documentos_credito (
+        id SERIAL PRIMARY KEY,
+        tipo_credito VARCHAR(50) DEFAULT 'GENERAL', -- 'GENERAL', 'CONSUMO', 'COMERCIAL', 'VIVIENDA'
+        nombre_documento VARCHAR(255) NOT NULL,
+        codigo_documento VARCHAR(100) UNIQUE NOT NULL,
+        descripcion TEXT,
+        obligatorio BOOLEAN DEFAULT TRUE,
+        es_activo BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    // 7. Expediente Digital de Documentos por Solicitud de Crédito
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS expediente_documentos (
+        id SERIAL PRIMARY KEY,
+        solicitud_id_sif VARCHAR(100) NOT NULL,
+        documento_codigo VARCHAR(100) NOT NULL,
+        nombre_archivo VARCHAR(255),
+        archivo_url TEXT,
+        formato_archivo VARCHAR(50),
+        es_legible BOOLEAN DEFAULT TRUE,
+        estado_validacion VARCHAR(50) DEFAULT 'PENDIENTE', -- 'PENDIENTE', 'APROBADO', 'RECHAZADO', 'EXCEPCION'
+        observaciones_analista TEXT,
+        es_excepcion BOOLEAN DEFAULT FALSE,
+        justificacion_excepcion TEXT,
+        usuario_carga VARCHAR(255),
+        fecha_carga TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        usuario_validador VARCHAR(255),
+        fecha_validacion TIMESTAMP WITH TIME ZONE
+      );
+    `);
+
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_expediente_solicitud ON expediente_documentos(solicitud_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_expediente_doc ON expediente_documentos(documento_codigo);`); } catch (e) {}
+
+    // Sembrar catálogo inicial de documentos por tipo de crédito si está vacío
+    const { rows: existingDocs } = await db.query('SELECT count(*) FROM catalogo_documentos_credito;');
+    if (parseInt(existingDocs[0].count) === 0) {
+      console.log('Sembrando catálogo de documentos requeridos...');
+      await db.query(`
+        INSERT INTO catalogo_documentos_credito (tipo_credito, codigo_documento, nombre_documento, descripcion, obligatorio) VALUES
+        ('GENERAL', 'INE_OFICIAL', 'Identificación Oficial Vigente (INE/Pasaporte)', 'Copia clara legible por ambos lados', TRUE),
+        ('GENERAL', 'COMPROBANTE_DOMICILIO', 'Comprobante de Domicilio (Agua/Luz/Predial)', 'No mayor a 3 meses de antigüedad', TRUE),
+        ('GENERAL', 'SOLICITUD_FIRMADA', 'Solicitud de Crédito Firmada por el Solicitante', 'Formato F001 con firmas autógrafas', TRUE),
+        ('GENERAL', 'CURP_SOCIO', 'Constancia de CURP o RFC', 'Documento oficial SAT o RENAPO', FALSE),
+        ('CONSUMO', 'COMPROBANTE_INGRESOS', 'Comprobante de Ingresos (Recibos de Nómina/Estados de Cuenta)', 'Últimos 2 meses completos', TRUE),
+        ('COMERCIAL', 'ACTA_CONSTITUTIVA', 'Acta Constitutiva / Registro de Negocio', 'Para personas morales o actividades empresariales', TRUE),
+        ('COMERCIAL', 'ESTADOS_FINANCIEROS', 'Estados Financieros / Declaración Anual', 'Firmados por contador público registrado', TRUE),
+        ('VIVIENDA', 'ESCRITURA_PROPIEDAD', 'Escritura Pública de la Propiedad / Titulo', 'Inscrita en el Registro Público de la Propiedad', TRUE),
+        ('VIVIENDA', 'CERTIFICADO_LIBRE_GRAVAMEN', 'Certificado de Libertad de Gravamen', 'Vigencia máxima de 30 días', TRUE);
+      `);
+    }
+
+    // 8. Módulo de Notificaciones Internas e Interáreas (Folios 004 y 009)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS notificaciones_interareas (
+        id SERIAL PRIMARY KEY,
+        solicitud_id_sif VARCHAR(100) NOT NULL,
+        remitente_id INT,
+        remitente_nombre VARCHAR(255) NOT NULL,
+        remitente_area VARCHAR(100) DEFAULT 'ANALISIS', -- 'ANALISIS', 'SUCURSAL', 'OPERATIVA'
+        destinatario_area VARCHAR(100) DEFAULT 'SUCURSAL', -- 'SUCURSAL', 'ANALISIS'
+        tipo_notificacion VARCHAR(50) NOT NULL, -- 'DEVOLUCION_DOCUMENTAL', 'REQUERIMIENTO_ATENDIDO', 'OBSERVACION'
+        asunto VARCHAR(255) NOT NULL,
+        mensaje TEXT NOT NULL,
+        documento_codigo VARCHAR(100),
+        fecha_envio TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        leido BOOLEAN DEFAULT FALSE,
+        fecha_lectura TIMESTAMP WITH TIME ZONE,
+        usuario_lectura VARCHAR(255),
+        atendido BOOLEAN DEFAULT FALSE,
+        fecha_atencion TIMESTAMP WITH TIME ZONE,
+        usuario_atencion VARCHAR(255),
+        respuesta_atencion TEXT,
+        plazo_limite_horas INT DEFAULT 24
+      );
+    `);
+
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_notif_solicitud ON notificaciones_interareas(solicitud_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_notif_leido ON notificaciones_interareas(leido);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_notif_atendido ON notificaciones_interareas(atendido);`); } catch (e) {}
+
+    // 9. Módulo de Agenda Dinámica, Reagenda y Registro de Visitas Domiciliarias (Folios 001, 005 y 007)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS agenda_visitas (
+        id SERIAL PRIMARY KEY,
+        investigacion_id_sif VARCHAR(100) NOT NULL,
+        solicitud_id_sif VARCHAR(100),
+        persona_id_sif VARCHAR(100),
+        investigador_id INT,
+        tipo_gestion VARCHAR(50) DEFAULT 'INVESTIGACION', -- 'INVESTIGACION', 'COBRANZA'
+        categoria_producto VARCHAR(50) DEFAULT 'CONSUMO', -- 'CONSUMO', 'COMERCIAL', 'VIVIENDA'
+        zona_geografica VARCHAR(100) DEFAULT 'ZONA_CENTRO',
+        prioridad INT DEFAULT 1,
+        fecha_programada TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        estado_agenda VARCHAR(50) DEFAULT 'PROGRAMADA', -- 'PROGRAMADA', 'REAGENDADA', 'CANCELADA', 'EN_CAMPO', 'COMPLETADA', 'VENCIDA'
+        motivo_reagenda TEXT,
+        usuario_reagenda VARCHAR(255),
+        hora_inicio TIMESTAMP WITH TIME ZONE, -- Check-in obligatorio
+        latitud_inicio DOUBLE PRECISION,
+        longitud_inicio DOUBLE PRECISION,
+        hora_fin TIMESTAMP WITH TIME ZONE, -- Check-out obligatorio
+        latitud_fin DOUBLE PRECISION,
+        longitud_fin DOUBLE PRECISION,
+        duracion_minutos INT, -- Duración real de la entrevista en minutos
+        resultado_visita TEXT,
+        evidencias_completas BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_investigacion ON agenda_visitas(investigacion_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_investigador ON agenda_visitas(investigador_id);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_estado ON agenda_visitas(estado_agenda);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_tipo ON agenda_visitas(tipo_gestion);`); } catch (e) {}
+
+    // Alteraciones en evidencias_visita para duración y tipo de gestión
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS hora_inicio TIMESTAMP WITH TIME ZONE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS hora_fin TIMESTAMP WITH TIME ZONE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS duracion_minutos INT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS tipo_gestion VARCHAR(50) DEFAULT 'INVESTIGACION';`); } catch (e) {}
+
+    // 10. Prevalidación de Domicilio y Semáforo de Validación de Contactos (Folios 002 y 003)
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS domicilio_validado_sucursal BOOLEAN DEFAULT FALSE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS fecha_validacion_domicilio TIMESTAMP WITH TIME ZONE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS usuario_validacion_domicilio VARCHAR(255);`); } catch (e) {}
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS metodo_validacion_domicilio VARCHAR(50);`); } catch (e) {}
+    try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS observaciones_domicilio TEXT;`); } catch (e) {}
+
+    try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS telefono_principal VARCHAR(50);`); } catch (e) {}
+    try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS telefono_secundario VARCHAR(50);`); } catch (e) {}
+    try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS email_validado VARCHAR(255);`); } catch (e) {}
+    try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS fuente_datos_contacto VARCHAR(50) DEFAULT 'SUCURSAL';`); } catch (e) {}
+    try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS estado_contacto_semaforo VARCHAR(20) DEFAULT 'AMARILLO';`); } catch (e) {} // 'VERDE', 'AMARILLO', 'ROJO'
+    try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS fecha_validacion_contacto TIMESTAMP WITH TIME ZONE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE personas ADD COLUMN IF NOT EXISTS usuario_validacion_contacto VARCHAR(255);`); } catch (e) {}
+
     console.log('✅ Esquema inicializado correctamente.');
   } catch (err) {
     console.error('Error inicializando base de datos:', err);

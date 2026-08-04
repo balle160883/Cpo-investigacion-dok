@@ -1,0 +1,144 @@
+<mxfile host="Electron" modified="2026-07-28T11:25:00.000Z" agent="Antigravity" version="21.0.0" type="device">
+  <diagram id="cpo-mobile-flow" name="Flujo App Movil Investigadores">
+    <mxGraphModel dx="1400" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TITULO -->
+        <mxCell id="title" value="FLUJO DETALLADO - APLICACIÓN MÓVIL DE INVESTIGADORES (CPO)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 1. INICIO Y LOGIN -->
+        <mxCell id="node_login" value="1. Inicio de Sesión&#10;(LoginScreen)&#10;Email y Contraseña" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0284C7;fontColor=#FFFFFF;fontStyle=1;strokeColor=#0369A1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="80" width="220" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="node_auth_check" value="¿Credenciales Válidas?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#38BDF8;fontColor=#0F172A;fontStyle=1;strokeColor=#0284C7;" vertex="1" parent="1">
+          <mxGeometry x="480" y="170" width="180" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_err_login" value="Mostrar Alerta:&#10;'Error de Autenticación / Red'" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EF4444;fontColor=#FFFFFF;fontStyle=1;strokeColor=#B91C1C;" vertex="1" parent="1">
+          <mxGeometry x="220" y="180" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 2. PANTALLA PRINCIPAL VISITAS -->
+        <mxCell id="node_visitas" value="2. Mis Investigaciones&#10;(VisitasScreen)&#10;Carga asignadas del día" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#16A34A;fontColor=#FFFFFF;fontStyle=1;strokeColor=#15803D;" vertex="1" parent="1">
+          <mxGeometry x="460" y="290" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_has_cases" value="¿Tiene Investigaciones Asignadas?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#4ADE80;fontColor=#14532D;fontStyle=1;strokeColor=#16A34A;" vertex="1" parent="1">
+          <mxGeometry x="450" y="380" width="240" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_empty_state" value="Mostrar Estado Vacío:&#10;'Sin investigaciones asignadas'&#10;+ Botón 🔄 Actualizar" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF08A;fontColor=#854D0E;fontStyle=1;strokeColor=#EAB308;" vertex="1" parent="1">
+          <mxGeometry x="190" y="395" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_select_case" value="Seleccionar Caso de la Lista&#10;(Solicitante o Aval)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#22C55E;fontColor=#FFFFFF;fontStyle=1;strokeColor=#15803D;" vertex="1" parent="1">
+          <mxGeometry x="460" y="510" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 3. DETALLE DE INVESTIGACION -->
+        <mxCell id="node_detalle" value="3. Detalle de Investigación&#10;(DetalleInvestigacionScreen)&#10;Datos de Socio y Domicilio" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2563EB;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1D4ED8;" vertex="1" parent="1">
+          <mxGeometry x="460" y="610" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_maps" value="🗺️ Abrir Navegación GPS&#10;(Google Maps / Waze)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#93C5FD;fontColor=#1E3A8A;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="1">
+          <mxGeometry x="210" y="610" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 4. FORMULARIO Y EVIDENCIAS -->
+        <mxCell id="node_captura" value="4. Captura de Formato y Evidencias&#10;(CapturaFormatoScreen)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1D4ED8;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1E40AF;" vertex="1" parent="1">
+          <mxGeometry x="450" y="710" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_sub_gps" value="📍 Check-in GPS&#10;Coordenadas Reales" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;fontColor=#1E40AF;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="1">
+          <mxGeometry x="100" y="800" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_sub_form" value="📋 Formato Socio-Económico&#10;Vivienda, INE, Bienes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;fontColor=#1E40AF;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="1">
+          <mxGeometry x="280" y="800" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_sub_photo" value="📷 Fotos Evidencia&#10;Cámara / Galería" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;fontColor=#1E40AF;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="800" width="170" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_sub_sig" value="✍️ Firma Digital&#10;Trazo con Dedo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;fontColor=#1E40AF;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="1">
+          <mxGeometry x="670" y="800" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_sub_dict" value="📝 Dictamen Final&#10;Confirmado / No Localizado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;fontColor=#1E40AF;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="1">
+          <mxGeometry x="850" y="800" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 5. ENVIO Y CONFIRMACION -->
+        <mxCell id="node_submit" value="5. Botón 'Guardar Evidencia y Dictamen'&#10;Envío POST /api/investigaciones/:id/evidencia" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E40AF;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="420" y="900" width="300" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="node_finish" value="✅ Éxito: Registro completado en DB&#10;Regreso a Lista de Visitas (VisitasScreen)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#10B981;fontColor=#FFFFFF;fontStyle=1;strokeColor=#059669;" vertex="1" parent="1">
+          <mxGeometry x="420" y="990" width="300" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHAS DE CONEXION -->
+        <mxCell id="e1" edge="1" parent="1" source="node_login" target="node_auth_check" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284C7;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2_no" edge="1" parent="1" source="node_auth_check" target="node_err_login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#EF4444;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="450" y="210" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2_yes" edge="1" parent="1" source="node_auth_check" target="node_visitas" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16A34A;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="node_visitas" target="node_has_cases" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16A34A;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4_no" edge="1" parent="1" source="node_has_cases" target="node_empty_state" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#EAB308;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4_yes" edge="1" parent="1" source="node_has_cases" target="node_select_case" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16A34A;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="node_select_case" target="node_detalle" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563EB;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6_maps" edge="1" parent="1" source="node_detalle" target="node_maps" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#3B82F6;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="node_detalle" target="node_captura" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#1D4ED8;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- CONEXIONES SUBMODULOS CAPTURA -->
+        <mxCell id="e_sub1" edge="1" parent="1" source="node_captura" target="node_sub_gps" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#3B82F6;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sub2" edge="1" parent="1" source="node_captura" target="node_sub_form" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#3B82F6;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sub3" edge="1" parent="1" source="node_captura" target="node_sub_photo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#3B82F6;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sub4" edge="1" parent="1" source="node_captura" target="node_sub_sig" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#3B82F6;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sub5" edge="1" parent="1" source="node_captura" target="node_sub_dict" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.5;strokeColor=#3B82F6;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- HACIA BOTON DE ENVIO -->
+        <mxCell id="e_to_submit" edge="1" parent="1" source="node_sub_photo" target="node_submit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#1E40AF;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_to_finish" edge="1" parent="1" source="node_submit" target="node_finish" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#10B981;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -99,3 +99,130 @@ export async function revalidarInvestigacion(investigacionId, { accion, comentar
   });
   return handleResponse(res, 'Error al revalidar investigación');
 }
+
+export async function fetchChecklistDocumental(solicitudId, tipoCredito = 'GENERAL') {
+  const res = await fetch(`${getApiBaseUrl()}/documentos/checklist/${solicitudId}?tipoCredito=${tipoCredito}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al cargar checklist documental');
+}
+
+export async function cargarDocumentoExpediente(data) {
+  const res = await fetch(`${getApiBaseUrl()}/documentos/cargar`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al cargar documento');
+}
+
+export async function validarDocumentoExpediente(docId, { estadoValidacion, observaciones, esLegible }) {
+  const res = await fetch(`${getApiBaseUrl()}/documentos/${docId}/validar`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ estadoValidacion, observaciones, esLegible }),
+  });
+  return handleResponse(res, 'Error al validar documento');
+}
+
+export async function registrarExcepcionDocumental(data) {
+  const res = await fetch(`${getApiBaseUrl()}/documentos/excepcion`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al registrar excepción documental');
+}
+
+export async function fetchNotificacionesSolicitud(solicitudId) {
+  const res = await fetch(`${getApiBaseUrl()}/notificaciones/solicitud/${solicitudId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al cargar notificaciones interáreas');
+}
+
+export async function enviarNotificacionInterareas(data) {
+  const res = await fetch(`${getApiBaseUrl()}/notificaciones/enviar`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al enviar notificación');
+}
+
+export async function registrarAcuseLecturaNotificacion(id) {
+  const res = await fetch(`${getApiBaseUrl()}/notificaciones/${id}/acuse`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al registrar acuse de lectura');
+}
+
+export async function marcarRequerimientoAtendidoApi(id, respuestaAtencion) {
+  const res = await fetch(`${getApiBaseUrl()}/notificaciones/${id}/atender`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ respuestaAtencion }),
+  });
+  return handleResponse(res, 'Error al marcar requerimiento como atendido');
+}
+
+export async function fetchAgendaVisitas(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${getApiBaseUrl()}/agenda?${qs}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al cargar agenda de visitas');
+}
+
+export async function programarOReagendarVisitaApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/agenda/programar`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al programar/reagendar visita');
+}
+
+export async function checkinVisitaCampoApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/agenda/checkin`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al realizar check-in');
+}
+
+export async function checkoutVisitaCampoApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/agenda/checkout`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al realizar check-out');
+}
+
+export async function fetchContactoDetalle(personaIdSif) {
+  const res = await fetch(`${getApiBaseUrl()}/contactos/persona/${personaIdSif}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al cargar datos de contacto');
+}
+
+export async function prevalidarDomicilioApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/contactos/prevalidar-domicilio`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al prevalidar domicilio');
+}
+
+export async function validarContactoApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/contactos/validar-contacto`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al validar contacto');
+}

@@ -1,0 +1,108 @@
+<mxfile host="Electron" modified="2026-07-28T11:00:00.000Z" agent="Antigravity" version="21.0.0" type="device">
+  <diagram id="cpo-flow-diagram" name="Flujo de Trabajo CPO Investigaciones">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TITULO -->
+        <mxCell id="title" value="DIAGRAMA DE FLUJO DE TRABAJO - CPO INVESTIGACIONES DOMICILIARIAS" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- SECCION 1: SIF / BACKEND -->
+        <mxCell id="sec1" value="1. INGESTA Y BASE DE DATOS (Backend / SIF)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;fontStyle=1;fontColor=#1E293B;startSize=30;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="300" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="node_start" value="Inicio: Registro de Solicitud de Crédito (Solicitante / Aval)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0284C7;fontColor=#FFFFFF;fontStyle=1;strokeColor=#0369A1;" vertex="1" parent="sec1">
+          <mxGeometry x="30" y="50" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="node_db_insert" value="Almacenamiento en DB PostgreSQL (Estado: PENDIENTE)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#38BDF8;fontColor=#0F172A;fontStyle=1;strokeColor=#0284C7;" vertex="1" parent="sec1">
+          <mxGeometry x="50" y="160" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- SECCION 2: PANEL WEB ADMIN -->
+        <mxCell id="sec2" value="2. PANEL WEB DE ADMINISTRACIÓN (Asignador / Admin)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F0FDF4;strokeColor=#BBF7D0;fontStyle=1;fontColor=#166534;startSize=30;" vertex="1" parent="1">
+          <mxGeometry x="380" y="80" width="340" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="node_web_login" value="Inicio de Sesión en Panel Web (SUPERADMIN / ASIGNADOR)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#16A34A;fontColor=#FFFFFF;fontStyle=1;strokeColor=#15803D;" vertex="1" parent="sec2">
+          <mxGeometry x="40" y="50" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="node_web_dashboard" value="Consulta de Dashboard y Mapa Mapbox GPS en Tiempo Real" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#86EFAC;fontColor=#14532D;fontStyle=1;strokeColor=#22C55E;" vertex="1" parent="sec2">
+          <mxGeometry x="40" y="160" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="node_web_assign" value="Asignación de Investigación a Investigador en Campo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#22C55E;fontColor=#FFFFFF;fontStyle=1;strokeColor=#15803D;" vertex="1" parent="sec2">
+          <mxGeometry x="40" y="270" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="node_web_review" value="Revisión de Estudio Socioeconómico y Dictamen Final" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4ADE80;fontColor=#14532D;fontStyle=1;strokeColor=#16A34A;" vertex="1" parent="sec2">
+          <mxGeometry x="40" y="520" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="node_web_print" value="Impresión / PDF de Reporte Socioeconómico Oficial" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#DCFCE7;fontColor=#14532D;fontStyle=1;strokeColor=#22C55E;" vertex="1" parent="sec2">
+          <mxGeometry x="50" y="630" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- SECCION 3: APP MOVIL -->
+        <mxCell id="sec3" value="3. APLICACIÓN MÓVIL (Investigador en Campo)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#BFDBFE;fontStyle=1;fontColor=#1E40AF;startSize=30;" vertex="1" parent="1">
+          <mxGeometry x="760" y="80" width="360" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="node_app_login" value="Login Investigador (App Android)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2563EB;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1D4ED8;" vertex="1" parent="sec3">
+          <mxGeometry x="50" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="node_app_list" value="Carga de Lista de Visitas Asignadas del Día" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60A5FA;fontColor=#1E3A8A;fontStyle=1;strokeColor=#2563EB;" vertex="1" parent="sec3">
+          <mxGeometry x="50" y="130" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="node_app_nav" value="Apertura de Coordenadas / Ruta en Google Maps / Waze" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#93C5FD;fontColor=#1E3A8A;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="sec3">
+          <mxGeometry x="50" y="210" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="node_app_form" value="Llenado del Formato Socio-Económico Digital" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3B82F6;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1D4ED8;" vertex="1" parent="sec3">
+          <mxGeometry x="50" y="290" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="node_app_evidence" value="Captura de Evidencias (Cámara / Galería + Firma Digital + Check-in GPS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1D4ED8;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1E40AF;" vertex="1" parent="sec3">
+          <mxGeometry x="50" y="370" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="node_app_submit" value="Envío de Dictamen y Evidencias al Servidor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1E40AF;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1E3A8A;" vertex="1" parent="sec3">
+          <mxGeometry x="50" y="460" width="260" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHAS DE CONEXION -->
+        <mxCell id="edge1" edge="1" parent="1" source="node_start" target="node_db_insert" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0284C7;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge2" edge="1" parent="1" source="node_db_insert" target="node_web_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16A34A;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge3" edge="1" parent="1" source="node_web_login" target="node_web_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16A34A;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge4" edge="1" parent="1" source="node_web_dashboard" target="node_web_assign" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16A34A;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge5" edge="1" parent="1" source="node_web_assign" target="node_app_list" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563EB;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge6" edge="1" parent="1" source="node_app_login" target="node_app_list" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563EB;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge7" edge="1" parent="1" source="node_app_list" target="node_app_nav" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563EB;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge8" edge="1" parent="1" source="node_app_nav" target="node_app_form" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563EB;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge9" edge="1" parent="1" source="node_app_form" target="node_app_evidence" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563EB;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge10" edge="1" parent="1" source="node_app_evidence" target="node_app_submit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#2563EB;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge11" edge="1" parent="1" source="node_app_submit" target="node_web_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16A34A;entryX=1;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge12" edge="1" parent="1" source="node_web_review" target="node_web_print" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#16A34A;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

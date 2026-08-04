@@ -1,0 +1,256 @@
+<mxfile host="Electron" modified="2026-07-28T11:40:00.000Z" agent="Antigravity" version="21.0.0" type="device">
+  <diagram id="cpo-asignador-flow" name="Flujo Asignador CPO">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1050" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TITULO -->
+        <mxCell id="title" value="FLUJO DETALLADO - PANEL WEB DE ASIGNADORES / ADMINISTRADORES (CPO)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#14532D;" vertex="1" parent="1">
+          <mxGeometry x="180" y="20" width="900" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ========== COLUMNA 1: AUTENTICACION ========== -->
+        <mxCell id="col1" value="1. AUTENTICACIÓN" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F0FDF4;strokeColor=#86EFAC;fontStyle=1;fontColor=#14532D;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="260" height="920" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1_start" value="Ingresar a URL del Panel Web&#10;(http://servidor:3000)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#16A34A;fontColor=#FFFFFF;fontStyle=1;strokeColor=#15803D;" vertex="1" parent="col1">
+          <mxGeometry x="20" y="50" width="220" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1_login" value="Pantalla de Login&#10;Email + Contraseña" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4ADE80;fontColor=#14532D;fontStyle=1;strokeColor=#22C55E;" vertex="1" parent="col1">
+          <mxGeometry x="20" y="140" width="220" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1_check" value="¿Credenciales válidas?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#86EFAC;fontColor=#14532D;fontStyle=1;strokeColor=#16A34A;" vertex="1" parent="col1">
+          <mxGeometry x="40" y="225" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1_err" value="Mensaje: 'Usuario no encontrado&#10;o contraseña incorrecta'" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCA5A5;fontColor=#7F1D1D;fontStyle=1;strokeColor=#EF4444;" vertex="1" parent="col1">
+          <mxGeometry x="20" y="325" width="220" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1_jwt" value="Generación de Token JWT&#10;(válido 30 días)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#22C55E;fontColor=#FFFFFF;fontStyle=1;strokeColor=#16A34A;" vertex="1" parent="col1">
+          <mxGeometry x="20" y="415" width="220" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1_role" value="¿Rol del usuario?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#86EFAC;fontColor=#14532D;fontStyle=1;strokeColor=#16A34A;" vertex="1" parent="col1">
+          <mxGeometry x="40" y="500" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1_superadmin" value="SUPERADMIN&#10;Acceso total" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#15803D;fontColor=#FFFFFF;fontStyle=1;strokeColor=#14532D;" vertex="1" parent="col1">
+          <mxGeometry x="20" y="600" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1_asignador" value="ASIGNADOR&#10;Sólo asignar casos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4ADE80;fontColor=#14532D;fontStyle=1;strokeColor=#22C55E;" vertex="1" parent="col1">
+          <mxGeometry x="140" y="600" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Flechas col1 -->
+        <mxCell id="ea1" edge="1" parent="col1" source="a1_start" target="a1_login" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#16A34A;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ea2" edge="1" parent="col1" source="a1_login" target="a1_check" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#16A34A;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ea3_no" edge="1" parent="col1" source="a1_check" target="a1_err" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#EF4444;html=1;" label="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ea4_si" edge="1" parent="col1" source="a1_check" target="a1_jwt" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#16A34A;html=1;" label="Sí">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ea5" edge="1" parent="col1" source="a1_jwt" target="a1_role" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#16A34A;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ea6a" edge="1" parent="col1" source="a1_role" target="a1_superadmin" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#15803D;html=1;" label="Admin">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ea6b" edge="1" parent="col1" source="a1_role" target="a1_asignador" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#22C55E;html=1;" label="Asig.">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== COLUMNA 2: DASHBOARD ========== -->
+        <mxCell id="col2" value="2. DASHBOARD Y ESTADÍSTICAS" style="swimlane;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#BFDBFE;fontStyle=1;fontColor=#1E40AF;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="330" y="70" width="280" height="920" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1_dash" value="Pantalla Dashboard&#10;(DashboardPage)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2563EB;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1D4ED8;" vertex="1" parent="col2">
+          <mxGeometry x="20" y="50" width="240" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1_kpi1" value="KPI: Total Investigaciones&#10;(GET /api/stats)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;fontColor=#1E40AF;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="col2">
+          <mxGeometry x="20" y="140" width="240" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1_kpi2" value="KPI: Pendientes / En Proceso / Completadas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;fontColor=#1E40AF;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="col2">
+          <mxGeometry x="20" y="205" width="240" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1_kpi3" value="KPI: Investigadores Activos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;fontColor=#1E40AF;fontStyle=1;strokeColor=#3B82F6;" vertex="1" parent="col2">
+          <mxGeometry x="20" y="270" width="240" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1_map" value="🗺️ Mapa Mapbox: GPS de Investigadores&#10;en Tiempo Real (MapaPage)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1D4ED8;fontColor=#FFFFFF;fontStyle=1;strokeColor=#1E40AF;" vertex="1" parent="col2">
+          <mxGeometry x="20" y="340" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Flechas col2 -->
+        <mxCell id="eb1" edge="1" parent="col2" source="b1_dash" target="b1_kpi1" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#2563EB;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb2" edge="1" parent="col2" source="b1_kpi1" target="b1_kpi2" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#3B82F6;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb3" edge="1" parent="col2" source="b1_kpi2" target="b1_kpi3" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#3B82F6;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eb4" edge="1" parent="col2" source="b1_kpi3" target="b1_map" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#1D4ED8;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== COLUMNA 3: ASIGNACION ========== -->
+        <mxCell id="col3" value="3. GESTIÓN Y ASIGNACIÓN DE CASOS" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#FDBA74;fontStyle=1;fontColor=#7C2D12;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="640" y="70" width="300" height="920" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_list" value="Abrir Lista de Investigaciones&#10;(InvestigacionesPage)&#10;GET /api/investigaciones" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EA580C;fontColor=#FFFFFF;fontStyle=1;strokeColor=#C2410C;" vertex="1" parent="col3">
+          <mxGeometry x="20" y="50" width="260" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_filter" value="Filtrar por:&#10;Nombre / Folio / Estado / Página" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FED7AA;fontColor=#7C2D12;fontStyle=1;strokeColor=#EA580C;" vertex="1" parent="col3">
+          <mxGeometry x="20" y="145" width="260" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_select" value="Seleccionar Investigación&#10;de la Tabla (25 por página)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F97316;fontColor=#FFFFFF;fontStyle=1;strokeColor=#EA580C;" vertex="1" parent="col3">
+          <mxGeometry x="20" y="230" width="260" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_modal" value="Abrir Modal: 'Asignar Investigador'&#10;Dropdown con lista de investigadores activos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EA580C;fontColor=#FFFFFF;fontStyle=1;strokeColor=#C2410C;" vertex="1" parent="col3">
+          <mxGeometry x="20" y="315" width="260" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_confirm" value="¿Confirmar Asignación?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FDBA74;fontColor=#7C2D12;fontStyle=1;strokeColor=#F97316;" vertex="1" parent="col3">
+          <mxGeometry x="55" y="405" width="190" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_cancel" value="Cancelar&#10;(Cerrar Modal)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;fontColor=#92400E;fontStyle=1;strokeColor=#F59E0B;" vertex="1" parent="col3">
+          <mxGeometry x="20" y="510" width="110" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_api_assign" value="POST /api/investigaciones/:id/asignar&#10;Estado → EN_PROCESO + Fecha Asignación" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C2410C;fontColor=#FFFFFF;fontStyle=1;strokeColor=#9A3412;" vertex="1" parent="col3">
+          <mxGeometry x="150" y="510" width="130" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1_update" value="✅ Tabla actualizada: Caso muestra&#10;nombre del investigador asignado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#16A34A;fontColor=#FFFFFF;fontStyle=1;strokeColor=#15803D;" vertex="1" parent="col3">
+          <mxGeometry x="20" y="600" width="260" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Flechas col3 -->
+        <mxCell id="ec1" edge="1" parent="col3" source="c1_list" target="c1_filter" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#EA580C;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec2" edge="1" parent="col3" source="c1_filter" target="c1_select" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#EA580C;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec3" edge="1" parent="col3" source="c1_select" target="c1_modal" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#EA580C;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec4" edge="1" parent="col3" source="c1_modal" target="c1_confirm" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#F97316;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec5_no" edge="1" parent="col3" source="c1_confirm" target="c1_cancel" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#F59E0B;html=1;" label="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec5_si" edge="1" parent="col3" source="c1_confirm" target="c1_api_assign" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#C2410C;html=1;" label="Sí">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec6" edge="1" parent="col3" source="c1_api_assign" target="c1_update" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#16A34A;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ========== COLUMNA 4: REVISIÓN Y REPORTE ========== -->
+        <mxCell id="col4" value="4. REVISIÓN DE EVIDENCIAS Y REPORTE" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#C4B5FD;fontStyle=1;fontColor=#3B0764;startSize=28;" vertex="1" parent="1">
+          <mxGeometry x="970" y="70" width="300" height="920" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_detail" value="Abrir Detalle de la Investigación&#10;(DetalleFormatoPage)&#10;GET /api/investigaciones/:id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7C3AED;fontColor=#FFFFFF;fontStyle=1;strokeColor=#6D28D9;" vertex="1" parent="col4">
+          <mxGeometry x="20" y="50" width="260" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_info" value="Ver Datos del Socio / Aval:&#10;Nombre, Domicilio, Folio Solicitud, Monto" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DDD6FE;fontColor=#3B0764;fontStyle=1;strokeColor=#8B5CF6;" vertex="1" parent="col4">
+          <mxGeometry x="20" y="150" width="260" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_evidence" value="Revisar Evidencias Capturadas:&#10;📷 Fotos | ✍️ Firma | 📍 GPS | 📋 Formato" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8B5CF6;fontColor=#FFFFFF;fontStyle=1;strokeColor=#7C3AED;" vertex="1" parent="col4">
+          <mxGeometry x="20" y="235" width="260" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_socio" value="Revisión del Estudio Socio-Económico:&#10;Vivienda, Bienes, Personas, Ingresos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DDD6FE;fontColor=#3B0764;fontStyle=1;strokeColor=#8B5CF6;" vertex="1" parent="col4">
+          <mxGeometry x="20" y="325" width="260" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_dictamen" value="Verificar Dictamen del Investigador:&#10;CONFIRMADO / NO LOCALIZADO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7C3AED;fontColor=#FFFFFF;fontStyle=1;strokeColor=#6D28D9;" vertex="1" parent="col4">
+          <mxGeometry x="20" y="410" width="260" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_approved" value="¿Información Completa?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#C4B5FD;fontColor=#3B0764;fontStyle=1;strokeColor=#7C3AED;" vertex="1" parent="col4">
+          <mxGeometry x="55" y="495" width="190" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_obs" value="Solicitar Corrección al Investigador&#10;(Vía llamada / mensaje)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCA5A5;fontColor=#7F1D1D;fontStyle=1;strokeColor=#EF4444;" vertex="1" parent="col4">
+          <mxGeometry x="20" y="595" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_print" value="🖨️ Imprimir / PDF del Reporte&#10;Formato Oficial con Evidencias" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#6D28D9;fontColor=#FFFFFF;fontStyle=1;strokeColor=#5B21B6;" vertex="1" parent="col4">
+          <mxGeometry x="158" y="590" width="122" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="d1_close" value="✅ Investigación Cerrada&#10;Estado: COMPLETADA en DB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#15803D;fontColor=#FFFFFF;fontStyle=1;strokeColor=#14532D;" vertex="1" parent="col4">
+          <mxGeometry x="60" y="700" width="180" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Flechas col4 -->
+        <mxCell id="ed1" edge="1" parent="col4" source="d1_detail" target="d1_info" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#7C3AED;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed2" edge="1" parent="col4" source="d1_info" target="d1_evidence" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#8B5CF6;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed3" edge="1" parent="col4" source="d1_evidence" target="d1_socio" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#8B5CF6;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed4" edge="1" parent="col4" source="d1_socio" target="d1_dictamen" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#7C3AED;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed5" edge="1" parent="col4" source="d1_dictamen" target="d1_approved" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#7C3AED;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed6_no" edge="1" parent="col4" source="d1_approved" target="d1_obs" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#EF4444;html=1;" label="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed6_si" edge="1" parent="col4" source="d1_approved" target="d1_print" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#6D28D9;html=1;" label="Sí">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ed7" edge="1" parent="col4" source="d1_print" target="d1_close" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#15803D;html=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FLECHAS ENTRE COLUMNAS -->
+        <mxCell id="cross1" edge="1" parent="1" source="a1_superadmin" target="b1_dash" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#15803D;html=1;dashed=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cross2" edge="1" parent="1" source="a1_asignador" target="c1_list" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#EA580C;html=1;dashed=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cross3" edge="1" parent="1" source="b1_dash" target="c1_list" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#2563EB;html=1;dashed=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cross4" edge="1" parent="1" source="c1_update" target="d1_detail" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#7C3AED;html=1;dashed=1;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

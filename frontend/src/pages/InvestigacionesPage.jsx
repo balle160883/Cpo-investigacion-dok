@@ -4,6 +4,10 @@ import { Search, Filter, Eye, UserPlus, MapPin, CheckCircle, Clock, FileText, Ch
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
+import ChecklistDocumentalModal from '../components/ChecklistDocumentalModal';
+import NotificacionesInterareasModal from '../components/NotificacionesInterareasModal';
+import AgendaVisitasModal from '../components/AgendaVisitasModal';
+import PrevalidacionContactoModal from '../components/PrevalidacionContactoModal';
 
 // Helper: formatea fecha en DD/Mon/AAAA
 function formatFechaCorta(fechaStr) {
@@ -28,6 +32,12 @@ export default function InvestigacionesPage() {
   const [buscar, setBuscar] = useState('');
   const [estado, setEstado] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Modales: Expediente, Notificaciones, Agenda Dinámica y Prevalidación Domicilio/Contacto
+  const [docModalSolicitudId, setDocModalSolicitudId] = useState(null);
+  const [notifModalSolicitudId, setNotifModalSolicitudId] = useState(null);
+  const [agendaModalInvId, setAgendaModalInvId] = useState(null);
+  const [contactoModalPersonaId, setContactoModalPersonaId] = useState(null);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
   // Modal Asignar
@@ -337,6 +347,38 @@ export default function InvestigacionesPage() {
                         </button>
                       )}
 
+                      <button
+                        onClick={() => setDocModalSolicitudId(row.solicitud_id_sif || row.id_sif_research)}
+                        className="px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition inline-flex items-center gap-1"
+                        title="Ver Expediente Digital y Semáforo Documental"
+                      >
+                        📁 Expediente
+                      </button>
+
+                      <button
+                        onClick={() => setNotifModalSolicitudId(row.solicitud_id_sif || row.id_sif_research)}
+                        className="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition inline-flex items-center gap-1"
+                        title="Comunicación Interáreas y Requerimientos"
+                      >
+                        💬 Notificaciones
+                      </button>
+
+                      <button
+                        onClick={() => setAgendaModalInvId(row.id_sif_research)}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition inline-flex items-center gap-1"
+                        title="Agenda Dinámica y Control de Visitas"
+                      >
+                        📅 Agenda
+                      </button>
+
+                      <button
+                        onClick={() => setContactoModalPersonaId(row.persona_id_sif || row.id_sif_research)}
+                        className="px-2.5 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition inline-flex items-center gap-1"
+                        title="Prevalidación de Domicilio y Semáforo de Contacto"
+                      >
+                        🏡 Domicilio
+                      </button>
+
                       <Link
                         to={`/investigaciones/${row.id_sif_research}`}
                         className="px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition inline-flex items-center gap-1 shadow-md shadow-sky-600/20"
@@ -375,6 +417,39 @@ export default function InvestigacionesPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Expediente Documental con Semáforo */}
+      {docModalSolicitudId && (
+        <ChecklistDocumentalModal
+          solicitudId={docModalSolicitudId}
+          tipoCredito="GENERAL"
+          onClose={() => setDocModalSolicitudId(null)}
+        />
+      )}
+
+      {/* Modal Notificaciones Interáreas */}
+      {notifModalSolicitudId && (
+        <NotificacionesInterareasModal
+          solicitudId={notifModalSolicitudId}
+          onClose={() => setNotifModalSolicitudId(null)}
+        />
+      )}
+
+      {/* Modal Prevalidación Domicilio y Semáforo Contacto */}
+      {contactoModalPersonaId && (
+        <PrevalidacionContactoModal
+          personaIdSif={contactoModalPersonaId}
+          onClose={() => setContactoModalPersonaId(null)}
+        />
+      )}
+
+      {/* Modal Agenda Dinámica */}
+      {agendaModalInvId && (
+        <AgendaVisitasModal
+          investigacionId={agendaModalInvId}
+          onClose={() => setAgendaModalInvId(null)}
+        />
+      )}
 
       {/* Assignment Modal */}
       {selectedInv && (
