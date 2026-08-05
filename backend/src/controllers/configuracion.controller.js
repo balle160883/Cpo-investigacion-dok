@@ -102,8 +102,101 @@ async function probarConexionCorreo(req, res, next) {
   }
 }
 
+// Helper Super Admin
+function esSuperAdmin(req) {
+  const rol = (req.user?.rol || '').toLowerCase();
+  return rol === 'superadmin' || rol === 'admin';
+}
+
+// Obtener Configuración WhatsApp API (Exclusivo Super Admin)
+async function getConfiguracionWhatsApp(req, res, next) {
+  try {
+    if (!esSuperAdmin(req)) {
+      return res.status(403).json({ error: 'Acceso denegado: La configuración de WhatsApp es exclusiva para Super Admin.' });
+    }
+
+    const { rows } = await db.query("SELECT valor FROM configuracion_sistema WHERE clave = 'whatsapp_config';");
+    const config = rows.length > 0 ? rows[0].valor : {};
+
+    const safeConfig = { ...config };
+    if (safeConfig.token) {
+      safeConfig.token_configurado = true;
+      safeConfig.token = '********';
+    }
+
+    res.json({ whatsapp_config: safeConfig });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Guardar Configuración WhatsApp API (Exclusivo Super Admin)
+async function guardarConfiguracionWhatsApp(req, res, next) {
+  try {
+    if (!esSuperAdmin(req)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+
+    const { whatsappConfig } = req.body;
+    if (whatsappConfig) {
+      if (whatsappConfig.token === '********') {
+        const { rows: current } = await db.query("SELECT valor FROM configuracion_sistema WHERE clave = 'whatsapp_config';");
+        if (current.length > 0 && current[0].valor.token) {
+          whatsappConfig.token = current[0].valor.token;
+        }
+      }
+
+      await db.query(
+        `INSERT INTO configuracion_sistema (clave, valor, descripcion)
+         VALUES ('whatsapp_config', $1, 'Configuración WhatsApp API')
+         ON CONFLICT (clave) DO UPDATE SET valor = $1, updated_at = NOW()`,
+        [JSON.stringify(whatsappConfig)]
+      );
+    }
+
+    await registrarAuditoria({
+      usuarioId: req.user?.id,
+      usuarioNombre: req.user?.nombre || 'SuperAdmin',
+      usuarioRol: req.user?.rol || 'superadmin',
+      accion: 'GUARDAR_CONFIGURACION_WHATSAPP',
+      recurso: 'configuracion_sistema',
+      recursoId: 'whatsapp_config',
+      descripcion: 'Actualizada la configuración de la integración de WhatsApp Business API.',
+    });
+
+    res.json({ mensaje: 'Configuración de WhatsApp guardada exitosamente' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Probar Envío de WhatsApp en Vivo (Exclusivo Super Admin)
+async function probarConexionWhatsApp(req, res, next) {
+  try {
+    if (!esSuperAdmin(req)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+
+    const { telefonoDestino } = req.body;
+    const { sendTestWhatsApp } = require('../utils/whatsapp.service');
+
+    const result = await sendTestWhatsApp(telefonoDestino || '+523312345678');
+
+    res.json({
+      mensaje: result.mock ? 'WhatsApp no configurado (Envío Simulado Registrado)' : 'Mensaje de WhatsApp enviado exitosamente',
+      simulado: !!result.mock,
+      detalles: result.messageId || result.message || result.error,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getConfiguracionCorreo,
   guardarConfiguracionCorreo,
   probarConexionCorreo,
+  getConfiguracionWhatsApp,
+  guardarConfiguracionWhatsApp,
+  probarConexionWhatsApp,
 };

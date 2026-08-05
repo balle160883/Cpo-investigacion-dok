@@ -8,10 +8,13 @@ import {
   fetchSuscripcionRenta, 
   actualizarPlanSuscripcionApi, 
   registrarPagoRentaApi,
-  fetchInvestigadores 
+  fetchInvestigadores,
+  fetchConfiguracionWhatsApp,
+  guardarConfiguracionWhatsAppApi,
+  probarConexionWhatsAppApi
 } from '../services/api';
 import Toast from '../components/Toast';
-import { Mail, Key, CreditCard, ShieldCheck, CheckCircle2, AlertTriangle, Send, RefreshCw, Lock, Save, DollarSign } from 'lucide-react';
+import { Mail, Key, CreditCard, ShieldCheck, CheckCircle2, AlertTriangle, Send, RefreshCw, Lock, Save, DollarSign, MessageSquare } from 'lucide-react';
 
 export default function AjustesPage() {
   const auth = useAuth();
@@ -21,7 +24,7 @@ export default function AjustesPage() {
   })();
   const isSuperAdmin = userRole === 'superadmin' || userRole === 'admin';
 
-  const [activeTab, setActiveTab] = useState('correo'); // 'correo', 'password', 'suscripcion'
+  const [activeTab, setActiveTab] = useState('correo'); // 'correo', 'password', 'whatsapp', 'suscripcion'
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
@@ -45,13 +48,25 @@ export default function AjustesPage() {
   const [testEmailInput, setTestEmailInput] = useState('');
   const [testingEmail, setTestingEmail] = useState(false);
 
-  // 2. Estado Restablecimiento de Contraseñas (Admin)
+  // 2. Estado WhatsApp Business API (Super Admin)
+  const [whatsappConfig, setWhatsappConfig] = useState({
+    enabled: false,
+    provider: 'META_CLOUD',
+    phone_number_id: '',
+    token: '',
+    sender_phone: '+523312345678',
+    template_name: 'cpo_notificacion_visita',
+  });
+  const [testPhoneInput, setTestPhoneInput] = useState('');
+  const [testingWhatsApp, setTestingWhatsApp] = useState(false);
+
+  // 3. Estado Restablecimiento de Contraseñas (Admin)
   const [usuariosList, setUsuariosList] = useState([]);
   const [selectedUsuarioId, setSelectedUsuarioId] = useState('');
   const [manualEmail, setManualEmail] = useState('');
   const [sendingReset, setSendingReset] = useState(false);
 
-  // 3. Estado Suscripcion & Renta Mensual (Super Admin)
+  // 4. Estado Suscripcion & Renta Mensual (Super Admin)
   const [suscripcionData, setSuscripcionData] = useState(null);
   const [historialPagos, setHistorialPagos] = useState([]);
   const [submittingPago, setSubmittingPago] = useState(false);
@@ -78,12 +93,17 @@ export default function AjustesPage() {
       setUsuariosList(usrs || []);
       if (usrs && usrs.length > 0) setSelectedUsuarioId(usrs[0].id);
 
-      // Cargar Suscripción si es SuperAdmin
+      // Cargar Suscripción y WhatsApp si es SuperAdmin
       if (isSuperAdmin) {
         const suscRes = await fetchSuscripcionRenta().catch(() => null);
         if (suscRes) {
           setSuscripcionData(suscRes.suscripcion);
           setHistorialPagos(suscRes.historial_pagos || []);
+        }
+
+        const waRes = await fetchConfiguracionWhatsApp().catch(() => null);
+        if (waRes && waRes.whatsapp_config) {
+          setWhatsappConfig(waRes.whatsapp_config);
         }
       }
     } catch (err) {
@@ -114,6 +134,30 @@ export default function AjustesPage() {
       setToast({ message: 'Error en prueba SMTP: ' + err.message, type: 'error' });
     } finally {
       setTestingEmail(false);
+    }
+  }
+
+  // Guardar WhatsApp (Super Admin)
+  async function handleGuardarWhatsApp(e) {
+    e.preventDefault();
+    try {
+      await guardarConfiguracionWhatsAppApi({ whatsappConfig });
+      setToast({ message: 'Configuración de WhatsApp Business API guardada con éxito', type: 'success' });
+    } catch (err) {
+      setToast({ message: 'Error: ' + err.message, type: 'error' });
+    }
+  }
+
+  // Probar WhatsApp (Super Admin)
+  async function handleProbarWhatsApp() {
+    setTestingWhatsApp(true);
+    try {
+      const res = await probarConexionWhatsAppApi(testPhoneInput.trim() || undefined);
+      setToast({ message: res.mensaje, type: res.simulado ? 'warning' : 'success' });
+    } catch (err) {
+      setToast({ message: 'Error en prueba WhatsApp: ' + err.message, type: 'error' });
+    } finally {
+      setTestingWhatsApp(false);
     }
   }
 
@@ -196,6 +240,20 @@ export default function AjustesPage() {
           <Key className="w-4 h-4" />
           Restablecimiento de Contraseñas
         </button>
+
+        {isSuperAdmin && (
+          <button
+            onClick={() => setActiveTab('whatsapp')}
+            className={`px-4 py-2.5 font-bold text-xs rounded-t-xl transition flex items-center gap-2 border-t border-x ${
+              activeTab === 'whatsapp' 
+                ? 'bg-slate-900 border-slate-800 text-emerald-400 border-b-slate-900 -mb-px shadow-lg' 
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            WhatsApp Business API (Super Admin)
+          </button>
+        )}
 
         {isSuperAdmin && (
           <button
@@ -419,6 +477,123 @@ export default function AjustesPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* PESTAÑA 3: WHATSAPP BUSINESS API (EXCLUSIVO SUPER ADMIN) */}
+      {activeTab === 'whatsapp' && isSuperAdmin && (
+        <div className="space-y-6">
+          <form onSubmit={handleGuardarWhatsApp} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-emerald-400" /> Integración WhatsApp Business API (Meta Cloud API)
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">Configuración del canal oficial para notificar a los socios el día y rango de horario de la visita domiciliaria.</p>
+              </div>
+              <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={whatsappConfig.enabled}
+                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, enabled: e.target.checked })}
+                  className="w-4 h-4 rounded accent-emerald-500"
+                />
+                <span className="text-emerald-400">Habilitar WhatsApp API</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Proveedor API:</label>
+                <select
+                  value={whatsappConfig.provider || 'META_CLOUD'}
+                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, provider: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200"
+                >
+                  <option value="META_CLOUD">Meta Cloud API (Oficial)</option>
+                  <option value="TWILIO">Twilio WhatsApp API</option>
+                  <option value="EVOLUTION">Evolution / UltraMsg Gateway</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Teléfono Emisor Empresa:</label>
+                <input
+                  type="text"
+                  value={whatsappConfig.sender_phone || ''}
+                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, sender_phone: e.target.value })}
+                  placeholder="+523312345678"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">ID de Teléfono Meta (Phone Number ID):</label>
+                <input
+                  type="text"
+                  value={whatsappConfig.phone_number_id || ''}
+                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, phone_number_id: e.target.value })}
+                  placeholder="109823749827349"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-slate-300 font-medium mb-1">Token de Acceso Permanente (Bearer Token / API Key):</label>
+                <input
+                  type="password"
+                  value={whatsappConfig.token || ''}
+                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, token: e.target.value })}
+                  placeholder="EAAXXXXXX..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Nombre Plantilla Meta:</label>
+                <input
+                  type="text"
+                  value={whatsappConfig.template_name || ''}
+                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, template_name: e.target.value })}
+                  placeholder="cpo_notificacion_visita"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-lg shadow-emerald-900 flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" /> Guardar Credenciales de WhatsApp
+              </button>
+            </div>
+          </form>
+
+          {/* Formulario Probar WhatsApp */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
+            <h3 className="font-bold text-slate-100 text-sm flex items-center gap-2">
+              🧪 Probar Envío de WhatsApp en Vivo (Super Admin)
+            </h3>
+            <div className="flex flex-col sm:flex-row gap-3 text-xs">
+              <input
+                type="text"
+                value={testPhoneInput}
+                onChange={(e) => setTestPhoneInput(e.target.value)}
+                placeholder="Ingresa celular destino con clave de país (ej. +523312345678)"
+                className="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
+              />
+              <button
+                type="button"
+                disabled={testingWhatsApp}
+                onClick={handleProbarWhatsApp}
+                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold transition flex items-center justify-center gap-2 border border-slate-700"
+              >
+                <Send className="w-4 h-4" /> {testingWhatsApp ? 'Enviando...' : 'Enviar WhatsApp de Prueba'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

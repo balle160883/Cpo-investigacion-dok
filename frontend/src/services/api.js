@@ -303,3 +303,28 @@ export async function registrarPagoRentaApi(data) {
   });
   return handleResponse(res, 'Error al registrar pago de renta');
 }
+
+export async function fetchConfiguracionWhatsApp() {
+  const res = await fetch(`${getApiBaseUrl()}/configuracion/whatsapp`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al cargar configuración de WhatsApp');
+}
+
+export async function guardarConfiguracionWhatsAppApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/configuracion/whatsapp`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al guardar configuración de WhatsApp');
+}
+
+export async function probarConexionWhatsAppApi(telefonoDestino) {
+  const res = await fetch(`${getApiBaseUrl()}/configuracion/whatsapp/prueba`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ telefonoDestino }),
+  });
+  return handleResponse(res, 'Error al enviar WhatsApp de prueba');
+}

@@ -338,11 +338,12 @@ async function initDb() {
     // Sembrar configuración SMTP por defecto si está vacía
     const { rows: existingConfig } = await db.query("SELECT count(*) FROM configuracion_sistema WHERE clave = 'smtp_config';");
     if (parseInt(existingConfig[0].count) === 0) {
-      console.log('Sembrando configuración inicial SMTP de correo...');
+      console.log('Sembrando configuración inicial SMTP de correo y WhatsApp...');
       await db.query(`
         INSERT INTO configuracion_sistema (clave, valor, descripcion) VALUES
         ('smtp_config', $1, 'Configuración de servidor SMTP y notificaciones por correo'),
-        ('email_triggers', $2, 'Interruptores para el envío de notificaciones automáticas');
+        ('email_triggers', $2, 'Interruptores para el envío de notificaciones automáticas'),
+        ('whatsapp_config', $3, 'Configuración de integración con WhatsApp Business API');
       `, [
         JSON.stringify({
           host: 'smtp.gmail.com',
@@ -359,6 +360,14 @@ async function initDb() {
           notificar_analista_al_validar: true,
           notificar_sucursal_devolucion: true,
           notificar_alerta_renta_vencida: true,
+        }),
+        JSON.stringify({
+          enabled: false,
+          provider: 'META_CLOUD',
+          phone_number_id: '109823749827349',
+          token: '',
+          sender_phone: '+523312345678',
+          template_name: 'cpo_notificacion_visita',
         })
       ]);
     }
