@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   // Recuperación de Contraseña Modal State
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmailInput, setResetEmailInput] = useState('');
@@ -68,7 +68,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
-        
+
         {/* Header Logo */}
         <div className="text-center space-y-2">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-600 to-cyan-400 flex items-center justify-center mx-auto shadow-lg shadow-sky-500/20">
@@ -100,7 +100,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="ejemplo: jbb16"
+                placeholder="Nombre de Usuario"
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 focus:outline-none focus:border-sky-500"
               />
             </div>
@@ -161,7 +161,7 @@ export default function LoginPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <h3 className="font-bold text-slate-100 text-base">🔑 Recuperación de Contraseña</h3>
             <p className="text-xs text-slate-400">Ingresa tu correo electrónico registrado para enviarte las instrucciones y enlace de restablecimiento.</p>
-            
+
             <input
               type="email"
               value={resetEmailInput}
