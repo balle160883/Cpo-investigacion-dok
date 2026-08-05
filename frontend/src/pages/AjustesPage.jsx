@@ -11,10 +11,13 @@ import {
   fetchInvestigadores,
   fetchConfiguracionWhatsApp,
   guardarConfiguracionWhatsAppApi,
-  probarConexionWhatsAppApi
+  probarConexionWhatsAppApi,
+  crearUsuarioApi,
+  actualizarUsuarioApi,
+  eliminarUsuarioApi
 } from '../services/api';
 import Toast from '../components/Toast';
-import { Mail, Key, CreditCard, ShieldCheck, CheckCircle2, AlertTriangle, Send, RefreshCw, Lock, Save, DollarSign, MessageSquare } from 'lucide-react';
+import { Mail, Key, CreditCard, ShieldCheck, CheckCircle2, AlertTriangle, Send, RefreshCw, Lock, Save, DollarSign, MessageSquare, Users, UserPlus, Edit3, Trash2, Search, UserCheck } from 'lucide-react';
 
 export default function AjustesPage() {
   const auth = useAuth();
@@ -24,7 +27,7 @@ export default function AjustesPage() {
   })();
   const isSuperAdmin = userRole === 'superadmin' || userRole === 'admin';
 
-  const [activeTab, setActiveTab] = useState('correo'); // 'correo', 'password', 'whatsapp', 'suscripcion'
+  const [activeTab, setActiveTab] = useState('correo'); // 'correo', 'usuarios', 'password', 'whatsapp', 'suscripcion'
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
@@ -47,6 +50,20 @@ export default function AjustesPage() {
   });
   const [testEmailInput, setTestEmailInput] = useState('');
   const [testingEmail, setTestingEmail] = useState(false);
+
+  // 2. Estado Gestión de Usuarios y Roles (Admin / Super Admin)
+  const [userSearchFilter, setUserSearchFilter] = useState('');
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null); // null = nuevo
+  const [userFormData, setUserFormData] = useState({
+    nombre: '',
+    email: '',
+    telefono: '',
+    rol: 'investigador',
+    password: '',
+    activo: true,
+  });
+  const [submittingUser, setSubmittingUser] = useState(false);
 
   // 2. Estado WhatsApp Business API (Super Admin)
   const [whatsappConfig, setWhatsappConfig] = useState({
@@ -137,27 +154,72 @@ export default function AjustesPage() {
     }
   }
 
-  // Guardar WhatsApp (Super Admin)
-  async function handleGuardarWhatsApp(e) {
+  // Manejadores CRUD Usuarios & Roles
+  function handleOpenNewUserModal() {
+    setEditingUser(null);
+    setUserFormData({
+      nombre: '',
+      email: '',
+      telefono: '',
+      rol: 'investigador',
+      password: '',
+      activo: true,
+    });
+    setShowUserModal(true);
+  }
+
+  function handleOpenEditUserModal(u) {
+    setEditingUser(u);
+    setUserFormData({
+      nombre: u.nombre || '',
+      email: u.email || '',
+      telefono: u.telefono || '',
+      rol: u.rol || 'investigador',
+      password: '', // Vacío para no sobreescribir salvo que cambie
+      activo: u.activo !== false,
+    });
+    setShowUserModal(true);
+  }
+
+  async function handleGuardarUsuario(e) {
     e.preventDefault();
+    if (!userFormData.nombre.trim() || !userFormData.email.trim()) {
+      alert('Nombre y correo electrónico son requeridos.');
+      return;
+    }
+    if (!editingUser && !userFormData.password) {
+      alert('La contraseña inicial es requerida para un nuevo usuario.');
+      return;
+    }
+
+    setSubmittingUser(true);
     try {
-      await guardarConfiguracionWhatsAppApi({ whatsappConfig });
-      setToast({ message: 'Configuración de WhatsApp Business API guardada con éxito', type: 'success' });
+      if (editingUser) {
+        await actualizarUsuarioApi(editingUser.id, userFormData);
+        setToast({ message: `Usuario #${editingUser.id} (${userFormData.nombre}) actualizado con éxito.`, type: 'success' });
+      } else {
+        await crearUsuarioApi(userFormData);
+        setToast({ message: `Nuevo usuario ${userFormData.nombre} registrado con éxito.`, type: 'success' });
+      }
+      setShowUserModal(false);
+      loadAllData();
     } catch (err) {
       setToast({ message: 'Error: ' + err.message, type: 'error' });
+    } finally {
+      setSubmittingUser(false);
     }
   }
 
-  // Probar WhatsApp (Super Admin)
-  async function handleProbarWhatsApp() {
-    setTestingWhatsApp(true);
+  async function handleDesactivarUsuario(u) {
+    if (!window.confirm(`¿Estás seguro de desactivar al usuario "${u.nombre}" (${u.email})?`)) {
+      return;
+    }
     try {
-      const res = await probarConexionWhatsAppApi(testPhoneInput.trim() || undefined);
-      setToast({ message: res.mensaje, type: res.simulado ? 'warning' : 'success' });
+      await eliminarUsuarioApi(u.id);
+      setToast({ message: `Usuario ${u.nombre} desactivado del sistema.`, type: 'success' });
+      loadAllData();
     } catch (err) {
-      setToast({ message: 'Error en prueba WhatsApp: ' + err.message, type: 'error' });
-    } finally {
-      setTestingWhatsApp(false);
+      setToast({ message: 'Error: ' + err.message, type: 'error' });
     }
   }
 
@@ -227,6 +289,18 @@ export default function AjustesPage() {
         >
           <Mail className="w-4 h-4" />
           Servidor de Correo SMTP & Alertas
+        </button>
+
+        <button
+          onClick={() => setActiveTab('usuarios')}
+          className={`px-4 py-2.5 font-bold text-xs rounded-t-xl transition flex items-center gap-2 border-t border-x ${
+            activeTab === 'usuarios' 
+              ? 'bg-slate-900 border-slate-800 text-sky-400 border-b-slate-900 -mb-px shadow-lg' 
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Gestión de Usuarios & Roles
         </button>
 
         <button
@@ -426,6 +500,249 @@ export default function AjustesPage() {
                 <Send className="w-4 h-4" /> {testingEmail ? 'Enviando...' : 'Enviar Correo de Prueba'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PESTAÑA: GESTIÓN DE USUARIOS Y ROLES (ADMIN / SUPER ADMIN) */}
+      {activeTab === 'usuarios' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 shadow-xl">
+            {/* Header Tabla Usuarios */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                  <Users className="w-5 h-5 text-sky-400" /> Administración de Usuarios y Asignación de Roles (RBAC)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Crea, edita datos, asigna roles de permisos y gestiona el estatus activo/inactivo de la plantilla.</p>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={userSearchFilter}
+                    onChange={(e) => setUserSearchFilter(e.target.value)}
+                    placeholder="Buscar por nombre, correo o rol..."
+                    className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenNewUserModal}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs transition shadow-lg shadow-sky-600/20 flex items-center gap-2 whitespace-nowrap"
+                >
+                  <UserPlus className="w-4 h-4" /> Crear Nuevo Usuario
+                </button>
+              </div>
+            </div>
+
+            {/* Tabla de Usuarios */}
+            <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950/40">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-slate-900 uppercase font-semibold text-slate-400 border-b border-slate-800">
+                  <tr>
+                    <th className="p-3">ID</th>
+                    <th className="p-3">Nombre Completo</th>
+                    <th className="p-3">Correo / Usuario</th>
+                    <th className="p-3">Teléfono</th>
+                    <th className="p-3">Rol Asignado</th>
+                    <th className="p-3">Estatus</th>
+                    <th className="p-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {usuariosList
+                    .filter((u) => {
+                      if (!userSearchFilter.trim()) return true;
+                      const q = userSearchFilter.toLowerCase();
+                      return (
+                        u.nombre?.toLowerCase().includes(q) ||
+                        u.email?.toLowerCase().includes(q) ||
+                        u.rol?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((u) => {
+                      const r = (u.rol || '').toLowerCase();
+                      let badgeStyle = 'bg-slate-800 text-slate-300';
+                      let roleLabel = u.rol;
+                      if (r === 'superadmin') { badgeStyle = 'bg-purple-500/20 text-purple-300 border border-purple-500/30'; roleLabel = '👑 Super Admin'; }
+                      else if (r === 'admin') { badgeStyle = 'bg-sky-500/20 text-sky-300 border border-sky-500/30'; roleLabel = '🛡️ Admin'; }
+                      else if (r === 'validador') { badgeStyle = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'; roleLabel = '✅ Validador'; }
+                      else if (r === 'analista') { badgeStyle = 'bg-teal-500/20 text-teal-300 border border-teal-500/30'; roleLabel = '📊 Analista'; }
+                      else if (r === 'asignador') { badgeStyle = 'bg-amber-500/20 text-amber-300 border border-amber-500/30'; roleLabel = '📍 Asignador'; }
+                      else if (r === 'investigador') { badgeStyle = 'bg-blue-500/20 text-blue-300 border border-blue-500/30'; roleLabel = '🔍 Investigador'; }
+                      else if (r === 'auditor') { badgeStyle = 'bg-rose-500/20 text-rose-300 border border-rose-500/30'; roleLabel = '📋 Auditor'; }
+
+                      return (
+                        <tr key={u.id} className="hover:bg-slate-800/40 transition">
+                          <td className="p-3 font-mono text-slate-400">#{u.id}</td>
+                          <td className="p-3 font-bold text-slate-100">{u.nombre}</td>
+                          <td className="p-3 font-mono text-slate-300">{u.email}</td>
+                          <td className="p-3 font-mono text-slate-400">{u.telefono || '—'}</td>
+                          <td className="p-3">
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${badgeStyle}`}>
+                              {roleLabel}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            {u.activo !== false ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                🟢 Activo
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                🔴 Inactivo
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right space-x-2">
+                            <button
+                              onClick={() => handleOpenEditUserModal(u)}
+                              className="px-2.5 py-1 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 font-semibold transition"
+                              title="Editar datos y rol"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 inline mr-1" /> Editar
+                            </button>
+                            {u.activo !== false && (
+                              <button
+                                onClick={() => handleDesactivarUsuario(u)}
+                                className="px-2.5 py-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-semibold transition"
+                                title="Desactivar acceso del usuario"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 inline mr-1" /> Desactivar
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CREAR / EDITAR USUARIOS Y ROLES */}
+      {showUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                {editingUser ? <Edit3 className="w-5 h-5 text-sky-400" /> : <UserPlus className="w-5 h-5 text-sky-400" />}
+                {editingUser ? `Editar Usuario #${editingUser.id}` : 'Crear Nuevo Usuario y Asignar Rol'}
+              </h3>
+              <button
+                onClick={() => setShowUserModal(false)}
+                className="w-7 h-7 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarUsuario} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Nombre Completo (*):</label>
+                <input
+                  type="text"
+                  required
+                  value={userFormData.nombre}
+                  onChange={(e) => setUserFormData({ ...userFormData, nombre: e.target.value })}
+                  placeholder="Ej. Norma Bermejo Palos"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Correo / Usuario (*):</label>
+                  <input
+                    type="email"
+                    required
+                    value={userFormData.email}
+                    onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
+                    placeholder="ejemplo@cajaoblatos.com.mx"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Teléfono:</label>
+                  <input
+                    type="text"
+                    value={userFormData.telefono}
+                    onChange={(e) => setUserFormData({ ...userFormData, telefono: e.target.value })}
+                    placeholder="3312345678"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Rol RBAC Permisos (*):</label>
+                <select
+                  value={userFormData.rol}
+                  onChange={(e) => setUserFormData({ ...userFormData, rol: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-bold"
+                >
+                  <option value="superadmin">👑 Super Admin — Acceso Total, Renta SaaS y WhatsApp API</option>
+                  <option value="admin">🛡️ Administrador — Gestión General, Usuarios y Auditoría</option>
+                  <option value="validador">✅ Validador de Crédito — Revisión de Expedientes y Dictamen</option>
+                  <option value="analista">📊 Analista de Investigaciones — Revisión Documental y Devoluciones</option>
+                  <option value="asignador">📍 Asignador de Zonas — Control Territorial y Mapa GPS</option>
+                  <option value="investigador">🔍 Investigador en Campo — App Móvil, Visitas y Evidencias</option>
+                  <option value="auditor">📋 Auditor — Bitácora de Eventos de Seguridad</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  {editingUser ? 'Nueva Contraseña (dejar en blanco para mantener la actual):' : 'Contraseña Inicial (*):'}
+                </label>
+                <input
+                  type="password"
+                  required={!editingUser}
+                  value={userFormData.password}
+                  onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
+                />
+              </div>
+
+              {editingUser && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="userActiveCheck"
+                    checked={userFormData.activo}
+                    onChange={(e) => setUserFormData({ ...userFormData, activo: e.target.checked })}
+                    className="w-4 h-4 rounded accent-sky-500 cursor-pointer"
+                  />
+                  <label htmlFor="userActiveCheck" className="text-slate-300 cursor-pointer font-semibold">
+                    Usuario Habilitado / Activo
+                  </label>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowUserModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingUser}
+                  className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold transition shadow-md shadow-sky-600/20"
+                >
+                  {submittingUser ? 'Guardando...' : editingUser ? 'Actualizar Usuario' : 'Crear Usuario'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

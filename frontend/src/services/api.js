@@ -328,3 +328,29 @@ export async function probarConexionWhatsAppApi(telefonoDestino) {
   });
   return handleResponse(res, 'Error al enviar WhatsApp de prueba');
 }
+
+export async function crearUsuarioApi(data) {
+  const res = await fetch(`${getApiBaseUrl()}/investigadores`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al crear usuario');
+}
+
+export async function actualizarUsuarioApi(id, data) {
+  const res = await fetch(`${getApiBaseUrl()}/investigadores/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res, 'Error al actualizar usuario');
+}
+
+export async function eliminarUsuarioApi(id) {
+  const res = await fetch(`${getApiBaseUrl()}/investigadores/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al desactivar usuario');
+}
