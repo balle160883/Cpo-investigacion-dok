@@ -31,6 +31,7 @@ function AppRoutes() {
   const userRole = (user?.rol || '').toLowerCase();
   const canViewMap = ['superadmin', 'asignador', 'validador', 'admin'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
+  const canViewSettings = ['superadmin', 'admin'].includes(userRole);
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col transition-colors duration-200`}>
@@ -51,7 +52,10 @@ function AppRoutes() {
               path="/auditoria"
               element={canViewAudit ? <AuditLogPage /> : <Navigate to="/" replace />}
             />
-            <Route path="/ajustes" element={<AjustesPage />} />
+            <Route
+              path="/ajustes"
+              element={canViewSettings ? <AjustesPage /> : <Navigate to="/" replace />}
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

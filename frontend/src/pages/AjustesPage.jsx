@@ -17,6 +17,7 @@ import {
   eliminarUsuarioApi
 } from '../services/api';
 import Toast from '../components/Toast';
+import { Navigate } from 'react-router-dom';
 import { Mail, Key, CreditCard, ShieldCheck, CheckCircle2, AlertTriangle, Send, RefreshCw, Lock, Save, DollarSign, MessageSquare, Users, UserPlus, Edit3, Trash2, Search, UserCheck } from 'lucide-react';
 
 export default function AjustesPage() {
@@ -26,6 +27,10 @@ export default function AjustesPage() {
     try { return (JSON.parse(localStorage.getItem('cpo_user') || '{}').rol || '').toLowerCase(); } catch { return ''; }
   })();
   const isSuperAdmin = userRole === 'superadmin' || userRole === 'admin';
+
+  if (!isSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   const [activeTab, setActiveTab] = useState('correo'); // 'correo', 'usuarios', 'password', 'whatsapp', 'suscripcion'
   const [loading, setLoading] = useState(true);

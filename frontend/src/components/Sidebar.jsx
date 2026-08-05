@@ -18,6 +18,7 @@ export default function Sidebar({ user }) {
 
   const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
+  const canViewSettings = ['superadmin', 'admin'].includes(userRole);
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -25,7 +26,7 @@ export default function Sidebar({ user }) {
     canViewMap && { to: '/mapa', label: 'Mapa GPS', icon: MapPin },
     { to: '/investigadores', label: 'Investigadores', icon: Users },
     canViewAudit && { to: '/auditoria', label: 'Bitácora', icon: ShieldAlert },
-    { to: '/ajustes', label: 'Ajustes', icon: Settings },
+    canViewSettings && { to: '/ajustes', label: 'Ajustes', icon: Settings },
   ].filter(Boolean);
 
   return (
