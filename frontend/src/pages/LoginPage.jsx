@@ -5,8 +5,8 @@ import { getApiBaseUrl, recuperarPasswordApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('jbb16');
-  const [password, setPassword] = useState('Seguridad2026@');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
