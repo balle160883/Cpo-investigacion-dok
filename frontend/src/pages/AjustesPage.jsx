@@ -159,6 +159,30 @@ export default function AjustesPage() {
     }
   }
 
+  // Guardar WhatsApp (Super Admin)
+  async function handleGuardarWhatsApp(e) {
+    e.preventDefault();
+    try {
+      await guardarConfiguracionWhatsAppApi({ whatsappConfig });
+      setToast({ message: 'Configuración de WhatsApp Business API guardada con éxito', type: 'success' });
+    } catch (err) {
+      setToast({ message: 'Error: ' + err.message, type: 'error' });
+    }
+  }
+
+  // Probar WhatsApp (Super Admin)
+  async function handleProbarWhatsApp() {
+    setTestingWhatsApp(true);
+    try {
+      const res = await probarConexionWhatsAppApi(testPhoneInput.trim() || undefined);
+      setToast({ message: res.mensaje, type: res.simulado ? 'warning' : 'success' });
+    } catch (err) {
+      setToast({ message: 'Error en prueba WhatsApp: ' + err.message, type: 'error' });
+    } finally {
+      setTestingWhatsApp(false);
+    }
+  }
+
   // Manejadores CRUD Usuarios & Roles
   function handleOpenNewUserModal() {
     setEditingUser(null);
