@@ -116,7 +116,16 @@ async function getConfiguracionWhatsApp(req, res, next) {
     }
 
     const { rows } = await db.query("SELECT valor FROM configuracion_sistema WHERE clave = 'whatsapp_config';");
-    const config = rows.length > 0 ? rows[0].valor : {};
+    const defaultConfig = {
+      enabled: false,
+      provider: 'META_CLOUD',
+      phone_number_id: '109823749827349',
+      token: '',
+      sender_phone: '+523312345678',
+      template_name: 'cpo_notificacion_visita',
+    };
+
+    const config = rows.length > 0 ? { ...defaultConfig, ...rows[0].valor } : defaultConfig;
 
     const safeConfig = { ...config };
     if (safeConfig.token) {

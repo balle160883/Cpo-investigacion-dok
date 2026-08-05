@@ -335,15 +335,14 @@ async function initDb() {
       );
     `);
 
-    // Sembrar configuración SMTP por defecto si está vacía
-    const { rows: existingConfig } = await db.query("SELECT count(*) FROM configuracion_sistema WHERE clave = 'smtp_config';");
-    if (parseInt(existingConfig[0].count) === 0) {
-      console.log('Sembrando configuración inicial SMTP de correo y WhatsApp...');
+    // Sembrar configuración SMTP, Triggers y WhatsApp por defecto si no existen
+    try {
       await db.query(`
         INSERT INTO configuracion_sistema (clave, valor, descripcion) VALUES
         ('smtp_config', $1, 'Configuración de servidor SMTP y notificaciones por correo'),
         ('email_triggers', $2, 'Interruptores para el envío de notificaciones automáticas'),
-        ('whatsapp_config', $3, 'Configuración de integración con WhatsApp Business API');
+        ('whatsapp_config', $3, 'Configuración de integración con WhatsApp Business API')
+        ON CONFLICT (clave) DO NOTHING;
       `, [
         JSON.stringify({
           host: 'smtp.gmail.com',
@@ -370,6 +369,8 @@ async function initDb() {
           template_name: 'cpo_notificacion_visita',
         })
       ]);
+    } catch (e) {
+      console.error('Error sembrando configuracion_sistema:', e.message);
     }
 
     // Sembrar suscripción empresa si está vacía

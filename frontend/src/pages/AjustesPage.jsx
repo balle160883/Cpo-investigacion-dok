@@ -816,8 +816,8 @@ export default function AjustesPage() {
               <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={whatsappConfig.enabled}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, enabled: e.target.checked })}
+                  checked={!!(whatsappConfig && whatsappConfig.enabled)}
+                  onChange={(e) => setWhatsappConfig({ ...(whatsappConfig || {}), enabled: e.target.checked })}
                   className="w-4 h-4 rounded accent-emerald-500"
                 />
                 <span className="text-emerald-400">Habilitar WhatsApp API</span>
@@ -828,8 +828,8 @@ export default function AjustesPage() {
               <div>
                 <label className="block text-slate-300 font-medium mb-1">Proveedor API:</label>
                 <select
-                  value={whatsappConfig.provider || 'META_CLOUD'}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, provider: e.target.value })}
+                  value={(whatsappConfig && whatsappConfig.provider) || 'META_CLOUD'}
+                  onChange={(e) => setWhatsappConfig({ ...(whatsappConfig || {}), provider: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200"
                 >
                   <option value="META_CLOUD">Meta Cloud API (Oficial)</option>
@@ -842,8 +842,8 @@ export default function AjustesPage() {
                 <label className="block text-slate-300 font-medium mb-1">Teléfono Emisor Empresa:</label>
                 <input
                   type="text"
-                  value={whatsappConfig.sender_phone || ''}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, sender_phone: e.target.value })}
+                  value={(whatsappConfig && whatsappConfig.sender_phone) || ''}
+                  onChange={(e) => setWhatsappConfig({ ...(whatsappConfig || {}), sender_phone: e.target.value })}
                   placeholder="+523312345678"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
                 />
@@ -853,8 +853,8 @@ export default function AjustesPage() {
                 <label className="block text-slate-300 font-medium mb-1">ID de Teléfono Meta (Phone Number ID):</label>
                 <input
                   type="text"
-                  value={whatsappConfig.phone_number_id || ''}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, phone_number_id: e.target.value })}
+                  value={(whatsappConfig && whatsappConfig.phone_number_id) || ''}
+                  onChange={(e) => setWhatsappConfig({ ...(whatsappConfig || {}), phone_number_id: e.target.value })}
                   placeholder="109823749827349"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
                 />
@@ -864,8 +864,8 @@ export default function AjustesPage() {
                 <label className="block text-slate-300 font-medium mb-1">Token de Acceso Permanente (Bearer Token / API Key):</label>
                 <input
                   type="password"
-                  value={whatsappConfig.token || ''}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, token: e.target.value })}
+                  value={(whatsappConfig && whatsappConfig.token) || ''}
+                  onChange={(e) => setWhatsappConfig({ ...(whatsappConfig || {}), token: e.target.value })}
                   placeholder="EAAXXXXXX..."
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
                 />
@@ -875,8 +875,8 @@ export default function AjustesPage() {
                 <label className="block text-slate-300 font-medium mb-1">Nombre Plantilla Meta:</label>
                 <input
                   type="text"
-                  value={whatsappConfig.template_name || ''}
-                  onChange={(e) => setWhatsappConfig({ ...whatsappConfig, template_name: e.target.value })}
+                  value={(whatsappConfig && whatsappConfig.template_name) || ''}
+                  onChange={(e) => setWhatsappConfig({ ...(whatsappConfig || {}), template_name: e.target.value })}
                   placeholder="cpo_notificacion_visita"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 font-mono"
                 />
