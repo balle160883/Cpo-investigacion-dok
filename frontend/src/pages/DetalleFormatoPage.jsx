@@ -137,7 +137,7 @@ export default function DetalleFormatoPage() {
 
   const firmaCaptured = ev.firma_url || '';
   const firmaInvestigadorCaptured = ev.firma_investigador_url || '';
-  const isAval = inv.tipo_sujeto !== 'CLIENTE';
+  const isAval = inv.es_aval === true || (inv.tipo_sujeto || '').toUpperCase().includes('AVAL');
 
   function prepareFirmaSrc(src) {
     if (!src) return '';
@@ -487,8 +487,15 @@ export default function DetalleFormatoPage() {
             <h2 className="text-sm font-bold text-slate-800 tracking-wide mt-1 uppercase">
               DEPARTAMENTO DE INVESTIGACIONES DOMICILIARIAS
             </h2>
-            <div className="text-xs font-semibold text-slate-700 mt-0.5">
-              ESTUDIO DOMICILIARIO: <span className="underline font-bold">{isAval ? 'AVAL DE PRÉSTAMO' : 'SOLICITANTE DE PRÉSTAMO'}</span>
+            <div className="text-xs font-semibold text-slate-700 mt-1 flex items-center justify-center gap-2">
+              <span>ESTUDIO DOMICILIARIO:</span>
+              <span className={`px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wide border ${
+                isAval
+                  ? 'bg-purple-100 text-purple-900 border-purple-400'
+                  : 'bg-sky-100 text-sky-900 border-sky-400'
+              }`}>
+                {isAval ? '🤝 AVAL DE CRÉDITO' : '👤 SOLICITANTE DE PRÉSTAMO'}
+              </span>
             </div>
           </div>
 
@@ -516,8 +523,13 @@ export default function DetalleFormatoPage() {
             <span className="font-bold">Fecha:</span> {inv.fecha_asignacion ? new Date(inv.fecha_asignacion).toLocaleDateString('es-MX') : new Date().toLocaleDateString('es-MX')}
           </div>
 
-          <div className="col-span-2">
-            <span className="font-bold text-sky-800 uppercase">{isAval ? 'AVAL' : 'SOLICITANTE'}:</span> {inv.sujeto_nombre}
+          <div className="col-span-2 flex items-center gap-1.5">
+            <span className={`font-bold px-2 py-0.5 rounded text-[11px] uppercase tracking-wider ${
+              isAval ? 'bg-purple-200 text-purple-950 font-black' : 'bg-sky-200 text-sky-950 font-black'
+            }`}>
+              {isAval ? '🤝 AVAL:' : '👤 SOLICITANTE:'}
+            </span>
+            <span className="font-extrabold text-slate-900 text-sm">{inv.sujeto_nombre}</span>
           </div>
           <div>
             <span className="font-bold">Crédito:</span> {inv.solicitud_folio || 'N/A'}
