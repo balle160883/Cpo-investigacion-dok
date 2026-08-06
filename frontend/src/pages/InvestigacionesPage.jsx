@@ -261,6 +261,11 @@ export default function InvestigacionesPage() {
                     <td className="px-5 py-4 font-mono font-semibold text-slate-200">
                       <div>#{row.id_sif_research}</div>
                       <div className="text-[11px] text-slate-500 font-sans">Sol: {row.solicitud_folio || 'N/A'}</div>
+                      <div className="mt-0.5">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                          🏢 {row.sucursal_id ? (String(row.sucursal_id) === '13' ? 'Suc. 13 (Oblatos)' : `Suc. #${row.sucursal_id}`) : 'Suc. Matriz'}
+                        </span>
+                      </div>
                       {row.paquete_total > 1 && (
                         <div className="mt-1">
                           {row.paquete_completo ? (

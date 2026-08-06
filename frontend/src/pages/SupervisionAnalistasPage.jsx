@@ -317,6 +317,7 @@ export default function SupervisionAnalistasPage() {
             <thead className="bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800">
               <tr>
                 <th className="px-5 py-3">Folio / Crédito</th>
+                <th className="px-5 py-3">Sucursal Origen</th>
                 <th className="px-5 py-3">Solicitante</th>
                 <th className="px-5 py-3">Analista Responsable</th>
                 <th className="px-5 py-3">Fecha / Hora Revalidación</th>
@@ -328,13 +329,13 @@ export default function SupervisionAnalistasPage() {
             <tbody className="divide-y divide-slate-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-slate-500">
+                  <td colSpan="8" className="text-center py-8 text-slate-500">
                     Cargando auditoría de analistas...
                   </td>
                 </tr>
               ) : historialFiltrado.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-slate-500">
+                  <td colSpan="8" className="text-center py-8 text-slate-500">
                     No se encontraron registros de revalidación en el rango de fechas seleccionado.
                   </td>
                 </tr>
@@ -344,6 +345,11 @@ export default function SupervisionAnalistasPage() {
                     <td className="px-5 py-3.5 font-mono font-semibold text-slate-200">
                       #{h.id_sif_research}
                       <div className="text-[10px] text-slate-500">Folio: {h.solicitud_folio || 'N/A'}</div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="px-2 py-1 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] font-bold inline-flex items-center gap-1">
+                        🏢 {h.sucursal_id ? (String(h.sucursal_id) === '13' ? 'Sucursal 13 (Oblatos)' : `Sucursal #${h.sucursal_id}`) : 'Sucursal Matriz'}
+                      </span>
                     </td>
                     <td className="px-5 py-3.5 font-semibold text-white">{h.sujeto_nombre || 'Socio'}</td>
                     <td className="px-5 py-3.5 font-medium text-slate-200">
