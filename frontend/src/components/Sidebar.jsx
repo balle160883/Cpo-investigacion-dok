@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, MapPin, Users, Printer, ShieldAlert, Settings } from 'lucide-react';
+import { LayoutDashboard, FileText, MapPin, Users, Printer, ShieldAlert, Settings, ShieldCheck } from 'lucide-react';
 
 const ROLE_META = {
   superadmin: { label: 'Super Admin', badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/40', icon: '👑' },
@@ -19,10 +19,12 @@ export default function Sidebar({ user }) {
   const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
   const canViewSettings = ['superadmin', 'admin'].includes(userRole);
+  const canViewSupervisionAnalistas = ['superadmin', 'admin', 'supervisor_analistas'].includes(userRole);
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/investigaciones', label: 'Investigaciones', icon: FileText },
+    canViewSupervisionAnalistas && { to: '/supervision-analistas', label: 'Auditoría Analistas', icon: ShieldCheck },
     canViewMap && { to: '/mapa', label: 'Mapa GPS', icon: MapPin },
     { to: '/investigadores', label: 'Investigadores', icon: Users },
     canViewAudit && { to: '/auditoria', label: 'Bitácora', icon: ShieldAlert },

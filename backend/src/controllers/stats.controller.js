@@ -124,8 +124,92 @@ async function getProductividadInvestigadores(req, res, next) {
   }
 }
 
+async function getAuditoriaAnalistas(req, res, next) {
+  try {
+    const { fecha_inicio, fecha_fin, analista_id } = req.query;
+
+    let whereClauses = [];
+    let queryParams = [];
+
+    if (fecha_inicio) {
+      queryParams.push(fecha_inicio);
+      whereClauses.push(`inv.fecha_revalidacion >= $${queryParams.length}::timestamp`);
+    }
+
+    if (fecha_fin) {
+      queryParams.push(`${fecha_fin} 23:59:59`);
+      whereClauses.push(`inv.fecha_revalidacion <= $${queryParams.length}::timestamp`);
+    }
+
+    if (analista_id && analista_id !== 'TODOS') {
+      queryParams.push(analista_id);
+      whereClauses.push(`CAST(inv.analista_id AS TEXT) = CAST($${queryParams.length} AS TEXT)`);
+    }
+
+    const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    // 1. Resumen de Pendientes de Aprobar (Cola Actual de Analistas)
+    const { rows: pendRes } = await db.query(`
+      SELECT count(*) as total_pendientes
+      FROM investigaciones
+      WHERE estado_validacion = 'VALIDADA';
+    `);
+
+    // 2. Detalle de Revalidaciones por Analista dentro del Rango de Fechas
+    const dataQuery = `
+      SELECT 
+        inv.id_sif_research,
+        inv.solicitud_id_sif,
+        inv.persona_id_sif,
+        inv.estado,
+        inv.estado_validacion,
+        inv.fecha_revalidacion,
+        inv.comentarios_revalidacion,
+        inv.analista_id,
+        an.nombre as analista_nombre,
+        an.email as analista_email,
+        p.nombre_completo as sujeto_nombre,
+        s.folio as solicitud_folio,
+        s.monto_solicitado,
+        s.sucursal_id
+      FROM investigaciones inv
+      LEFT JOIN investigadores an ON inv.analista_id = an.id
+      LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+      LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
+      ${whereSql ? whereSql + " AND inv.fecha_revalidacion IS NOT NULL" : "WHERE inv.fecha_revalidacion IS NOT NULL"}
+      ORDER BY inv.fecha_revalidacion DESC;
+    `;
+
+    const { rows: historial } = await db.query(dataQuery, queryParams);
+
+    // 3. Resumen por Analista Individual
+    const { rows: resumenAnalistas } = await db.query(`
+      SELECT 
+        an.id,
+        an.nombre,
+        an.email,
+        COUNT(inv.id_sif_research) FILTER (WHERE inv.estado = 'APROBADA_FINAL') as aprobadas_final,
+        COUNT(inv.id_sif_research) FILTER (WHERE inv.estado = 'DEVUELTA_A_VALIDADOR') as devueltas_validador
+      FROM investigadores an
+      LEFT JOIN investigaciones inv ON inv.analista_id = an.id ${whereSql ? 'AND ' + whereClauses.join(' AND ') : ''}
+      WHERE LOWER(an.rol) IN ('analista', 'admin', 'superadmin') OR inv.analista_id IS NOT NULL
+      GROUP BY an.id, an.nombre, an.email
+      ORDER BY aprobadas_final DESC;
+    `, queryParams);
+
+    res.json({
+      pendientes_de_aprobar: parseInt(pendRes[0]?.total_pendientes || 0),
+      historial,
+      resumenAnalistas,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getStats,
   getProductividadInvestigadores,
+  getAuditoriaAnalistas,
 };
 

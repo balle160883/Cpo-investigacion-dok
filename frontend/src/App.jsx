@@ -11,6 +11,7 @@ import MapaPage from './pages/MapaPage';
 import InvestigadoresPage from './pages/InvestigadoresPage';
 import AuditLogPage from './pages/AuditLogPage';
 import AjustesPage from './pages/AjustesPage';
+import SupervisionAnalistasPage from './pages/SupervisionAnalistasPage';
 
 function AppRoutes() {
   const { user, isAuthenticated, loading, logout, theme } = useAuth();
@@ -32,6 +33,7 @@ function AppRoutes() {
   const canViewMap = ['superadmin', 'asignador', 'validador', 'admin'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
   const canViewSettings = ['superadmin', 'admin'].includes(userRole);
+  const canViewSupervisionAnalistas = ['superadmin', 'admin', 'supervisor_analistas'].includes(userRole);
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col transition-colors duration-200`}>
@@ -43,6 +45,10 @@ function AppRoutes() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/investigaciones" element={<InvestigacionesPage />} />
             <Route path="/investigaciones/:id" element={<DetalleFormatoPage />} />
+            <Route
+              path="/supervision-analistas"
+              element={canViewSupervisionAnalistas ? <SupervisionAnalistasPage /> : <Navigate to="/" replace />}
+            />
             <Route
               path="/mapa"
               element={canViewMap ? <MapaPage /> : <Navigate to="/" replace />}

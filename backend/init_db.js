@@ -124,11 +124,11 @@ async function initDb() {
       ]);
     }
 
-    // Actualización automática de rol para Norma Lizette Bermejo Palos
+    // Actualización automática de rol para Norma Lizette Bermejo Palos (Administradora de Analistas & CPO)
     try {
       await db.query(`
         UPDATE investigadores
-        SET rol = 'analista'
+        SET rol = 'admin'
         WHERE UPPER(nombre) LIKE '%NORMA%' 
            OR UPPER(nombre) LIKE '%BERMEJO%'
            OR UPPER(nombre) LIKE '%PALOS%'

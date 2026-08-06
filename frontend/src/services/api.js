@@ -71,6 +71,12 @@ export async function fetchProductividadInvestigadores() {
   return handleResponse(res, 'Error al cargar productividad de investigadores');
 }
 
+export async function fetchAuditoriaAnalistas(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${getApiBaseUrl()}/stats/analistas?${qs}`, { headers: getAuthHeaders() });
+  return handleResponse(res, 'Error al cargar auditoría de analistas');
+}
+
 export async function fetchAuditLog(params = {}) {
   const qs = new URLSearchParams(params).toString();
   const res = await fetch(`${getApiBaseUrl()}/audit?${qs}`, { headers: getAuthHeaders() });
