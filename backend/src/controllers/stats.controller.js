@@ -207,9 +207,125 @@ async function getAuditoriaAnalistas(req, res, next) {
   }
 }
 
+/**
+ * Controller: Auditoría de Tiempos SLA & Cronómetro por Fases
+ */
+async function getSlaStats(req, res, next) {
+  try {
+    const { fecha_inicio, fecha_fin, sucursal_id, estado_sla } = req.query;
+
+    const whereClauses = [];
+    const queryParams = [];
+
+    if (fecha_inicio) {
+      queryParams.push(fecha_inicio);
+      whereClauses.push(`inv.created_at >= $${queryParams.length}::timestamp`);
+    }
+
+    if (fecha_fin) {
+      queryParams.push(`${fecha_fin} 23:59:59`);
+      whereClauses.push(`inv.created_at <= $${queryParams.length}::timestamp`);
+    }
+
+    if (sucursal_id && sucursal_id !== 'TODAS') {
+      queryParams.push(sucursal_id);
+      whereClauses.push(`CAST(s.sucursal_id AS TEXT) = CAST($${queryParams.length} AS TEXT)`);
+    }
+
+    const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    const dataQuery = `
+      SELECT 
+        inv.id_sif_research,
+        inv.solicitud_id_sif,
+        inv.persona_id_sif,
+        inv.tipo_sujeto,
+        inv.estado,
+        inv.estado_validacion,
+        inv.created_at as fecha_creacion_sif,
+        inv.fecha_asignacion,
+        inv.fecha_cumplimiento,
+        inv.fecha_validacion,
+        inv.fecha_revalidacion,
+        inv.investigador_id,
+        inv_usr.nombre as investigador_nombre,
+        inv.validador_id,
+        val_usr.nombre as validador_nombre,
+        inv.analista_id,
+        an_usr.nombre as analista_nombre,
+        p.nombre_completo as sujeto_nombre,
+        s.folio as solicitud_folio,
+        s.monto_solicitado,
+        s.sucursal_id,
+        -- CÁLCULO DE DURACIONES EN HORAS
+        ROUND(EXTRACT(EPOCH FROM (COALESCE(inv.fecha_asignacion, NOW()) - inv.created_at))/3600, 2) as hrs_fase1_asignacion,
+        ROUND(EXTRACT(EPOCH FROM (COALESCE(inv.fecha_cumplimiento, NOW()) - COALESCE(inv.fecha_asignacion, inv.created_at)))/3600, 2) as hrs_fase2_campo,
+        ROUND(EXTRACT(EPOCH FROM (COALESCE(inv.fecha_validacion, NOW()) - COALESCE(inv.fecha_cumplimiento, inv.fecha_asignacion, inv.created_at)))/3600, 2) as hrs_fase3_credito,
+        ROUND(EXTRACT(EPOCH FROM (COALESCE(inv.fecha_revalidacion, NOW()) - COALESCE(inv.fecha_validacion, inv.fecha_cumplimiento, inv.created_at)))/3600, 2) as hrs_fase4_analista,
+        -- TIEMPO TOTAL TRANSCURRIDO EN HORAS
+        ROUND(EXTRACT(EPOCH FROM (COALESCE(inv.fecha_revalidacion, NOW()) - inv.created_at))/3600, 2) as hrs_totales_transcurridas
+      FROM investigaciones inv
+      LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+      LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
+      LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
+      LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
+      LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
+      ${whereSql}
+      ORDER BY inv.created_at DESC;
+    `;
+
+    const { rows } = await db.query(dataQuery, queryParams);
+
+    // Mapeo y categorización de SLA
+    let items = rows.map(r => {
+      const hrs = parseFloat(r.hrs_totales_transcurridas || 0);
+      let estadoSla = 'OPTIMO'; // < 24 hrs
+      if (hrs >= 24 && hrs < 48) estadoSla = 'ADVERTENCIA';
+      else if (hrs >= 48) estadoSla = 'EXCEDIDO';
+
+      return {
+        ...r,
+        hrs_totales: hrs,
+        estado_sla: estadoSla,
+        finalizado: !!r.fecha_revalidacion,
+      };
+    });
+
+    // Filtrar por estado SLA si fue solicitado
+    if (estado_sla && estado_sla !== 'TODOS') {
+      items = items.filter(i => i.estado_sla === estado_sla);
+    }
+
+    // Calcular estadísticas globales KPI
+    const totalCreditos = items.length;
+    const optimos = items.filter(i => i.estado_sla === 'OPTIMO').length;
+    const advertencias = items.filter(i => i.estado_sla === 'ADVERTENCIA').length;
+    const excedidos = items.filter(i => i.estado_sla === 'EXCEDIDO').length;
+
+    const sumaHoras = items.reduce((acc, curr) => acc + curr.hrs_totales, 0);
+    const promedioHorasGlobal = totalCreditos > 0 ? (sumaHoras / totalCreditos).toFixed(1) : 0;
+    const porcentajeSla = totalCreditos > 0 ? ((optimos / totalCreditos) * 100).toFixed(1) : 100;
+
+    res.json({
+      resumenKpi: {
+        totalCreditos,
+        optimos,
+        advertencias,
+        excedidos,
+        promedioHorasGlobal,
+        porcentajeSla,
+      },
+      creditos: items,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getStats,
   getProductividadInvestigadores,
   getAuditoriaAnalistas,
+  getSlaStats,
 };
 

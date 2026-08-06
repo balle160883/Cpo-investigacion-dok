@@ -360,3 +360,11 @@ export async function eliminarUsuarioApi(id) {
   });
   return handleResponse(res, 'Error al desactivar usuario');
 }
+
+export async function fetchSlaStats(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const res = await fetch(`${getApiBaseUrl()}/stats/sla?${query}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al cargar estadísticas SLA');
+}
