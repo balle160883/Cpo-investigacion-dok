@@ -206,7 +206,8 @@ export default function DetalleFormatoPage() {
           <div className="flex flex-wrap gap-2 pt-1">
             {data.paqueteInvestigaciones.map((p) => {
               const isCurrent = String(p.id_sif_research) === String(id);
-              const isCli = p.tipo_sujeto === 'CLIENTE';
+              const isAval = p.es_aval === true || (p.tipo_sujeto || '').toUpperCase().includes('AVAL');
+              const isCli = !isAval;
               return (
                 <Link
                   key={p.id_sif_research}

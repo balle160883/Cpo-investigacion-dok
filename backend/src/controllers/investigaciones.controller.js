@@ -21,10 +21,10 @@ async function getInvestigaciones(req, res, next) {
       targetInvestigadorId = null;
     }
 
-    // Autodetectar ID si la petición viene de un usuario con rol de investigador y no especificó ID explícito
-    if (!targetInvestigadorId && req.user) {
+    // Filtros de Rol por Usuario autenticado
+    if (req.user) {
       const userRol = (req.user.rol || '').toLowerCase();
-      if (userRol === 'investigador' && req.user.id) {
+      if (userRol === 'investigador' && req.user.id && !targetInvestigadorId) {
         targetInvestigadorId = req.user.id;
       }
       // VALIDADOR: Solo le aparecen las investigaciones si TODAS las investigaciones de ese crédito están COMPLETADAS
@@ -235,13 +235,14 @@ async function getInvestigacionDetalle(req, res, next) {
           inv_p.id_sif_research,
           inv_p.persona_id_sif,
           inv_p.tipo_sujeto,
+          COALESCE(p.es_aval, FALSE) as es_aval,
           COALESCE(inv_p.estado, 'PENDIENTE') as estado,
           inv_p.estado_validacion,
           p.nombre_completo as sujeto_nombre
         FROM investigaciones inv_p
         LEFT JOIN personas p ON CAST(inv_p.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
         WHERE CAST(inv_p.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
-        ORDER BY inv_p.tipo_sujeto DESC, inv_p.id_sif_research ASC;
+        ORDER BY COALESCE(p.es_aval, FALSE) ASC, inv_p.id_sif_research ASC;
       `, [investigacion.solicitud_id_sif]);
       paqueteInvestigaciones = paqueteRes.rows;
     }
