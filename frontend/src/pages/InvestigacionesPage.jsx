@@ -261,6 +261,19 @@ export default function InvestigacionesPage() {
                     <td className="px-5 py-4 font-mono font-semibold text-slate-200">
                       <div>#{row.id_sif_research}</div>
                       <div className="text-[11px] text-slate-500 font-sans">Sol: {row.solicitud_folio || 'N/A'}</div>
+                      {row.paquete_total > 1 && (
+                        <div className="mt-1">
+                          {row.paquete_completo ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" title="Todas las investigaciones de este crédito fueron completadas">
+                              🟢 Paquete {row.paquete_completadas}/{row.paquete_total}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Esperando visitas a avales o solicitante">
+                              ⏳ Paquete {row.paquete_completadas}/{row.paquete_total}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase ${

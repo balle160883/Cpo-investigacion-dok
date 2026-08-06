@@ -27,6 +27,15 @@ async function getInvestigaciones(req, res, next) {
       if (userRol === 'investigador' && req.user.id) {
         targetInvestigadorId = req.user.id;
       }
+      // VALIDADOR: Solo le aparecen las investigaciones si TODAS las investigaciones de ese crédito están COMPLETADAS
+      if (userRol === 'validador') {
+        whereClauses.push(`NOT EXISTS (
+          SELECT 1 
+          FROM investigaciones inv_sub 
+          WHERE CAST(inv_sub.solicitud_id_sif AS TEXT) = CAST(inv.solicitud_id_sif AS TEXT)
+            AND (inv_sub.estado IS NULL OR inv_sub.estado != 'COMPLETADA')
+        )`);
+      }
       // ANALISTA: solo puede ver investigaciones con estado_validacion = 'VALIDADA'
       if (userRol === 'analista') {
         whereClauses.push(`inv.estado_validacion = 'VALIDADA'`);
@@ -46,7 +55,6 @@ async function getInvestigaciones(req, res, next) {
       queryParams.push(targetInvestigadorId);
       whereClauses.push(`CAST(inv.investigador_id AS TEXT) = CAST($${queryParams.length} AS TEXT)`);
     }
-
 
     if (buscar) {
       queryParams.push(`%${buscar}%`);
@@ -97,6 +105,10 @@ async function getInvestigaciones(req, res, next) {
         d.municipio,
         d.estado_provincia,
         inv_usr.nombre as investigador_nombre,
+        -- PROGRESO DEL PAQUETE DEL CRÉDITO (Solicitante + Avales)
+        COALESCE(paq.paquete_total, 1) as paquete_total,
+        COALESCE(paq.paquete_completadas, 0) as paquete_completadas,
+        (COALESCE(paq.paquete_total, 1) = COALESCE(paq.paquete_completadas, 0)) as paquete_completo,
         -- VIGENCIA 90 DÍAS: busca si esta persona tiene evidencia reciente en CUALQUIER investigación
         vigencia.visita_previa_id,
         vigencia.visita_realizada_en,
@@ -107,6 +119,14 @@ async function getInvestigaciones(req, res, next) {
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
       LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
+      -- Subconsulta de paquete de crédito completo
+      LEFT JOIN LATERAL (
+        SELECT 
+          COUNT(*) as paquete_total,
+          COUNT(*) FILTER (WHERE inv_p.estado = 'COMPLETADA') as paquete_completadas
+        FROM investigaciones inv_p
+        WHERE CAST(inv_p.solicitud_id_sif AS TEXT) = CAST(inv.solicitud_id_sif AS TEXT)
+      ) paq ON TRUE
       -- Subconsulta de vigencia: busca la evidencia más reciente de la misma persona en los últimos 90 días
       LEFT JOIN LATERAL (
         SELECT
@@ -197,8 +217,9 @@ async function getInvestigacionDetalle(req, res, next) {
 
     const investigacion = invRes.rows[0];
 
-    // 2. Avales vinculados
+    // 2. Avales e Investigaciones vinculadas al mismo Crédito
     let avales = [];
+    let paqueteInvestigaciones = [];
     if (investigacion.solicitud_id_sif) {
       const avalesRes = await db.query(`
         SELECT sa.aval_id_sif, p.nombre_completo, d.calle, d.numero_exterior, d.codigo_postal
@@ -208,6 +229,21 @@ async function getInvestigacionDetalle(req, res, next) {
         WHERE CAST(sa.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT);
       `, [investigacion.solicitud_id_sif]);
       avales = avalesRes.rows;
+
+      const paqueteRes = await db.query(`
+        SELECT 
+          inv_p.id_sif_research,
+          inv_p.persona_id_sif,
+          inv_p.tipo_sujeto,
+          COALESCE(inv_p.estado, 'PENDIENTE') as estado,
+          inv_p.estado_validacion,
+          p.nombre_completo as sujeto_nombre
+        FROM investigaciones inv_p
+        LEFT JOIN personas p ON CAST(inv_p.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+        WHERE CAST(inv_p.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
+        ORDER BY inv_p.tipo_sujeto DESC, inv_p.id_sif_research ASC;
+      `, [investigacion.solicitud_id_sif]);
+      paqueteInvestigaciones = paqueteRes.rows;
     }
 
     // 3. Evidencia realizada
@@ -245,6 +281,7 @@ async function getInvestigacionDetalle(req, res, next) {
     res.json({
       investigacion,
       avales,
+      paqueteInvestigaciones,
       evidencia,
       vigenciaPrevia,
     });

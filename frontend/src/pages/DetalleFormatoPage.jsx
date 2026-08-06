@@ -192,6 +192,45 @@ export default function DetalleFormatoPage() {
       {/* Toast Alert */}
       {toast.message && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />}
 
+      {/* Pestañas de Navegación del Paquete del Crédito (Solicitante + Avales) */}
+      {data.paqueteInvestigaciones && data.paqueteInvestigaciones.length > 1 && (
+        <div className="no-print bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-2 shadow-xl">
+          <div className="text-xs font-bold text-slate-300 flex items-center justify-between border-b border-slate-800 pb-2">
+            <span className="flex items-center gap-1.5 text-sky-400">
+              📦 Expediente Completo del Crédito — Folio: {inv.solicitud_folio || `#${inv.solicitud_id_sif}`}
+            </span>
+            <span className="text-[11px] font-mono text-slate-400">
+              {data.paqueteInvestigaciones.filter(p => p.estado === 'COMPLETADA').length} de {data.paqueteInvestigaciones.length} Visitas Completadas en Campo
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {data.paqueteInvestigaciones.map((p) => {
+              const isCurrent = String(p.id_sif_research) === String(id);
+              const isCli = p.tipo_sujeto === 'CLIENTE';
+              return (
+                <Link
+                  key={p.id_sif_research}
+                  to={`/investigaciones/${p.id_sif_research}`}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 border ${
+                    isCurrent
+                      ? 'bg-sky-600 border-sky-400 text-white shadow-md shadow-sky-600/30'
+                      : 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <span>{isCli ? '👤 Solicitante:' : '🤝 Aval:'}</span>
+                  <span className="font-semibold">{p.sujeto_nombre || 'Socio'}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                    p.estado === 'COMPLETADA' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}>
+                    {p.estado === 'COMPLETADA' ? '✓ Visita Terminada' : '⏳ En Proceso'}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* PANEL DE VALIDACIÓN Y DICTAMEN DE ANÁLISIS DE CRÉDITO (Oculto en impresión) */}
 
       <div className="no-print bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4 shadow-xl">
