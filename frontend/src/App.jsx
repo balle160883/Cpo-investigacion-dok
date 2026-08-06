@@ -33,7 +33,7 @@ function AppRoutes() {
   const canViewMap = ['superadmin', 'asignador', 'validador', 'admin'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
   const canViewSettings = ['superadmin', 'admin'].includes(userRole);
-  const canViewSupervisionAnalistas = ['superadmin', 'admin', 'supervisor_analistas'].includes(userRole);
+  const canViewSupervisionAnalistas = ['superadmin', 'admin', 'supervisor_analistas', 'analista'].includes(userRole);
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col transition-colors duration-200`}>

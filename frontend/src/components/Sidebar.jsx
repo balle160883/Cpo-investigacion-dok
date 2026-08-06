@@ -19,7 +19,7 @@ export default function Sidebar({ user }) {
   const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].includes(userRole);
   const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
   const canViewSettings = ['superadmin', 'admin'].includes(userRole);
-  const canViewSupervisionAnalistas = ['superadmin', 'admin', 'supervisor_analistas'].includes(userRole);
+  const canViewSupervisionAnalistas = ['superadmin', 'admin', 'supervisor_analistas', 'analista'].includes(userRole);
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
