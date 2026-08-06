@@ -4,6 +4,7 @@ import { fetchInvestigacionDetalle, validarInvestigacion, revalidarInvestigacion
 import { useAuth } from '../context/AuthContext';
 import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import Toast from '../components/Toast';
+import { formatNombreSucursal } from '../utils/formatters';
 
 // Helper: formatea fecha en DD/Mon/AAAA
 function formatFechaCorta(fechaStr) {
@@ -517,7 +518,7 @@ export default function DetalleFormatoPage() {
             <span className="font-bold">Socio Núm.:</span> {inv.persona_id_sif || 'N/A'}
           </div>
           <div>
-            <span className="font-bold">Sucursal:</span> {inv.sucursal_id || '01 - Matriz'}
+            <span className="font-bold">Sucursal:</span> {formatNombreSucursal(inv.sucursal_id)}
           </div>
           <div className="col-span-2">
             <span className="font-bold">Fecha:</span> {inv.fecha_asignacion ? new Date(inv.fecha_asignacion).toLocaleDateString('es-MX') : new Date().toLocaleDateString('es-MX')}

@@ -8,6 +8,7 @@ import ChecklistDocumentalModal from '../components/ChecklistDocumentalModal';
 import NotificacionesInterareasModal from '../components/NotificacionesInterareasModal';
 import AgendaVisitasModal from '../components/AgendaVisitasModal';
 import PrevalidacionContactoModal from '../components/PrevalidacionContactoModal';
+import { formatNombreSucursal } from '../utils/formatters';
 
 // Helper: formatea fecha en DD/Mon/AAAA
 function formatFechaCorta(fechaStr) {
@@ -263,7 +264,7 @@ export default function InvestigacionesPage() {
                       <div className="text-[11px] text-slate-500 font-sans">Sol: {row.solicitud_folio || 'N/A'}</div>
                       <div className="mt-0.5">
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                          🏢 {row.sucursal_id ? (String(row.sucursal_id) === '13' ? 'Suc. 13 (Oblatos)' : `Suc. #${row.sucursal_id}`) : 'Suc. Matriz'}
+                          🏢 {formatNombreSucursal(row.sucursal_id)}
                         </span>
                       </div>
                       {row.paquete_total > 1 && (

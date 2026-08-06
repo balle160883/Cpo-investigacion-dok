@@ -15,6 +15,7 @@ import {
   UserX
 } from 'lucide-react';
 import { fetchAuditoriaAnalistas, fetchInvestigadores } from '../services/api';
+import { formatNombreSucursal } from '../utils/formatters';
 
 export default function SupervisionAnalistasPage() {
   const [loading, setLoading] = useState(true);
@@ -347,8 +348,8 @@ export default function SupervisionAnalistasPage() {
                       <div className="text-[10px] text-slate-500">Folio: {h.solicitud_folio || 'N/A'}</div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className="px-2 py-1 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] font-bold inline-flex items-center gap-1">
-                        🏢 {h.sucursal_id ? (String(h.sucursal_id) === '13' ? 'Sucursal 13 (Oblatos)' : `Sucursal #${h.sucursal_id}`) : 'Sucursal Matriz'}
+                      <span className="px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30 text-xs font-bold inline-flex items-center gap-1.5 shadow-sm">
+                        🏢 {formatNombreSucursal(h.sucursal_id)}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 font-semibold text-white">{h.sujeto_nombre || 'Socio'}</td>
