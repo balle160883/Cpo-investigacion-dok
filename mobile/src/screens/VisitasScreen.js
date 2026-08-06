@@ -322,11 +322,16 @@ export default function VisitasScreen({ navigation, route }) {
               onPress={() => navigation.navigate('DetalleInvestigacion', { id: item.id_sif_research })}
             >
               <View style={styles.cardHeader}>
-                <View style={[styles.badge, item.tipo_sujeto === 'CLIENTE' ? styles.badgeSol : styles.badgeAval]}>
-                  <Text style={styles.badgeText}>
-                    {item.tipo_sujeto === 'CLIENTE' ? 'SOLICITANTE' : 'AVAL'}
-                  </Text>
-                </View>
+                {(() => {
+                  const isAvalItem = item?.es_aval === true || (item?.tipo_sujeto || '').toUpperCase().includes('AVAL');
+                  return (
+                    <View style={[styles.badge, !isAvalItem ? styles.badgeSol : styles.badgeAval]}>
+                      <Text style={styles.badgeText}>
+                        {!isAvalItem ? '👤 SOLICITANTE' : '🤝 AVAL'}
+                      </Text>
+                    </View>
+                  );
+                })()}
 
                 {item.distanciaKm !== null && (
                   <View style={styles.distanciaBadgeContainer}>

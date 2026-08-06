@@ -39,7 +39,14 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
 
     <ScrollView style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.typeBadge}>{inv.tipo_sujeto === 'CLIENTE' ? 'SOLICITANTE DE PRÉSTAMO' : 'AVAL DE PRÉSTAMO'}</Text>
+        {(() => {
+          const isAval = inv?.es_aval === true || (inv?.tipo_sujeto || '').toUpperCase().includes('AVAL');
+          return (
+            <Text style={styles.typeBadge}>
+              {isAval ? '🤝 AVAL DE CRÉDITO' : '👤 SOLICITANTE DE PRÉSTAMO'}
+            </Text>
+          );
+        })()}
         <Text style={styles.nombre}>{inv.sujeto_nombre || 'Socio Sin Nombre'}</Text>
         <Text style={styles.meta}>Socio N° {inv.persona_id_sif || 'N/A'} • Solicitud #{inv.solicitud_folio || 'N/A'}</Text>
       </View>

@@ -6,8 +6,8 @@ import { guardarEvidenciaInvestigacion, escanearINEConFoto } from '../api/apiCli
 import SignaturePad from '../components/SignaturePad';
 
 export default function CapturaFormatoScreen({ route, navigation }) {
-  const { id, inv } = route.params;
-  const isAval = inv?.tipo_sujeto !== 'CLIENTE';
+  const { id, inv } = route.params || {};
+  const isAval = inv?.es_aval === true || (inv?.tipo_sujeto || '').toUpperCase().includes('AVAL');
 
   // Form Fields based on Word Formats
   const [quienAtendio, setQuienAtendio] = useState('titular'); // titular | familiar
