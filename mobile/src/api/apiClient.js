@@ -61,6 +61,8 @@ export async function login(email, password) {
   }
 }
 
+const CACHED_ASSIGNMENTS_KEY = 'cpo_cached_assigned_investigaciones';
+
 export async function getAssignedInvestigaciones(investigadorId) {
   const token = await getToken();
   let realId =
@@ -76,36 +78,78 @@ export async function getAssignedInvestigaciones(investigadorId) {
   }
 
   const queryParam = realId ? `?investigador_id=${encodeURIComponent(realId)}` : '';
-  const res = await fetch(`${BASE_URL}/investigaciones${queryParam}`, {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json',
-    },
-  });
 
-  if (res.status === 401 || res.status === 403) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'SESION_EXPIRADA');
+  try {
+    const res = await fetch(`${BASE_URL}/investigaciones${queryParam}`, {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'SESION_EXPIRADA');
+    }
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error del servidor (${res.status}) al cargar asignaciones`);
+    }
+
+    const data = await res.json();
+    // Guardar en caché offline para trabajo sin señal
+    try {
+      await AsyncStorage.setItem(CACHED_ASSIGNMENTS_KEY, JSON.stringify(data));
+    } catch (e) {}
+
+    return data;
+  } catch (err) {
+    // Si falla la red (Modo Offline), cargar de la memoria local
+    if (err.message?.includes('Network') || err.message?.includes('fetch') || err.name === 'TypeError') {
+      try {
+        const rawCache = await AsyncStorage.getItem(CACHED_ASSIGNMENTS_KEY);
+        if (rawCache) {
+          const cachedData = JSON.parse(rawCache);
+          cachedData._offlineCached = true;
+          return cachedData;
+        }
+      } catch (e) {}
+    }
+    throw err;
   }
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || `Error del servidor (${res.status}) al cargar asignaciones`);
-  }
-
-  return res.json();
 }
 
 export async function getInvestigacionDetalle(id) {
   const token = await getToken();
-  const res = await fetch(`${BASE_URL}/investigaciones/${id}`, {
-    headers: {
-      Authorization: token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json',
-    },
-  });
-  if (!res.ok) throw new Error('Error al obtener detalle de la investigación');
-  return res.json();
+  const cacheKey = `cpo_cached_investigacion_detalle_${id}`;
+
+  try {
+    const res = await fetch(`${BASE_URL}/investigaciones/${id}`, {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error('Error al obtener detalle de la investigación');
+    const data = await res.json();
+    try {
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+    } catch (e) {}
+    return data;
+  } catch (err) {
+    if (err.message?.includes('Network') || err.message?.includes('fetch') || err.name === 'TypeError') {
+      try {
+        const rawCache = await AsyncStorage.getItem(cacheKey);
+        if (rawCache) {
+          const cached = JSON.parse(rawCache);
+          cached._offlineCached = true;
+          return cached;
+        }
+      } catch (e) {}
+    }
+    throw err;
+  }
 }
 
 const PENDING_SURVEYS_KEY = 'cpo_pending_offline_surveys';

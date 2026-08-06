@@ -62,7 +62,24 @@ export default function VisitasScreen({ navigation, route }) {
       reportarGPSActual();
     }, 5000);
 
-    return () => clearInterval(gpsInterval);
+    // AUTO-SYNC DE ENCUENTAS EN SEGUNDO PLANO: Intenta subir encuestas offline cada 15 segundos
+    const autoSyncInterval = setInterval(async () => {
+      try {
+        const pending = await getPendingOfflineSurveys();
+        if (pending.length > 0) {
+          const res = await syncPendingSurveys();
+          if (res.synced > 0) {
+            checkPendingSurveys();
+            loadData(currentUser?.id);
+          }
+        }
+      } catch (e) {}
+    }, 15000);
+
+    return () => {
+      clearInterval(gpsInterval);
+      clearInterval(autoSyncInterval);
+    };
   }, []);
 
   async function checkPendingSurveys() {
