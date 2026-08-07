@@ -3,6 +3,7 @@ const {
   getInvestigaciones,
   getInvestigacionDetalle,
   asignarInvestigador,
+  asignarInvestigadorLote,
   guardarEvidencia,
   validarInvestigacion,
   revalidarInvestigacion,
@@ -13,6 +14,7 @@ const { PERMISSIONS } = require('../rbac/roles');
 const router = express.Router();
 
 router.get('/', authenticate, getInvestigaciones);
+router.post('/asignar-lote', authenticate, asignarInvestigadorLote);
 router.get('/:id', authenticate, getInvestigacionDetalle);
 router.post('/:id/asignar', authenticate, asignarInvestigador);
 router.post('/:id/evidencia', authenticate, guardarEvidencia);

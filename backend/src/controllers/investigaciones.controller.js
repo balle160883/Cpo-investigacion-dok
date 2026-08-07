@@ -333,6 +333,67 @@ async function asignarInvestigador(req, res, next) {
   }
 }
 
+async function asignarInvestigadorLote(req, res, next) {
+  try {
+    const { investigacion_ids, investigador_id } = req.body;
+
+    if (!Array.isArray(investigacion_ids) || investigacion_ids.length === 0) {
+      return res.status(400).json({ error: 'Se requiere una lista de IDs de investigaciones (investigacion_ids).' });
+    }
+
+    if (!investigador_id) {
+      return res.status(400).json({ error: 'ID de investigador requerido (investigador_id).' });
+    }
+
+    // Convertir todos los IDs a string para evitar problemas de tipos
+    const idsClean = investigacion_ids.map((id) => String(id));
+
+    const result = await db.query(
+      `UPDATE investigaciones
+       SET investigador_id = $1,
+           fecha_asignacion = NOW(),
+           estado = 'EN_PROCESO',
+           updated_at = NOW()
+       WHERE CAST(id_sif_research AS TEXT) = ANY($2::text[])
+       RETURNING id_sif_research;`,
+      [investigador_id, idsClean]
+    );
+
+    const actualizados = result.rows.map((r) => r.id_sif_research);
+
+    // Emitir actualización vía WebSockets
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('investigaciones_actualizadas', {
+        tipo: 'ASIGNACION_LOTE',
+        investigador_id,
+        investigacion_ids: actualizados,
+        total: actualizados.length,
+      });
+    }
+
+    // Registrar en auditoría
+    registrarAuditoria({
+      usuario_id: req.user?.id || null,
+      usuario_nombre: req.user?.nombre || req.user?.email || 'Sistema',
+      usuario_rol: req.user?.rol || 'sistema',
+      accion: 'ASIGNAR_INVESTIGADOR_LOTE',
+      recurso: 'investigaciones',
+      recurso_id: actualizados.join(','),
+      descripcion: `Asignación en lote de ${actualizados.length} investigaciones al investigador ID ${investigador_id}`,
+      datos_nuevos: { investigador_id, total: actualizados.length },
+    });
+
+    res.json({
+      success: true,
+      message: `Se asignaron exitosamente ${actualizados.length} investigaciones al investigador.`,
+      asignadas: actualizados,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function guardarEvidencia(req, res, next) {
   try {
     const id = req.params.id;
@@ -519,6 +580,7 @@ module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
   asignarInvestigador,
+  asignarInvestigadorLote,
   guardarEvidencia,
   validarInvestigacion,
   revalidarInvestigacion,

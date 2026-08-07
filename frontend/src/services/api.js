@@ -56,6 +56,15 @@ export async function asignarInvestigador(investigacionId, investigadorId) {
   return handleResponse(res, 'Error al asignar investigador');
 }
 
+export async function asignarInvestigadorLote(investigacionIds, investigadorId) {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/asignar-lote`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ investigacion_ids: investigacionIds, investigador_id: investigadorId }),
+  });
+  return handleResponse(res, 'Error al asignar investigaciones en lote');
+}
+
 export async function fetchInvestigadores() {
   const res = await fetch(`${getApiBaseUrl()}/investigadores`, { headers: getAuthHeaders() });
   return handleResponse(res, 'Error al cargar investigadores');
