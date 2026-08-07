@@ -53,6 +53,17 @@ async function guardarUbicacion(req, res, next) {
       [investigador_id, latitud, longitud, bateria_nivel || 100]
     );
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('ubicacion_actualizada', {
+        investigador_id,
+        latitud,
+        longitud,
+        bateria_nivel: bateria_nivel || 100,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
     res.json({ success: true });
   } catch (err) {
     next(err);

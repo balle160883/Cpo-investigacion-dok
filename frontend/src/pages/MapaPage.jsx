@@ -1,20 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { io } from 'socket.io-client';
 import { fetchInvestigaciones, fetchUbicacionesInvestigadores } from '../services/api';
-import { Navigation, UserCheck, RefreshCw, Layers } from 'lucide-react';
+import { Navigation, UserCheck, RefreshCw, Layers, Wifi } from 'lucide-react';
 
 // Mapbox Token from configuration
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
 export default function MapaPage() {
   const mapContainer = useRef(null);
   const map = useRef(null);
+  const socketRef = useRef(null);
   const invMarkersRef = useRef(new Map());
   const reqMarkersRef = useRef(new Map());
   const [investigadores, setInvestigadores] = useState([]);
   const [investigaciones, setInvestigaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [wsConnected, setWsConnected] = useState(false);
 
   useEffect(() => {
     if (map.current) return;
@@ -30,12 +35,38 @@ export default function MapaPage() {
 
     loadMapData();
 
-    // Auto-refresh posiciones cada 5 segundos para tiempo real fluido
+    // Conectar Socket.io para actualización instantánea vía WebSockets
+    try {
+      const socketUrl = API_BASE_URL.replace('/api', '');
+      socketRef.current = io(socketUrl, {
+        reconnection: true,
+        reconnectionDelay: 2000,
+      });
+
+      socketRef.current.on('connect', () => {
+        setWsConnected(true);
+      });
+
+      socketRef.current.on('disconnect', () => {
+        setWsConnected(false);
+      });
+
+      socketRef.current.on('ubicacion_actualizada', (data) => {
+        loadMapData();
+      });
+    } catch (e) {
+      console.warn('Socket.io error:', e);
+    }
+
+    // Auto-refresh posiciones cada 10 segundos como respaldo
     const interval = setInterval(() => {
       loadMapData();
-    }, 5000);
+    }, 10000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (socketRef.current) socketRef.current.disconnect();
+    };
   }, []);
 
   const centrarEnUbicacion = (lng, lat, title) => {
@@ -197,6 +228,12 @@ export default function MapaPage() {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Actualizar Ubicaciones
           </button>
+          <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl">
+            <Wifi className={`w-3.5 h-3.5 ${wsConnected ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />
+            <span className={wsConnected ? 'text-emerald-400 font-medium' : 'text-slate-400'}>
+              {wsConnected ? 'Live Sockets' : 'Polling'}
+            </span>
+          </div>
           <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl">
             <span className="w-3 h-3 rounded-full bg-sky-500"></span> Solicitante / Aval
           </div>

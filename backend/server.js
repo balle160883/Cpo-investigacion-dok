@@ -22,8 +22,28 @@ const contactosRoutes = require('./src/routes/contactos.routes');
 const configuracionRoutes = require('./src/routes/configuracion.routes');
 const suscripcionRoutes = require('./src/routes/suscripcion.routes');
 
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
 const PORT = process.env.PORT || 4000;
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  },
+});
+
+io.on('connection', (socket) => {
+  console.log(`🔌 Cliente WebSocket conectado: ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`❌ Cliente WebSocket desconectado: ${socket.id}`);
+  });
+});
+
+app.set('io', io);
 
 // Garantizar que el directorio de uploads exista (volumen Docker: /app/uploads)
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
@@ -75,10 +95,11 @@ app.use('/api/suscripcion', suscripcionRoutes);
 // Middleware Global de Manejo de Errores
 app.use(errorHandler);
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor Backend modular corriendo en puerto ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor Backend modular con WebSockets corriendo en puerto ${PORT}`);
   console.log(`📦 Almacenamiento de medios en: ${UPLOADS_DIR}`);
   console.log(`📖 Documentación API disponible en: http://localhost:${PORT}/api/docs`);
 });
+
 
 
