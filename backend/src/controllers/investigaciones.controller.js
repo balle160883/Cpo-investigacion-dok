@@ -405,8 +405,12 @@ async function guardarEvidencia(req, res, next) {
       latitud_checkin,
       longitud_checkin,
       notas_investigador,
-      dictamen
+      dictamen,
+      supuesto
     } = req.body;
+
+    const supuestoValor = supuesto || estudio_socioeconomico?.supuesto || '';
+    const dictamenInfo = dictamen ? `Dictamen: ${dictamen}${supuestoValor ? ` [Supuesto: ${supuestoValor}]` : ''}` : '';
 
     await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;`);
 
@@ -432,14 +436,14 @@ async function guardarEvidencia(req, res, next) {
       JSON.stringify(fotos_urls || []),
       firma_url || null,
       firma_investigador_url || null,
-      notas_investigador || (dictamen ? `Dictamen: ${dictamen}` : '')
+      notas_investigador || dictamenInfo
     ]);
 
     await db.query(`
       UPDATE investigaciones
       SET estado = 'COMPLETADA', fecha_cumplimiento = NOW(), observaciones_sif = $1, updated_at = NOW()
       WHERE id_sif_research = $2;
-    `, [notas_investigador || (dictamen ? `Dictamen: ${dictamen}` : 'Completada desde App Móvil'), id]);
+    `, [notas_investigador ? `${notas_investigador}${supuestoValor ? ` (Supuesto: ${supuestoValor})` : ''}` : (dictamenInfo || 'Completada desde App Móvil'), id]);
 
     res.json({ success: true, message: 'Estudio e investigación guardados correctamente' });
   } catch (err) {

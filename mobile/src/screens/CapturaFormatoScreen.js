@@ -48,6 +48,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [valorAuto, setValorAuto] = useState('0');
 
   const [dictamen, setDictamen] = useState('DOMICILIO CONFIRMADO');
+  const [supuesto, setSupuesto] = useState('');
   const [observaciones, setObservaciones] = useState('');
 
   // 3. Referencias / Avales
@@ -263,6 +264,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
       const estudio_socioeconomico = {
         dictamen: dictamen,
+        supuesto: (dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') ? supuesto : '',
         quien_atendio: quienAtendio,
         nombre_atendio: nombreAtendio,
         parentesco_atendio: parentescoAtendio,
@@ -305,6 +307,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       const res = await guardarEvidenciaInvestigacion(id, {
         estudio_socioeconomico,
         dictamen,
+        supuesto: (dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') ? supuesto : '',
         notas_investigador: observaciones,
         fotos_urls: fotos,
         firma_url: firmaUrl,
@@ -821,17 +824,51 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         <Text style={styles.label}>Dictamen:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 4 }}>
           <View style={styles.row}>
-            <TouchableOpacity style={[styles.chip, dictamen === 'DOMICILIO CONFIRMADO' && styles.chipActive]} onPress={() => setDictamen('DOMICILIO CONFIRMADO')}>
+            <TouchableOpacity 
+              style={[styles.chip, dictamen === 'DOMICILIO CONFIRMADO' && styles.chipActive]} 
+              onPress={() => { setDictamen('DOMICILIO CONFIRMADO'); setSupuesto(''); }}>
               <Text style={styles.chipText}>✓ Confirmado</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.chip, dictamen === 'DOMICILIO NO LOCALIZADO' && styles.chipActive]} onPress={() => setDictamen('DOMICILIO NO LOCALIZADO')}>
-              <Text style={styles.chipText}>✕ No Localizado</Text>
+            <TouchableOpacity 
+              style={[styles.chip, (dictamen === 'CAMBIO DE DOMICILIO' || dictamen === 'DOMICILIO NO LOCALIZADO') && styles.chipActive]} 
+              onPress={() => { setDictamen('CAMBIO DE DOMICILIO'); setSupuesto(''); }}>
+              <Text style={styles.chipText}>🔄 Cambio de Domicilio</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.chip, dictamen === 'PENDIENTE DE VISITA' && styles.chipActive]} onPress={() => setDictamen('PENDIENTE DE VISITA')}>
-              <Text style={styles.chipText}>⏳ Pendiente de Visita</Text>
+            <TouchableOpacity 
+              style={[styles.chip, (dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') && styles.chipActive]} 
+              onPress={() => { setDictamen('PENDIENTE'); }}>
+              <Text style={styles.chipText}>⏳ Pendiente</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {(dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') && (
+          <View style={{ marginTop: 8, marginBottom: 8 }}>
+            <Text style={styles.label}>Supuesto de Pendiente:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 4 }}>
+              <View style={styles.row}>
+                {[
+                  'Con Filio',
+                  'Comprobar casa habitacion',
+                  'Con cita',
+                  'No localizado domicilio',
+                  'Sin acceso',
+                  'Sin interior',
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={[styles.chip, supuesto === item && styles.chipActiveSupuesto]}
+                    onPress={() => setSupuesto(item)}
+                  >
+                    <Text style={[styles.chipText, supuesto === item && styles.chipActiveText]}>
+                      {supuesto === item ? '✓ ' : ''}{item}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        )}
 
 
         <Text style={styles.label}>Observaciones:</Text>
@@ -921,7 +958,9 @@ const styles = StyleSheet.create({
   rowButtons: { flexDirection: 'row', gap: 10, marginTop: 4 },
   chip: { backgroundColor: '#0f172a', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#334155' },
   chipActive: { backgroundColor: '#0284c7', borderColor: '#38bdf8' },
+  chipActiveSupuesto: { backgroundColor: '#7c3aed', borderColor: '#a78bfa' },
   chipText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
+  chipActiveText: { color: '#ffffff', fontWeight: 'bold' },
   photoBtn: { flex: 1, backgroundColor: '#0284c7', padding: 12, borderRadius: 10, alignItems: 'center' },
   photoBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 },
   photoBtnSecondary: { flex: 1, backgroundColor: '#334155', padding: 12, borderRadius: 10, alignItems: 'center' },

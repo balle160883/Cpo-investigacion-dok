@@ -735,19 +735,25 @@ export default function DetalleFormatoPage() {
             {ev.notas_investigador || inv.observaciones_sif || 'Sin observaciones adicionales.'}
           </div>
 
-          <div className="flex items-center justify-between pt-2 text-xs font-bold">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between pt-2 text-xs font-bold flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span>Dictamen de Campo:</span>
               {(() => {
                 const dictText = (est.dictamen || ev.notas_investigador || '').toUpperCase();
                 if (dictText.includes('PENDIENTE')) {
-                  return <span className="px-3 py-1 rounded bg-amber-600 text-white uppercase text-[11px]">⏳ PENDIENTE DE VISITA</span>;
-                } else if (dictText.includes('NO LOCALIZADO')) {
-                  return <span className="px-3 py-1 rounded bg-rose-600 text-white uppercase text-[11px]">✕ DOMICILIO NO LOCALIZADO</span>;
+                  return <span className="px-3 py-1 rounded bg-amber-600 text-white uppercase text-[11px] font-bold">⏳ PENDIENTE</span>;
+                } else if (dictText.includes('CAMBIO') || dictText.includes('NO LOCALIZADO')) {
+                  return <span className="px-3 py-1 rounded bg-orange-600 text-white uppercase text-[11px] font-bold">🔄 CAMBIO DE DOMICILIO</span>;
                 } else {
-                  return <span className="px-3 py-1 rounded bg-sky-700 text-white uppercase text-[11px]">✓ DOMICILIO CONFIRMADO</span>;
+                  return <span className="px-3 py-1 rounded bg-sky-700 text-white uppercase text-[11px] font-bold">✓ DOMICILIO CONFIRMADO</span>;
                 }
               })()}
+
+              {(est.supuesto || ev.supuesto || (ev.estudio_socioeconomico && typeof ev.estudio_socioeconomico === 'object' && ev.estudio_socioeconomico.supuesto)) && (
+                <span className="px-3 py-1 rounded bg-purple-700 text-white uppercase text-[11px] font-bold">
+                  📌 Supuesto: {est.supuesto || ev.supuesto || ev.estudio_socioeconomico.supuesto}
+                </span>
+              )}
             </div>
             <div>
               Investigador: <span className="font-semibold">{inv.investigador_nombre || 'Asignado'}</span>
