@@ -123,12 +123,39 @@ function parsearINE(texto) {
   return resultado;
 }
 
+let ocrWorkerInstance = null;
+let ocrWorkerPromise = null;
+
+/**
+ * Obtiene o inicializa la instancia Singleton del worker de Tesseract.
+ */
+async function getOCRWorker() {
+  if (ocrWorkerInstance) return ocrWorkerInstance;
+  if (ocrWorkerPromise) return ocrWorkerPromise;
+
+  ocrWorkerPromise = (async () => {
+    try {
+      console.log('🤖 Inicializando Worker de Tesseract OCR (Español)...');
+      const worker = await createWorker('spa', 1, {
+        logger: () => {}, // Silenciar logs prolíjo en consola
+      });
+      ocrWorkerInstance = worker;
+      return ocrWorkerInstance;
+    } catch (err) {
+      ocrWorkerPromise = null;
+      ocrWorkerInstance = null;
+      throw err;
+    }
+  })();
+
+  return ocrWorkerPromise;
+}
+
 /**
  * POST /api/ocr/ine
  * Recibe { imagen_base64: "data:image/jpeg;base64,..." } y retorna campos del INE.
  */
 async function escanearINE(req, res, next) {
-  let worker = null;
   try {
     const { imagen_base64 } = req.body;
 
@@ -140,10 +167,8 @@ async function escanearINE(req, res, next) {
     const base64Data = imagen_base64.replace(/^data:image\/\w+;base64,/, '');
     const imgBuffer = Buffer.from(base64Data, 'base64');
 
-    // Inicializar worker de Tesseract con idioma español
-    worker = await createWorker('spa', 1, {
-      logger: () => {}, // Silenciar logs internos
-    });
+    // Obtener worker reutilizable (Singleton)
+    const worker = await getOCRWorker();
 
     // Ejecutar OCR sobre el buffer de imagen
     const { data: { text } } = await worker.recognize(imgBuffer);
@@ -157,12 +182,12 @@ async function escanearINE(req, res, next) {
       texto_crudo: text, // Útil para debug si el parser falla
     });
   } catch (err) {
+    // En caso de fallo grave en el worker, resetear la instancia para la próxima solicitud
+    ocrWorkerInstance = null;
+    ocrWorkerPromise = null;
     next(err);
-  } finally {
-    if (worker) {
-      await worker.terminate().catch(() => {});
-    }
   }
 }
 
 module.exports = { escanearINE };
+

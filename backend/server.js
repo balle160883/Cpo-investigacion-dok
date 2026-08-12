@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -8,6 +9,7 @@ const swaggerSpec = require('./src/swagger/swagger.config');
 const initDb = require('./init_db');
 const errorHandler = require('./src/middlewares/error.middleware');
 const auditLogger = require('./src/middlewares/audit.middleware');
+const { authenticate } = require('./src/middlewares/auth.middleware');
 
 const authRoutes = require('./src/routes/auth.routes');
 const statsRoutes = require('./src/routes/stats.routes');
@@ -62,8 +64,8 @@ app.use(express.json({ limit: '50mb' }));
 // Logger de Auditoría de Eventos
 app.use(auditLogger);
 
-// Servir archivos de evidencias fotográficas almacenados en disco
-app.use('/uploads', express.static(UPLOADS_DIR));
+// Servir archivos de evidencias fotográficas almacenados en disco de forma protegida con JWT
+app.use('/uploads', authenticate, express.static(UPLOADS_DIR));
 
 // Documentación Interactiva de la API (Swagger UI)
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {

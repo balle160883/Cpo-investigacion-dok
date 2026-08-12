@@ -96,6 +96,15 @@ async function initDb() {
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_usuario ON audit_log(usuario_id);`); } catch (e) {}
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_accion ON audit_log(accion);`); } catch (e) {}
 
+    // Índices de alto rendimiento para búsquedas y filtros en investigaciones, evidencias y direcciones
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_investigador ON investigaciones(investigador_id);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_estado ON investigaciones(estado);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_solicitud ON investigaciones(solicitud_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_evidencias_investigacion ON evidencias_visita(investigacion_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_evidencias_jsonb ON evidencias_visita USING gin(estudio_socioeconomico);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_direcciones_persona ON direcciones(persona_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_ubicaciones_investigador ON ubicaciones_investigadores(investigador_id);`); } catch (e) {}
+
     // Alteraciones seguras
     try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT '123456';`); } catch (e) {}
     try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'investigador';`); } catch (e) {}

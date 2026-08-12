@@ -95,12 +95,14 @@ export default function VisitasScreen({ navigation, route }) {
       const res = await syncPendingSurveys();
       await checkPendingSurveys();
       if (res.synced > 0) {
-        Alert.alert('Sincronización Exitosa', `Se enviaron ${res.synced} encuestas pendientes al servidor.`);
+        Alert.alert('Sincronización Exitosa', `Se enviaron ${res.synced} encuesta(s) pendiente(s) al servidor con éxito.`);
         loadData(currentUser?.id);
+      } else if (res.clientErrors > 0) {
+        Alert.alert('Atención', `Hay ${res.clientErrors} encuesta(s) con error de formato. Revisa los datos de la visita.`);
       } else if (res.failed > 0) {
-        Alert.alert('Aviso', `No se pudo conectar al servidor. Se reintentará cuando haya internet.`);
+        Alert.alert('Aviso de Red', `No se pudo conectar al servidor. Se reintentará automáticamente al recuperar internet.`);
       } else {
-        Alert.alert('Al día', 'No hay encuestas pendientes por enviar.');
+        Alert.alert('Al Día', 'No hay encuestas pendientes por enviar.');
       }
     } catch (e) {
       console.log('Error syncing:', e);

@@ -13,7 +13,7 @@ services:
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-Seguridad2028@}
       - DB_NAME=${DB_NAME:-postgres}
-      - JWT_SECRET=${JWT_SECRET:-cpo-secret-2026}
+      - JWT_SECRET=${JWT_SECRET:-cpo-investigaciones-secret-2026}
       - REDIS_URL=redis://redis:6379
     depends_on:
       - redis

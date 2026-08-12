@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Default API URL pointing to server or local host
-const BASE_URL = 'http://31.97.144.6:4002/api';
+// Configuración configurable de URL de la API (soporta HTTPS en producción via env)
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://31.97.144.6:4002/api';
 
 // Memoria caché en ejecución para eliminar condiciones de carrera con AsyncStorage
 let inMemoryToken = null;
@@ -167,10 +167,22 @@ export async function savePendingOfflineSurvey(id, payload) {
   try {
     const pending = await getPendingOfflineSurveys();
     const existingIndex = pending.findIndex((item) => String(item.id) === String(id));
-    const newItem = { id, payload, savedAt: new Date().toISOString() };
+    const newItem = {
+      id,
+      payload,
+      savedAt: new Date().toISOString(),
+      intentos: 0,
+      ultimoIntento: null,
+      ultimoError: null,
+      estado: 'PENDIENTE',
+    };
 
     if (existingIndex >= 0) {
-      pending[existingIndex] = newItem;
+      pending[existingIndex] = {
+        ...pending[existingIndex],
+        ...newItem,
+        intentos: pending[existingIndex].intentos || 0,
+      };
     } else {
       pending.push(newItem);
     }
@@ -190,14 +202,36 @@ export async function removePendingOfflineSurvey(id) {
   }
 }
 
+export async function updatePendingOfflineSurvey(updatedItem) {
+  try {
+    const pending = await getPendingOfflineSurveys();
+    const index = pending.findIndex((item) => String(item.id) === String(updatedItem.id));
+    if (index >= 0) {
+      pending[index] = updatedItem;
+      await AsyncStorage.setItem(PENDING_SURVEYS_KEY, JSON.stringify(pending));
+    }
+  } catch (e) {}
+}
+
 export async function syncPendingSurveys() {
   const pending = await getPendingOfflineSurveys();
-  if (pending.length === 0) return { synced: 0, failed: 0 };
+  if (pending.length === 0) return { synced: 0, failed: 0, clientErrors: 0, totalPending: 0 };
 
   let synced = 0;
   let failed = 0;
+  let clientErrors = 0;
 
-  for (const item of pending) {
+  const currentPendingList = [...pending];
+
+  for (let i = 0; i < currentPendingList.length; i++) {
+    const item = currentPendingList[i];
+
+    // Omitir si tuvo error permanente de cliente tras 3 reintentos
+    if (item.estado === 'CLIENT_ERROR' && (item.intentos || 0) >= 3) {
+      clientErrors++;
+      continue;
+    }
+
     try {
       const token = await getToken();
       const res = await fetch(`${BASE_URL}/investigaciones/${item.id}/evidencia`, {
@@ -209,18 +243,35 @@ export async function syncPendingSurveys() {
         body: JSON.stringify(item.payload),
       });
 
+      item.intentos = (item.intentos || 0) + 1;
+      item.ultimoIntento = new Date().toISOString();
+
       if (res.ok) {
         await removePendingOfflineSurvey(item.id);
         synced++;
+      } else if (res.status >= 400 && res.status < 500) {
+        const errorData = await res.json().catch(() => ({}));
+        item.ultimoError = errorData.error || `Error HTTP ${res.status}`;
+        item.estado = 'CLIENT_ERROR';
+        clientErrors++;
+        await updatePendingOfflineSurvey(item);
       } else {
+        const errorData = await res.json().catch(() => ({}));
+        item.ultimoError = errorData.error || `Error servidor HTTP ${res.status}`;
         failed++;
+        await updatePendingOfflineSurvey(item);
       }
     } catch (e) {
+      item.intentos = (item.intentos || 0) + 1;
+      item.ultimoIntento = new Date().toISOString();
+      item.ultimoError = e.message || 'Sin conexión a internet';
       failed++;
+      await updatePendingOfflineSurvey(item);
     }
   }
 
-  return { synced, failed };
+  const remaining = await getPendingOfflineSurveys();
+  return { synced, failed, clientErrors, totalPending: remaining.length };
 }
 
 export async function guardarEvidenciaInvestigacion(id, payload) {

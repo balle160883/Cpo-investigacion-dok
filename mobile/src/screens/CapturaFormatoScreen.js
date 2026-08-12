@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { guardarEvidenciaInvestigacion, escanearINEConFoto } from '../api/apiClient';
 import SignaturePad from '../components/SignaturePad';
+import { formatBase64Image } from '../utils/imageOptimizer';
 
 export default function CapturaFormatoScreen({ route, navigation }) {
   const { id, inv } = route.params || {};
@@ -213,8 +214,10 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      const base64Image = `data:image/jpeg;base64,${asset.base64}`;
-      setFotos((prev) => [...prev, base64Image]);
+      const base64Image = formatBase64Image(asset.base64);
+      if (base64Image) {
+        setFotos((prev) => [...prev, base64Image]);
+      }
     }
   }
 
@@ -233,8 +236,10 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      const base64Image = `data:image/jpeg;base64,${asset.base64}`;
-      setFotos((prev) => [...prev, base64Image]);
+      const base64Image = formatBase64Image(asset.base64);
+      if (base64Image) {
+        setFotos((prev) => [...prev, base64Image]);
+      }
     }
   }
 
@@ -369,7 +374,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       {/* 1. INFORMACIÓN Y VERIFICACIÓN */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>1. Verificación e Identificación</Text>
-        
+
         <Text style={styles.label}>Proporcionó la Información:</Text>
         <View style={styles.row}>
           <TouchableOpacity
@@ -440,7 +445,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         <Text style={styles.sectionTitle}>2. Particulares del Inmueble y Dirección</Text>
         <Text style={styles.label}>Casa Color:</Text>
         <TextInput style={styles.input} value={casaColor} onChangeText={setCasaColor} placeholder="Ej. Blanco / Azul" placeholderTextColor="#64748b" />
-        
+
         <Text style={styles.label}>Puerta / Cancel Color:</Text>
         <TextInput style={styles.input} value={puertaColor} onChangeText={setPuertaColor} placeholder="Ej. Negro / Forja" placeholderTextColor="#64748b" />
 
@@ -512,7 +517,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       {/* 3. STATUS SOCIO-ECONÓMICO (DINÁMICO ADAPTATIVO) */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3. Status Socio-Económico</Text>
-        
+
         <Text style={styles.label}>Tipo / Situación de la Vivienda:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 6 }}>
           <View style={styles.row}>
@@ -798,7 +803,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       {/* 5. FIRMAS DIGITALES DE VALIDACIÓN */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>5. Firmas Digitales de Validación</Text>
-        
+
         {/* FIRMA ENTREVISTADO */}
         <SignaturePad
           title={isAval ? "✍️ 1. FIRMA DEL ENTREVISTADO (AVAL)" : "✍️ 1. FIRMA DEL ENTREVISTADO (SOLICITANTE)"}
@@ -824,18 +829,18 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         <Text style={styles.label}>Dictamen:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 4 }}>
           <View style={styles.row}>
-            <TouchableOpacity 
-              style={[styles.chip, dictamen === 'DOMICILIO CONFIRMADO' && styles.chipActive]} 
+            <TouchableOpacity
+              style={[styles.chip, dictamen === 'DOMICILIO CONFIRMADO' && styles.chipActive]}
               onPress={() => { setDictamen('DOMICILIO CONFIRMADO'); setSupuesto(''); }}>
               <Text style={styles.chipText}>✓ Confirmado</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.chip, (dictamen === 'CAMBIO DE DOMICILIO' || dictamen === 'DOMICILIO NO LOCALIZADO') && styles.chipActive]} 
+            <TouchableOpacity
+              style={[styles.chip, (dictamen === 'CAMBIO DE DOMICILIO' || dictamen === 'DOMICILIO NO LOCALIZADO') && styles.chipActive]}
               onPress={() => { setDictamen('CAMBIO DE DOMICILIO'); setSupuesto(''); }}>
               <Text style={styles.chipText}>🔄 Cambio de Domicilio</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.chip, (dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') && styles.chipActive]} 
+            <TouchableOpacity
+              style={[styles.chip, (dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') && styles.chipActive]}
               onPress={() => { setDictamen('PENDIENTE'); }}>
               <Text style={styles.chipText}>⏳ Pendiente</Text>
             </TouchableOpacity>
@@ -848,7 +853,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 4 }}>
               <View style={styles.row}>
                 {[
-                  'Con Filio',
+                  'Con Folio',
                   'Comprobar casa habitacion',
                   'Con cita',
                   'No localizado domicilio',
