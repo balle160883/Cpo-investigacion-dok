@@ -91,13 +91,25 @@ export default function MapaPage() {
     };
   }, []);
 
-  const centrarEnUbicacion = (lng, lat, title) => {
+  const centrarEnUbicacion = (lng, lat, title, invId = null) => {
     if (map.current && lng && lat) {
       map.current.flyTo({
         center: [parseFloat(lng), parseFloat(lat)],
-        zoom: 15,
+        zoom: 15.5,
         essential: true,
       });
+
+      if (invId) {
+        const key = `inv-${invId}`;
+        if (invMarkersRef.current.has(key)) {
+          const { marker } = invMarkersRef.current.get(key);
+          if (marker && marker.getPopup()) {
+            if (!marker.getPopup().isOpen()) {
+              marker.togglePopup();
+            }
+          }
+        }
+      }
     }
   };
 
@@ -185,54 +197,61 @@ export default function MapaPage() {
           activeInvKeys.add(key);
           const isOnline = inv.en_linea;
 
-          if (!invMarkersRef.current.has(key)) {
-            const el = document.createElement('div');
-            el.className = 'custom-inv-marker';
-            el.style.width = '38px';
-            el.style.height = '38px';
-            el.style.borderRadius = '50%';
-            el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
-            el.style.border = '3px solid #ffffff';
-            el.style.display = 'flex';
-            el.style.alignItems = 'center';
-            el.style.justifyContent = 'center';
-            el.style.color = '#ffffff';
-            el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
-            el.style.cursor = 'pointer';
-            el.style.transition = 'transform 0.8s ease-out, background-color 0.5s ease';
-            el.innerHTML = `
-              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
+            const popupHTML = `
+              <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
+                <div style="font-size: 10px; font-weight: bold; color: ${isOnline ? '#059669' : '#475569'}; text-transform: uppercase;">
+                  ${isOnline ? '📡 INVESTIGADOR EN CAMPO (EN LÍNEA)' : '📍 ÚLTIMA UBICACIÓN CONOCIDA'}
+                </div>
+                <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
+                <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
+                <span style="font-size: 10px; color: ${isOnline ? '#10b981' : '#64748b'}; font-weight: bold;">
+                  ${isOnline ? `🔋 Batería: ${inv.bateria_nivel || 100}%` : 'App cerrada / Sin emisión GPS'}
+                </span>
+              </div>
             `;
 
-            const marker = new mapboxgl.Marker(el)
-              .setLngLat([lng, lat])
-              .setPopup(
-                new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                  <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                    <div style="font-size: 10px; font-weight: bold; color: ${isOnline ? '#059669' : '#475569'}; text-transform: uppercase;">
-                      ${isOnline ? '📡 INVESTIGADOR EN CAMPO (EN LÍNEA)' : '📍 ÚLTIMA UBICACIÓN CONOCIDA'}
-                    </div>
-                    <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
-                    <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
-                    <span style="font-size: 10px; color: ${isOnline ? '#10b981' : '#64748b'}; font-weight: bold;">
-                      ${isOnline ? `🔋 Batería: ${inv.bateria_nivel || 100}%` : 'App cerrada / Sin emisión GPS'}
-                    </span>
-                  </div>
-                `)
-              )
-              .addTo(map.current);
+            if (!invMarkersRef.current.has(key)) {
+              const el = document.createElement('div');
+              el.className = 'custom-inv-marker';
+              el.style.width = '38px';
+              el.style.height = '38px';
+              el.style.borderRadius = '50%';
+              el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
+              el.style.border = '3px solid #ffffff';
+              el.style.display = 'flex';
+              el.style.alignItems = 'center';
+              el.style.justifyContent = 'center';
+              el.style.color = '#ffffff';
+              el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
+              el.style.zIndex = isOnline ? '999' : '10';
+              el.style.cursor = 'pointer';
+              el.style.transition = 'transform 0.8s ease-out, background-color 0.5s ease';
+              el.innerHTML = `
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+              `;
 
-            invMarkersRef.current.set(key, { marker, el });
-          } else {
-            // Actualización suave de coordenadas sin recrear DOM
-            const { marker, el } = invMarkersRef.current.get(key);
-            marker.setLngLat([lng, lat]);
-            el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
-            el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
-          }
+              const marker = new mapboxgl.Marker(el)
+                .setLngLat([lng, lat])
+                .setPopup(
+                  new mapboxgl.Popup({ offset: 25 }).setHTML(popupHTML)
+                )
+                .addTo(map.current);
+
+              invMarkersRef.current.set(key, { marker, el });
+            } else {
+              // Actualización suave de coordenadas y contenido del popup sin recrear DOM
+              const { marker, el } = invMarkersRef.current.get(key);
+              marker.setLngLat([lng, lat]);
+              if (marker.getPopup()) {
+                marker.getPopup().setHTML(popupHTML);
+              }
+              el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
+              el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
+              el.style.zIndex = isOnline ? '999' : '10';
+            }
         }
       });
 
@@ -396,7 +415,7 @@ export default function MapaPage() {
                   onClick={() => {
                     if (inv.latitud && inv.longitud) {
                       setSelectedItem(inv);
-                      centrarEnUbicacion(inv.longitud, inv.latitud, inv.nombre);
+                      centrarEnUbicacion(inv.longitud, inv.latitud, inv.nombre, inv.investigador_id);
                     }
                   }}
                   className={`p-3 border rounded-xl cursor-pointer transition space-y-1 ${
