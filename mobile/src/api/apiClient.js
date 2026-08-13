@@ -7,7 +7,7 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://31.97.144.6:4002/api
 let inMemoryToken = null;
 let inMemoryUser = null;
 
-async function getToken() {
+export async function getToken() {
   if (inMemoryToken) return inMemoryToken;
   try {
     const t = await AsyncStorage.getItem('userToken');
@@ -19,7 +19,7 @@ async function getToken() {
   return null;
 }
 
-async function getUser() {
+export async function getUser() {
   if (inMemoryUser) return inMemoryUser;
   try {
     const raw = await AsyncStorage.getItem('userData');
@@ -30,6 +30,17 @@ async function getUser() {
     }
   } catch (e) {}
   return null;
+}
+
+export async function logout() {
+  inMemoryToken = null;
+  inMemoryUser = null;
+  try {
+    await Promise.all([
+      AsyncStorage.removeItem('userToken'),
+      AsyncStorage.removeItem('userData'),
+    ]);
+  } catch (e) {}
 }
 
 export async function login(email, password) {

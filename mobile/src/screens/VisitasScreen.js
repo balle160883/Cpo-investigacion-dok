@@ -2,11 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput, Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { getAssignedInvestigaciones, enviarUbicacionGPS, getPendingOfflineSurveys, syncPendingSurveys } from '../api/apiClient';
+import { getAssignedInvestigaciones, enviarUbicacionGPS, getPendingOfflineSurveys, syncPendingSurveys, logout } from '../api/apiClient';
 import { abrirNavegacionNativa } from '../utils/navigationHelper';
-
-
-
 
 function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -51,6 +48,37 @@ export default function VisitasScreen({ navigation, route }) {
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [loadError, setLoadError] = useState(null);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={{ marginRight: 14, backgroundColor: '#dc2626', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
+        >
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12 }}>🚪 Salir</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
+
+  function handleLogout() {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Deseas cerrar tu sesión actual de investigador?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sí, Salir',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            navigation.replace('Login');
+          },
+        },
+      ]
+    );
+  }
 
   useEffect(() => {
     initUserAndData();
@@ -227,8 +255,16 @@ export default function VisitasScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>Hola, {currentUser?.nombre || 'Investigador'}</Text>
-        <Text style={styles.subtext}>Investigaciones asignadas del día</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>Hola, {currentUser?.nombre || 'Investigador'}</Text>
+          <Text style={styles.subtext}>Investigaciones asignadas del día</Text>
+        </View>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={{ backgroundColor: '#dc2626', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, alignSelf: 'center' }}
+        >
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12 }}>🚪 Salir</Text>
+        </TouchableOpacity>
       </View>
 
       {/* BANNER DE SINCRONIZACIÓN OFFLINE PENDIENTE */}
@@ -423,7 +459,7 @@ export default function VisitasScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a', padding: 16 },
-  header: { marginBottom: 12, marginTop: 40 },
+  header: { marginBottom: 12, marginTop: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   greeting: { fontSize: 22, fontWeight: 'bold', color: '#ffffff' },
   subtext: { fontSize: 13, color: '#94a3b8' },
   syncBanner: {

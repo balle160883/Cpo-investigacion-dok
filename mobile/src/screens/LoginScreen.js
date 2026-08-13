@@ -1,11 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { login } from '../api/apiClient';
+import { login, getToken, getUser } from '../api/apiClient';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('christianportillo107@gmail.com');
-  const [password, setPassword] = useState('Seguridad2026@');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingAutoLogin, setCheckingAutoLogin] = useState(true);
+
+  useEffect(() => {
+    verificarSesionExistente();
+  }, []);
+
+  async function verificarSesionExistente() {
+    try {
+      const token = await getToken();
+      const user = await getUser();
+      if (token && user) {
+        navigation.replace('Visitas', { user });
+        return;
+      }
+    } catch (e) {
+      console.log('Error verificando sesión previa:', e);
+    } finally {
+      setCheckingAutoLogin(false);
+    }
+  }
 
   async function handleLogin() {
     if (!email || !password) {
@@ -14,13 +34,22 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const data = await login(email, password);
+      const data = await login(email.trim(), password);
       navigation.replace('Visitas', { user: data.user });
     } catch (err) {
       Alert.alert('Error', err.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingAutoLogin) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#0284c7" />
+        <Text style={{ color: '#94a3b8', marginTop: 16, fontSize: 14 }}>Iniciando sesión...</Text>
+      </View>
+    );
   }
 
   return (
