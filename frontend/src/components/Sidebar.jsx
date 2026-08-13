@@ -16,11 +16,12 @@ export default function Sidebar({ user }) {
   const userRole = (user?.rol || '').toLowerCase();
   const roleMeta = ROLE_META[userRole] || { label: userRole, badge: 'bg-slate-700 text-slate-300', icon: '👤' };
 
+  const canViewSlaTimer = ['superadmin'].includes(userRole);
+  const canViewSupervisionAnalistas = ['superadmin', 'supervisor_analistas', 'analista'].includes(userRole);
   const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].includes(userRole);
-  const canViewAudit = ['superadmin', 'admin', 'auditor'].includes(userRole);
-  const canViewSettings = ['superadmin', 'admin'].includes(userRole);
-  const canViewSupervisionAnalistas = ['superadmin', 'admin', 'supervisor_analistas', 'analista'].includes(userRole);
-  const canViewSlaTimer = ['superadmin', 'admin'].includes(userRole);
+  const canViewInvestigadores = ['superadmin', 'admin', 'asignador'].includes(userRole);
+  const canViewAudit = ['superadmin', 'auditor'].includes(userRole);
+  const canViewSettings = ['superadmin'].includes(userRole);
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,7 +29,7 @@ export default function Sidebar({ user }) {
     canViewSlaTimer && { to: '/tiempos-sla', label: 'Cronómetro SLA', icon: Timer },
     canViewSupervisionAnalistas && { to: '/supervision-analistas', label: 'Auditoría Analistas', icon: ShieldCheck },
     canViewMap && { to: '/mapa', label: 'Mapa GPS', icon: MapPin },
-    { to: '/investigadores', label: 'Investigadores', icon: Users },
+    canViewInvestigadores && { to: '/investigadores', label: 'Investigadores', icon: Users },
     canViewAudit && { to: '/auditoria', label: 'Bitácora', icon: ShieldAlert },
     canViewSettings && { to: '/ajustes', label: 'Ajustes', icon: Settings },
   ].filter(Boolean);
