@@ -801,22 +801,18 @@ export default function DetalleFormatoPage() {
 
         {/* Signatures & Evidence Footer (2-column layout) */}
         <div className="pt-8 border-t border-slate-300 grid grid-cols-2 gap-12 text-center text-xs">
-          {/* Firma del Investigador */}
+          {/* Nombre / Identidad del Investigador */}
           <div className="flex flex-col items-center justify-between">
-            <div className="w-full h-24 flex items-center justify-center border border-dashed border-slate-300 rounded bg-white p-1 mb-2 overflow-hidden shadow-inner">
-              {safeFirmaInvestigadorSrc ? (
-                <img
-                  src={safeFirmaInvestigadorSrc}
-                  alt="Firma Digital del Investigador"
-                  className="max-h-full max-w-full object-contain"
-                />
-              ) : (
-                <span className="text-[11px] text-slate-400 italic">Sin firma de investigador</span>
-              )}
+            <div className="w-full h-24 flex flex-col items-center justify-center border border-dashed border-slate-300 rounded bg-slate-50/80 p-2 mb-2 shadow-inner">
+              <span className="text-[11px] uppercase font-bold text-slate-500 mb-1">Investigación Realizada Por:</span>
+              <span className="font-extrabold text-slate-900 text-sm tracking-wide text-center">
+                {inv.investigador_nombre ? inv.investigador_nombre.toUpperCase() : 'DEPARTAMENTO DE INVESTIGACIONES'}
+              </span>
+              <span className="text-[10px] text-sky-700 font-semibold mt-1">✓ Registro de Campo Confirmado</span>
             </div>
             <div className="border-b border-slate-800 w-full mb-1"></div>
-            <div className="font-bold text-slate-900">Firma del Investigador</div>
-            <div className="text-[10px] text-slate-500">{inv.investigador_nombre || 'Depto. Investigaciones'}</div>
+            <div className="font-bold text-slate-900">Nombre del Investigador de Campo</div>
+            <div className="text-[10px] text-slate-500">{inv.investigador_nombre || 'Caja Oblatos CPO'}</div>
           </div>
 
           {/* Firma del Encargado / Supervisor */}

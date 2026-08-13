@@ -800,23 +800,9 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         )}
       </View>
 
-      {/* 5. FIRMA DIGITAL DEL INVESTIGADOR */}
+      {/* 5. DICTAMEN Y OBSERVACIONES */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>5. Firma Digital del Investigador</Text>
-
-        {/* FIRMA INVESTIGADOR */}
-        <SignaturePad
-          title="✍️ FIRMA DEL INVESTIGADOR EN CAMPO"
-          placeholderText="Firma del INVESTIGADOR de campo"
-          subtext="Firma autógrafa del investigador que realiza la visita"
-          borderColor="#f59e0b"
-          onSignatureChange={setFirmaInvestigadorUrl}
-        />
-      </View>
-
-      {/* 6. DICTAMEN Y OBSERVACIONES */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>6. Observaciones y Dictamen</Text>
+        <Text style={styles.sectionTitle}>5. Observaciones y Dictamen</Text>
         <Text style={styles.label}>Dictamen:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 4 }}>
           <View style={styles.row}>
