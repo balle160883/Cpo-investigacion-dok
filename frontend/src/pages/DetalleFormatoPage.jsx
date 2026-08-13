@@ -6,6 +6,9 @@ import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, Rot
 import Toast from '../components/Toast';
 import { formatNombreSucursal } from '../utils/formatters';
 
+// Helper clsx para formateo seguro de clases CSS
+const clsx = (...classes) => classes.flat(Infinity).filter(Boolean).join(' ');
+
 // Helper: formatea fecha en DD/Mon/AAAA
 function formatFechaCorta(fechaStr) {
   if (!fechaStr) return '—';
