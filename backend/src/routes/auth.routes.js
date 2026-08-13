@@ -7,11 +7,10 @@ const router = express.Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
-  skipSuccessfulRequests: true,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Demasiados intentos fallidos de inicio de sesión desde esta IP. Por favor intenta de nuevo en unos minutos.' }
+  message: { error: 'Demasiados intentos de inicio de sesión desde esta IP. Por favor intenta de nuevo en 15 minutos.' }
 });
 
 /**
