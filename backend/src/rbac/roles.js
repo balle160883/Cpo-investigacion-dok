@@ -152,18 +152,34 @@ const ROLE_META = {
     icon: '📋',
     description: 'Lectura de bitácora y estadísticas',
   },
+  'asignador,validador': {
+    label: 'Asignador y Validador',
+    color: 'teal',
+    badge: 'bg-teal-500/20 text-teal-300 border border-teal-500/40',
+    icon: '📍✅',
+    description: 'Asignación de visitas y validación de estudios socioeconómicos',
+  },
+  'validador,asignador': {
+    label: 'Asignador y Validador',
+    color: 'teal',
+    badge: 'bg-teal-500/20 text-teal-300 border border-teal-500/40',
+    icon: '📍✅',
+    description: 'Asignación de visitas y validación de estudios socioeconómicos',
+  },
 };
 
 /**
- * Verificar si un rol tiene un permiso específico
+ * Verificar si un rol tiene un permiso específico (soporta múltiples roles separados por coma)
  * @param {string} rol
  * @param {string} permiso
  * @returns {boolean}
  */
 function hasPermission(rol, permiso) {
-  const normalizedRol = (rol || '').toLowerCase();
-  const permisos = ROLE_PERMISSIONS[normalizedRol] || [];
-  return permisos.includes(permiso);
+  const roles = (rol || '').toLowerCase().split(',').map(r => r.trim());
+  return roles.some(r => {
+    const permisos = ROLE_PERMISSIONS[r] || [];
+    return permisos.includes(permiso);
+  });
 }
 
 module.exports = { ROLES, PERMISSIONS, ROLE_PERMISSIONS, ROLE_META, hasPermission };

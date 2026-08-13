@@ -49,9 +49,9 @@ export default function DetalleFormatoPage() {
     } catch (e) { }
   }
 
-  const isAnalista = userRole === 'analista';
+  const isAnalista = userRole.includes('analista');
   // Permitir validar solo a superadmin, admin y validador — el analista es solo lectura en el primer paso
-  const canValidate = !userRole || ['superadmin', 'admin', 'validador'].includes(userRole);
+  const canValidate = !userRole || ['superadmin', 'admin', 'validador'].some(r => userRole.includes(r));
   // El analista puede revalidar solo cuando el estado es VALIDADA
   const canRevalidar = isAnalista;
 

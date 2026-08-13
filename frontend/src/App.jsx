@@ -31,12 +31,12 @@ function AppRoutes() {
   }
 
   const userRole = (user?.rol || '').toLowerCase();
-  const canViewSlaTimer = ['superadmin'].includes(userRole);
-  const canViewSupervisionAnalistas = ['superadmin', 'supervisor_analistas', 'analista'].includes(userRole);
-  const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].includes(userRole);
-  const canViewInvestigadores = ['superadmin', 'admin', 'asignador'].includes(userRole);
-  const canViewAudit = ['superadmin', 'auditor'].includes(userRole);
-  const canViewSettings = ['superadmin'].includes(userRole);
+  const canViewSlaTimer = ['superadmin'].some(r => userRole.includes(r));
+  const canViewSupervisionAnalistas = ['superadmin', 'supervisor_analistas', 'analista'].some(r => userRole.includes(r));
+  const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].some(r => userRole.includes(r));
+  const canViewInvestigadores = ['superadmin', 'admin', 'asignador'].some(r => userRole.includes(r));
+  const canViewAudit = ['superadmin', 'auditor'].some(r => userRole.includes(r));
+  const canViewSettings = ['superadmin'].some(r => userRole.includes(r));
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'} flex flex-col transition-colors duration-200`}>
