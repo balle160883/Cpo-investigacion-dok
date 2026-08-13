@@ -114,6 +114,50 @@ async function initDb() {
     try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS es_principal BOOLEAN DEFAULT TRUE;`); } catch (e) {}
     try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;`); } catch (e) {}
 
+    // Trigger de normalización automática de estados de México según municipio
+    try {
+      await db.query(`
+        CREATE OR REPLACE FUNCTION auto_normalize_estado_provincia()
+        RETURNS TRIGGER AS $$
+        BEGIN
+          IF NEW.municipio IS NOT NULL THEN
+            CASE UPPER(TRIM(NEW.municipio))
+              WHEN 'CULIACAN', 'AHOME', 'GUASAVE', 'NAVOLATO', 'SAN IGNACIO', 'ESCUINAPA', 'EL FUERTE', 'COSALA', 'BADIRAGUATO', 'MAZATLAN' THEN
+                NEW.estado_provincia := 'Sinaloa';
+              WHEN 'HERMOSILLO', 'NAVOJOA', 'ETCHOJOA', 'CAJEME', 'HUATABAMPO', 'BACUM', 'SAN IGNACIO RIO MUERTO', 'ALAMOS' THEN
+                NEW.estado_provincia := 'Sonora';
+              WHEN 'TEPIC', 'BAHIA DE BANDERAS', 'SANTIAGO IXCUINTLA', 'TECUALA', 'XALISCO', 'SAN BLAS', 'RUIZ', 'HUAJICORI', 'COMPOSTELA', 'IXTLAN DEL RIO' THEN
+                NEW.estado_provincia := 'Nayarit';
+              WHEN 'SAN LUIS POTOSI', 'SOLEDAD DE GRACIANO SANCHEZ', 'CIUDAD FERNANDEZ', 'SAN CIRO DE ACOSTA', 'RIOVERDE' THEN
+                NEW.estado_provincia := 'San Luis Potosí';
+              WHEN 'AGUASCALIENTES', 'JESUS MARIA', 'ASIENTOS', 'TEPEZALA', 'RINCON DE ROMOS', 'COSIO', 'PABELLON DE ARTEAGA', 'SAN FRANCISCO DE LOS ROMO' THEN
+                NEW.estado_provincia := 'Aguascalientes';
+              WHEN 'ZACATECAS', 'GUADALUPE', 'PINOS', 'LORETO', 'OJOCALIENTE', 'LUIS MOYA', 'NORIA DE ANGELES', 'VILLA HIDALGO', 'VILLA GONZALEZ ORTEGA', 'VILLA GARCIA', 'MOYAHUA DE ESTRADA', 'JUCHIPILA', 'APULCO' THEN
+                NEW.estado_provincia := 'Zacatecas';
+              WHEN 'MARCOS CASTELLANOS', 'JIQUILPAN' THEN
+                NEW.estado_provincia := 'Michoacán';
+              WHEN 'LEON' THEN
+                NEW.estado_provincia := 'Guanajuato';
+              WHEN 'APAXCO' THEN
+                NEW.estado_provincia := 'Estado de México';
+              ELSE
+                IF NEW.estado_provincia IS NULL OR NEW.estado_provincia = '' THEN
+                  NEW.estado_provincia := 'Jalisco';
+                END IF;
+            END CASE;
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+
+        DROP TRIGGER IF EXISTS trigger_auto_normalize_estado ON direcciones;
+        CREATE TRIGGER trigger_auto_normalize_estado
+        BEFORE INSERT OR UPDATE ON direcciones
+        FOR EACH ROW
+        EXECUTE FUNCTION auto_normalize_estado_provincia();
+      `);
+    } catch (e) {}
+
     // Seed default admin and investigators if empty
     const { rows: existingInvestigadores } = await db.query('SELECT count(*) FROM investigadores;');
     if (parseInt(existingInvestigadores[0].count) === 0) {
