@@ -842,7 +842,7 @@ export default function DetalleFormatoPage() {
             )}
             <div className={clsx('border-b', 'border-slate-800', 'w-full', 'mb-1')}></div>
             <div className={clsx('font-bold', 'text-slate-900')}>
-              Nombre del Validador
+              {isValidated ? 'Nombre / Firma del Validador' : 'Firma Encargado / Supervisor'}
             </div>
             <div className={clsx('text-[10px]', 'text-slate-500')}>
               {isValidated ? (validadorNombre || 'Validador de Crédito') : 'Caja Oblatos CPO'}
