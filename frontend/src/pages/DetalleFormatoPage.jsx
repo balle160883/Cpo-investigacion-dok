@@ -824,7 +824,7 @@ export default function DetalleFormatoPage() {
 
           {/* Firma / Validación del Validador (Solo aparece tras ser validada por un usuario con rol Validador o Superadmin) */}
           <div className={clsx('flex', 'flex-col', 'items-center', 'justify-between')}>
-            {isValidated ? (
+            {isValidated && (
               <>
                 <div className={clsx('w-full', 'h-24', 'flex', 'flex-col', 'items-center', 'justify-center', 'border', 'border-dashed', 'border-emerald-300', 'rounded', 'bg-emerald-50/80', 'p-2', 'mb-2', 'shadow-inner')}>
                   <span className={clsx('text-[11px]', 'uppercase', 'font-bold', 'text-emerald-800', 'mb-1')}>
@@ -842,15 +842,6 @@ export default function DetalleFormatoPage() {
                 <div className={clsx('border-b', 'border-slate-800', 'w-full', 'mb-1')}></div>
                 <div className={clsx('font-bold', 'text-slate-900')}>Nombre quien Valida</div>
                 <div className={clsx('text-[10px]', 'text-slate-500')}>{validadorNombre || 'Validador de Crédito'}</div>
-              </>
-            ) : (
-              <>
-                <div className={clsx('w-full', 'h-24', 'flex', 'flex-col', 'items-center', 'justify-center', 'border', 'border-dashed', 'border-slate-200', 'rounded', 'bg-white', 'p-2', 'mb-2')}>
-                  {/* Permanece totalmente en blanco hasta que sea validada por un Validador o Superadmin */}
-                </div>
-                <div className={clsx('border-b', 'border-slate-800', 'w-full', 'mb-1')}></div>
-                <div className={clsx('font-bold', 'text-slate-900', 'h-4')}></div>
-                <div className={clsx('text-[10px]', 'text-slate-500', 'h-3')}></div>
               </>
             )}
           </div>
