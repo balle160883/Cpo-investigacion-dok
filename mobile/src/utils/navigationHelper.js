@@ -4,12 +4,12 @@ import { Platform, Linking, Alert } from 'react-native';
  * Convierte un objeto de investigación en una dirección formateada limpia para Google Maps / Waze
  */
 export function construirQueryDireccion(item) {
-  if (!item) return 'Guadalajara, Jalisco, Mexico';
+  if (!item) return 'Mexico';
   const partes = [
     item.calle ? `${item.calle} ${item.numero_exterior || ''}`.trim() : null,
     item.colonia ? `Col. ${item.colonia}` : null,
-    item.municipio || 'Guadalajara',
-    item.estado_provincia || 'Jalisco',
+    item.municipio || null,
+    item.estado_provincia || null,
     'Mexico',
   ].filter(Boolean);
   return partes.join(', ');

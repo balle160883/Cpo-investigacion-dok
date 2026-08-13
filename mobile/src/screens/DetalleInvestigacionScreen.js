@@ -55,7 +55,7 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
         <Text style={styles.sectionTitle}>Domicilio de la Investigación</Text>
         <Text style={styles.text}>Calle: {inv.calle || 'Sin calle'} #{inv.numero_exterior || ''} {inv.numero_interior ? `Int ${inv.numero_interior}` : ''}</Text>
         <Text style={styles.text}>Colonia: {inv.colonia || 'Sin colonia'}</Text>
-        <Text style={styles.text}>Municipio / Estado: {inv.municipio || 'Guadalajara'}, {inv.estado_provincia || 'Jalisco'}</Text>
+        <Text style={styles.text}>Municipio / Estado: {inv.municipio || 'N/A'}{inv.estado_provincia ? `, ${inv.estado_provincia}` : ''}</Text>
         <Text style={styles.text}>Código Postal: {inv.codigo_postal || 'N/A'}</Text>
         <Text style={styles.text}>Referencias: {inv.referencias || 'Sin referencias'}</Text>
 

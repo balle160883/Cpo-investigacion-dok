@@ -405,7 +405,7 @@ export default function VisitasScreen({ navigation, route }) {
               
               {/* COLONIA, MUNICIPIO Y ESTADO */}
               <Text style={styles.ubicacionDetalle}>
-                🏡 {item.colonia ? `Col. ${item.colonia}` : 'Sin Colonia'}, {item.municipio || 'Guadalajara'}, {item.estado_provincia || 'Jalisco'}
+                🏡 {item.colonia ? `Col. ${item.colonia}` : 'Sin Colonia'}{item.municipio ? `, ${item.municipio}` : ''}{item.estado_provincia ? `, ${item.estado_provincia}` : ''}
               </Text>
 
               {/* BADGE VIGENCIA 90 DÍAS */}
