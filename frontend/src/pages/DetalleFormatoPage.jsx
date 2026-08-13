@@ -140,6 +140,14 @@ export default function DetalleFormatoPage() {
   const firmaInvestigadorCaptured = ev.firma_investigador_url || '';
   const isAval = inv.es_aval === true || (inv.tipo_sujeto || '').toUpperCase().includes('AVAL');
 
+  const isValidated = Boolean(
+    inv.validador_nombre ||
+    inv.validador_id ||
+    ['VALIDADA', 'APROBADA_FINAL', 'EN_REVISION_ANALISTA'].includes(inv.estado) ||
+    inv.estado_validacion === 'VALIDADA'
+  );
+  const validadorNombre = inv.validador_nombre || (isValidated ? 'VALIDADOR AUTORIZADO' : '');
+
   function prepareFirmaSrc(src) {
     if (!src) return '';
     const trimmed = src.trim();
@@ -815,12 +823,34 @@ export default function DetalleFormatoPage() {
             <div className="text-[10px] text-slate-500">{inv.investigador_nombre || 'Caja Oblatos CPO'}</div>
           </div>
 
-          {/* Firma del Encargado / Supervisor */}
-          <div className="flex flex-col items-center justify-end">
-            <div className="h-24"></div>
+          {/* Firma / Validación del Validador (Solo aparece tras ser validada por un usuario con rol Validador) */}
+          <div className="flex flex-col items-center justify-between">
+            {isValidated ? (
+              <div className="w-full h-24 flex flex-col items-center justify-center border border-dashed border-emerald-300 rounded bg-emerald-50/80 p-2 mb-2 shadow-inner">
+                <span className="text-[11px] uppercase font-bold text-emerald-800 mb-1">
+                  ✓ Validado por (Validador):
+                </span>
+                <span className="font-extrabold text-slate-900 text-sm tracking-wide text-center">
+                  {validadorNombre.toUpperCase()}
+                </span>
+                <span className="text-[10px] text-emerald-700 font-semibold mt-1">
+                  {inv.fecha_validacion
+                    ? `Validado el ${new Date(inv.fecha_validacion).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}`
+                    : '✓ Firma y Validación Confirmada'}
+                </span>
+              </div>
+            ) : (
+              <div className="w-full h-24 flex flex-col items-center justify-center border border-dashed border-slate-200 rounded bg-white p-2 mb-2">
+                {/* Permanece totalmente en blanco hasta que un validador realice la validación */}
+              </div>
+            )}
             <div className="border-b border-slate-800 w-full mb-1"></div>
-            <div className="font-bold text-slate-900">Firma Encargado / Supervisor</div>
-            <div className="text-[10px] text-slate-500">Caja Oblatos CPO</div>
+            <div className="font-bold text-slate-900">
+              {isValidated ? 'Nombre / Firma del Validador' : 'Firma Encargado / Supervisor'}
+            </div>
+            <div className="text-[10px] text-slate-500">
+              {isValidated ? (validadorNombre || 'Validador de Crédito') : 'Caja Oblatos CPO'}
+            </div>
           </div>
         </div>
 
