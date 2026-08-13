@@ -799,28 +799,8 @@ export default function DetalleFormatoPage() {
           </div>
         </div>
 
-        {/* Signatures & Evidence Footer (3-column layout) */}
-        <div className="pt-8 border-t border-slate-300 grid grid-cols-3 gap-6 text-center text-xs">
-          {/* Firma Digital del Entrevistado (Solicitante o Aval) */}
-          <div className="flex flex-col items-center justify-between">
-            <div className="w-full h-24 flex items-center justify-center border border-dashed border-slate-300 rounded bg-white p-1 mb-2 overflow-hidden shadow-inner">
-              {safeFirmaSrc ? (
-                <img
-                  src={safeFirmaSrc}
-                  alt="Firma Digital del Atendido"
-                  className="max-h-full max-w-full object-contain"
-                />
-              ) : (
-                <span className="text-[11px] text-slate-400 italic">Sin firma digital</span>
-              )}
-            </div>
-            <div className="border-b border-slate-800 w-full mb-1"></div>
-            <div className="font-bold text-slate-900">
-              Firma del Entrevistado ({isAval ? 'Aval' : 'Solicitante'})
-            </div>
-            <div className="text-[10px] text-slate-500">{inv.sujeto_nombre}</div>
-          </div>
-
+        {/* Signatures & Evidence Footer (2-column layout) */}
+        <div className="pt-8 border-t border-slate-300 grid grid-cols-2 gap-12 text-center text-xs">
           {/* Firma del Investigador */}
           <div className="flex flex-col items-center justify-between">
             <div className="w-full h-24 flex items-center justify-center border border-dashed border-slate-300 rounded bg-white p-1 mb-2 overflow-hidden shadow-inner">

@@ -800,22 +800,13 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         )}
       </View>
 
-      {/* 5. FIRMAS DIGITALES DE VALIDACIÓN */}
+      {/* 5. FIRMA DIGITAL DEL INVESTIGADOR */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>5. Firmas Digitales de Validación</Text>
-
-        {/* FIRMA ENTREVISTADO */}
-        <SignaturePad
-          title={isAval ? "✍️ 1. FIRMA DEL ENTREVISTADO (AVAL)" : "✍️ 1. FIRMA DEL ENTREVISTADO (SOLICITANTE)"}
-          placeholderText={isAval ? "Firma del AVAL entrevistado" : "Firma del SOLICITANTE entrevistado"}
-          subtext={inv?.sujeto_nombre ? `Socio: ${inv.sujeto_nombre}` : "Firma autógrafa del entrevistado"}
-          borderColor={isAval ? "#34d399" : "#38bdf8"}
-          onSignatureChange={setFirmaUrl}
-        />
+        <Text style={styles.sectionTitle}>5. Firma Digital del Investigador</Text>
 
         {/* FIRMA INVESTIGADOR */}
         <SignaturePad
-          title="✍️ 2. FIRMA DEL INVESTIGADOR EN CAMPO"
+          title="✍️ FIRMA DEL INVESTIGADOR EN CAMPO"
           placeholderText="Firma del INVESTIGADOR de campo"
           subtext="Firma autógrafa del investigador que realiza la visita"
           borderColor="#f59e0b"
