@@ -122,24 +122,28 @@ async function initDb() {
         BEGIN
           IF NEW.municipio IS NOT NULL THEN
             CASE UPPER(TRIM(NEW.municipio))
-              WHEN 'CULIACAN', 'AHOME', 'GUASAVE', 'NAVOLATO', 'SAN IGNACIO', 'ESCUINAPA', 'EL FUERTE', 'COSALA', 'BADIRAGUATO', 'MAZATLAN' THEN
+              WHEN 'CULIACAN', 'AHOME', 'GUASAVE', 'NAVOLATO', 'SAN IGNACIO', 'ESCUINAPA', 'EL FUERTE', 'COSALA', 'BADIRAGUATO', 'MAZATLAN', 'CHOIX', 'CONCORDIA', 'ELOTA', 'MOCORITO', 'ROSARIO', 'SALVADOR ALVARADO', 'SINALOA' THEN
                 NEW.estado_provincia := 'Sinaloa';
-              WHEN 'HERMOSILLO', 'NAVOJOA', 'ETCHOJOA', 'CAJEME', 'HUATABAMPO', 'BACUM', 'SAN IGNACIO RIO MUERTO', 'ALAMOS' THEN
+              WHEN 'HERMOSILLO', 'NAVOJOA', 'ETCHOJOA', 'CAJEME', 'HUATABAMPO', 'BACUM', 'SAN IGNACIO RIO MUERTO', 'ALAMOS', 'NOGALES', 'GUAYMAS', 'CABORCA', 'PUERTO PENASCO', 'AGUA PRIETA' THEN
                 NEW.estado_provincia := 'Sonora';
-              WHEN 'TEPIC', 'BAHIA DE BANDERAS', 'SANTIAGO IXCUINTLA', 'TECUALA', 'XALISCO', 'SAN BLAS', 'RUIZ', 'HUAJICORI', 'COMPOSTELA', 'IXTLAN DEL RIO' THEN
+              WHEN 'TEPIC', 'BAHIA DE BANDERAS', 'SANTIAGO IXCUINTLA', 'TECUALA', 'XALISCO', 'SAN BLAS', 'RUIZ', 'HUAJICORI', 'COMPOSTELA', 'IXTLAN DEL RIO', 'ROSAMORADA', 'ACAPONETA', 'AHUACATLAN', 'AMATLAN DE CANAS', 'AMATLAN DE CAÑAS', 'JALA', 'LA YESCA', 'SAN PEDRO LAGUNILLAS', 'SANTA MARIA DEL ORO', 'TUXPAN', 'EL NAYAR', 'DEL NAYAR' THEN
                 NEW.estado_provincia := 'Nayarit';
-              WHEN 'SAN LUIS POTOSI', 'SOLEDAD DE GRACIANO SANCHEZ', 'CIUDAD FERNANDEZ', 'SAN CIRO DE ACOSTA', 'RIOVERDE' THEN
+              WHEN 'COLIMA', 'MANZANILLO', 'TECOMAN', 'VILLA DE ALVAREZ', 'ARMERIA', 'COMALA', 'COQUIMATLAN', 'CUAUHTEMOC', 'IXTLAHUACAN', 'MINATITLAN' THEN
+                NEW.estado_provincia := 'Colima';
+              WHEN 'SAN LUIS POTOSI', 'SOLEDAD DE GRACIANO SANCHEZ', 'CIUDAD FERNANDEZ', 'SAN CIRO DE ACOSTA', 'RIOVERDE', 'CIUDAD VALLES', 'TAMAZUNCHALE', 'MATEHUALA' THEN
                 NEW.estado_provincia := 'San Luis Potosí';
-              WHEN 'AGUASCALIENTES', 'JESUS MARIA', 'ASIENTOS', 'TEPEZALA', 'RINCON DE ROMOS', 'COSIO', 'PABELLON DE ARTEAGA', 'SAN FRANCISCO DE LOS ROMO' THEN
+              WHEN 'AGUASCALIENTES', 'JESUS MARIA', 'ASIENTOS', 'TEPEZALA', 'RINCON DE ROMOS', 'COSIO', 'PABELLON DE ARTEAGA', 'SAN FRANCISCO DE LOS ROMO', 'CALVILLO', 'EL LLANO', 'SAN JOSE DE GRACIA' THEN
                 NEW.estado_provincia := 'Aguascalientes';
-              WHEN 'ZACATECAS', 'GUADALUPE', 'PINOS', 'LORETO', 'OJOCALIENTE', 'LUIS MOYA', 'NORIA DE ANGELES', 'VILLA HIDALGO', 'VILLA GONZALEZ ORTEGA', 'VILLA GARCIA', 'MOYAHUA DE ESTRADA', 'JUCHIPILA', 'APULCO' THEN
+              WHEN 'ZACATECAS', 'GUADALUPE', 'PINOS', 'LORETO', 'OJOCALIENTE', 'LUIS MOYA', 'NORIA DE ANGELES', 'VILLA HIDALGO', 'VILLA GONZALEZ ORTEGA', 'VILLA GARCIA', 'MOYAHUA DE ESTRADA', 'JUCHIPILA', 'APULCO', 'FRESNILLO', 'JEREZ', 'SOMBRERETE', 'RIO GRANDE' THEN
                 NEW.estado_provincia := 'Zacatecas';
-              WHEN 'MARCOS CASTELLANOS', 'JIQUILPAN' THEN
+              WHEN 'MARCOS CASTELLANOS', 'JIQUILPAN', 'MORELIA', 'URUAPAN', 'ZAMORA', 'SAHUAYO', 'LA PIEDAD', 'LOS REYES', 'PATZCUARO', 'ZITACUARO', 'APATZINGAN' THEN
                 NEW.estado_provincia := 'Michoacán';
-              WHEN 'LEON' THEN
+              WHEN 'LEON', 'CELAYA', 'IRAPUATO', 'SALAMANCA', 'SILAO', 'GUANAJUATO', 'SAN MIGUEL DE ALLENDE', 'PENJAMO' THEN
                 NEW.estado_provincia := 'Guanajuato';
-              WHEN 'APAXCO' THEN
+              WHEN 'APAXCO', 'TOLUCA', 'METEPEC', 'ECATEPEC', 'NEZAHUALCOYOTL', 'NAUCALPAN', 'TLALNEPANTLA' THEN
                 NEW.estado_provincia := 'Estado de México';
+              WHEN 'GUADALAJARA', 'ZAPOPAN', 'TLAQUEPAQUE', 'SAN PEDRO TLAQUEPAQUE', 'TONALA', 'TLAJOMULCO DE ZUNIGA', 'TLAJOMULCO DE ZÚÑIGA', 'EL SALTO', 'PUERTO VALLARTA', 'CIUDAD GUZMAN', 'ZAPOTLAN EL GRANDE', 'TEPATITLAN DE MORELOS', 'TEPATITLAN', 'ARANDAS', 'LAGOS DE MORENO', 'OCOTLAN', 'AUTLAN DE NAVARRO', 'AMECA', 'TALPA DE ALLENDE', 'MASCOTA', 'TEQUILA', 'CHAPALA', 'JOCOTEPEC' THEN
+                NEW.estado_provincia := 'Jalisco';
               ELSE
                 IF NEW.estado_provincia IS NULL OR NEW.estado_provincia = '' THEN
                   NEW.estado_provincia := 'Jalisco';
@@ -156,7 +160,44 @@ async function initDb() {
         FOR EACH ROW
         EXECUTE FUNCTION auto_normalize_estado_provincia();
       `);
-    } catch (e) {}
+
+      // Corregir inmediatamente cualquier registro en la base de datos con municipio asignado a un estado incorrecto (ej: Jalisco)
+      await db.query(`
+        UPDATE direcciones SET estado_provincia = 'Nayarit'
+        WHERE UPPER(TRIM(municipio)) IN ('ROSAMORADA', 'TEPIC', 'BAHIA DE BANDERAS', 'SANTIAGO IXCUINTLA', 'TECUALA', 'XALISCO', 'SAN BLAS', 'RUIZ', 'HUAJICORI', 'COMPOSTELA', 'IXTLAN DEL RIO', 'ACAPONETA', 'AHUACATLAN', 'AMATLAN DE CANAS', 'AMATLAN DE CAÑAS', 'JALA', 'LA YESCA', 'SAN PEDRO LAGUNILLAS', 'SANTA MARIA DEL ORO', 'TUXPAN', 'EL NAYAR', 'DEL NAYAR')
+          AND (estado_provincia IS NULL OR estado_provincia != 'Nayarit');
+
+        UPDATE direcciones SET estado_provincia = 'Sinaloa'
+        WHERE UPPER(TRIM(municipio)) IN ('CULIACAN', 'AHOME', 'GUASAVE', 'NAVOLATO', 'SAN IGNACIO', 'ESCUINAPA', 'EL FUERTE', 'COSALA', 'BADIRAGUATO', 'MAZATLAN', 'CHOIX', 'CONCORDIA', 'ELOTA', 'MOCORITO', 'ROSARIO', 'SALVADOR ALVARADO', 'SINALOA')
+          AND (estado_provincia IS NULL OR estado_provincia != 'Sinaloa');
+
+        UPDATE direcciones SET estado_provincia = 'Colima'
+        WHERE UPPER(TRIM(municipio)) IN ('COLIMA', 'MANZANILLO', 'TECOMAN', 'VILLA DE ALVAREZ', 'ARMERIA', 'COMALA', 'COQUIMATLAN', 'CUAUHTEMOC', 'IXTLAHUACAN', 'MINATITLAN')
+          AND (estado_provincia IS NULL OR estado_provincia != 'Colima');
+
+        UPDATE direcciones SET estado_provincia = 'Sonora'
+        WHERE UPPER(TRIM(municipio)) IN ('HERMOSILLO', 'NAVOJOA', 'ETCHOJOA', 'CAJEME', 'HUATABAMPO', 'BACUM', 'SAN IGNACIO RIO MUERTO', 'ALAMOS', 'NOGALES', 'GUAYMAS', 'CABORCA', 'PUERTO PENASCO', 'AGUA PRIETA')
+          AND (estado_provincia IS NULL OR estado_provincia != 'Sonora');
+
+        UPDATE direcciones SET estado_provincia = 'Zacatecas'
+        WHERE UPPER(TRIM(municipio)) IN ('ZACATECAS', 'GUADALUPE', 'PINOS', 'LORETO', 'OJOCALIENTE', 'LUIS MOYA', 'NORIA DE ANGELES', 'VILLA HIDALGO', 'VILLA GONZALEZ ORTEGA', 'VILLA GARCIA', 'MOYAHUA DE ESTRADA', 'JUCHIPILA', 'APULCO', 'FRESNILLO', 'JEREZ', 'SOMBRERETE', 'RIO GRANDE')
+          AND (estado_provincia IS NULL OR estado_provincia != 'Zacatecas');
+
+        UPDATE direcciones SET estado_provincia = 'Aguascalientes'
+        WHERE UPPER(TRIM(municipio)) IN ('AGUASCALIENTES', 'JESUS MARIA', 'ASIENTOS', 'TEPEZALA', 'RINCON DE ROMOS', 'COSIO', 'PABELLON DE ARTEAGA', 'SAN FRANCISCO DE LOS ROMO', 'CALVILLO', 'EL LLANO', 'SAN JOSE DE GRACIA')
+          AND (estado_provincia IS NULL OR estado_provincia != 'Aguascalientes');
+
+        UPDATE direcciones SET estado_provincia = 'Michoacán'
+        WHERE UPPER(TRIM(municipio)) IN ('MARCOS CASTELLANOS', 'JIQUILPAN', 'MORELIA', 'URUAPAN', 'ZAMORA', 'SAHUAYO', 'LA PIEDAD', 'LOS REYES', 'PATZCUARO', 'ZITACUARO', 'APATZINGAN')
+          AND (estado_provincia IS NULL OR estado_provincia != 'Michoacán');
+
+        UPDATE direcciones SET estado_provincia = 'Guanajuato'
+        WHERE UPPER(TRIM(municipio)) IN ('LEON', 'CELAYA', 'IRAPUATO', 'SALAMANCA', 'SILAO', 'GUANAJUATO', 'SAN MIGUEL DE ALLENDE', 'PENJAMO')
+          AND (estado_provincia IS NULL OR estado_provincia != 'Guanajuato');
+      `);
+    } catch (e) {
+      console.error('Error al configurar trigger de normalización de estados:', e);
+    }
 
     // Seed default admin and investigators if empty
     const { rows: existingInvestigadores } = await db.query('SELECT count(*) FROM investigadores;');
