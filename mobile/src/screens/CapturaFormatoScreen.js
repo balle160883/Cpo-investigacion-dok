@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, Share } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { guardarEvidenciaInvestigacion, escanearINEConFoto } from '../api/apiClient';
@@ -245,6 +245,53 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
   function eliminarFoto(index) {
     setFotos((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleCompartirTicket() {
+    try {
+      const fechaActual = new Date().toLocaleString('es-MX', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const sujetoNombre = inv?.sujeto_nombre || 'Socio / Solicitante';
+      const personaSif = inv?.persona_id_sif || 'N/A';
+      const folioSolicitud = inv?.solicitud_folio || id || 'N/A';
+      const calleYNum = tieneDireccionDiferente && calleReal ? calleReal : `${inv?.calle || ''} ${inv?.numero_exterior || ''}`.trim();
+      const col = tieneDireccionDiferente && coloniaReal ? coloniaReal : inv?.colonia || '';
+      const direccionVisita = `${calleYNum}${col ? ', ' + col : ''}`.trim() || 'Domicilio Registrado';
+
+      const ticketText = 
+`================================
+  TICKET DE PENDIENTE CON FOLIO
+================================
+FECHA: ${fechaActual}
+FOLIO SOLICITUD: ${folioSolicitud}
+SOCIO / CLIENTE: ${sujetoNombre}
+N° SOCIO SIF: ${personaSif}
+--------------------------------
+DOMICILIO DE VISITA:
+${direccionVisita}
+--------------------------------
+DICTAMEN: PENDIENTE
+SUPUESTO: Con Folio
+--------------------------------
+OBSERVACIONES:
+${observaciones || 'Sin observaciones adicionales.'}
+================================
+ CPO INVESTIGACIONES SOCIOECONÓMICAS
+================================`;
+
+      await Share.share({
+        title: `Ticket Pendiente - Folio ${folioSolicitud}`,
+        message: ticketText,
+      });
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo abrir la opción de compartir/imprimir el ticket: ' + error.message);
+    }
   }
 
   async function handleGuardar() {
@@ -852,6 +899,16 @@ export default function CapturaFormatoScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* BOTÓN IMPRIMIR / COMPARTIR TICKET (SÓLO SI ES PENDIENTE Y CON FOLIO) */}
+        {(dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') && supuesto === 'Con Folio' && (
+          <TouchableOpacity
+            style={styles.printButton}
+            onPress={handleCompartirTicket}
+          >
+            <Text style={styles.printButtonText}>🖨️ Imprimir Ticket / Compartir (Con Folio)</Text>
+          </TouchableOpacity>
+        )}
+
 
         <Text style={styles.label}>Observaciones:</Text>
         <TextInput
@@ -952,6 +1009,23 @@ const styles = StyleSheet.create({
   previewImage: { width: 90, height: 90, borderRadius: 10, borderWidth: 1, borderColor: '#38bdf8' },
   deleteBadge: { position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
   deleteBadgeText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
+  printButton: {
+    backgroundColor: '#7c3aed',
+    borderColor: '#a78bfa',
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 12,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  printButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 },
   saveButton: { backgroundColor: '#10b981', padding: 16, borderRadius: 16, alignItems: 'center', marginBottom: 50 },
   saveButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 15 },
 });
