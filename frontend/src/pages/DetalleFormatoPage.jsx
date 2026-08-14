@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { fetchInvestigacionDetalle, validarInvestigacion, revalidarInvestigacion } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
@@ -20,6 +20,7 @@ function formatFechaCorta(fechaStr) {
 
 export default function DetalleFormatoPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const auth = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,8 +56,6 @@ export default function DetalleFormatoPage() {
   // El analista puede revalidar solo cuando el estado es VALIDADA
   const canRevalidar = isAnalista;
 
-
-
   async function loadData() {
     try {
       const res = await fetchInvestigacionDetalle(id);
@@ -77,12 +76,17 @@ export default function DetalleFormatoPage() {
     try {
       const res = await validarInvestigacion(id, { accion, comentarios });
       setToast({
-        message: res.message || `Investigación ${accion === 'VALIDAR' ? 'VALIDADA' : 'RECHAZADA'} con éxito`,
+        message: res.message || `Investigación ${accion === 'VALIDAR' ? 'VALIDADA y archivada' : 'RECHAZADA'} con éxito`,
         type: accion === 'VALIDAR' ? 'success' : 'warning',
       });
       setShowRechazoModal(false);
       setComentariosRechazo('');
       await loadData();
+      if (accion === 'VALIDAR') {
+        setTimeout(() => {
+          navigate('/investigaciones');
+        }, 1500);
+      }
     } catch (err) {
       setToast({ message: 'Error procesando validación: ' + err.message, type: 'error' });
     } finally {
@@ -101,6 +105,11 @@ export default function DetalleFormatoPage() {
       setShowDevolucionModal(false);
       setComentariosDevolucion('');
       await loadData();
+      if (accion === 'APROBAR_FINAL') {
+        setTimeout(() => {
+          navigate('/investigaciones');
+        }, 1500);
+      }
     } catch (err) {
       setToast({ message: 'Error procesando revalidación: ' + err.message, type: 'error' });
     } finally {

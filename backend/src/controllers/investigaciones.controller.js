@@ -49,10 +49,16 @@ async function getInvestigaciones(req, res, next) {
     if (estado) {
       if (estado === 'PENDIENTE') {
         whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'EN_PROCESO')`);
+      } else if (estado === 'TODAS') {
+        // Muestra todas las investigaciones históricas sin filtrar por estado
       } else {
         queryParams.push(estado);
         whereClauses.push(`inv.estado = $${queryParams.length}`);
       }
+    } else {
+      // Por defecto (sin filtro explícito), ocultar investigaciones ya validadas o aprobadas final
+      // para que al dar el visto bueno desaparezcan de la cola de trabajo activa.
+      whereClauses.push(`(inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL'))`);
     }
 
     if (targetInvestigadorId) {
