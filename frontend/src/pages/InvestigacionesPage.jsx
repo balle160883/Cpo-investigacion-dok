@@ -80,7 +80,11 @@ export default function InvestigacionesPage() {
     try {
       const invs = await fetchInvestigadores();
       setInvestigadores(invs || []);
-      if (invs.length > 0) setSelectedInvestigadorId(invs[0].id);
+      if (inv.investigador_id && (invs || []).some(i => String(i.id) === String(inv.investigador_id))) {
+        setSelectedInvestigadorId(String(inv.investigador_id));
+      } else if (invs && invs.length > 0) {
+        setSelectedInvestigadorId(String(invs[0].id));
+      }
     } catch (err) {
       console.error('Error cargando investigadores:', err);
     }
