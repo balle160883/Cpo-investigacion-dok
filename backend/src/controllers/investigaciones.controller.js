@@ -318,7 +318,7 @@ async function asignarInvestigador(req, res, next) {
 
     await db.query(`
       UPDATE investigaciones 
-      SET investigador_id = $1, fecha_asignacion = NOW(), estado = 'EN_PROCESO', updated_at = NOW()
+      SET investigador_id = $1, origen_asignacion = 'PLATAFORMA_CPO', asignacion_manual = TRUE, fecha_asignacion = NOW(), estado = 'EN_PROCESO', updated_at = NOW()
       WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
     `, [investigador_id, id]);
 
@@ -361,6 +361,8 @@ async function asignarInvestigadorLote(req, res, next) {
     const result = await db.query(
       `UPDATE investigaciones
        SET investigador_id = $1,
+           origen_asignacion = 'PLATAFORMA_CPO',
+           asignacion_manual = TRUE,
            fecha_asignacion = NOW(),
            estado = 'EN_PROCESO',
            updated_at = NOW()

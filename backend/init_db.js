@@ -113,6 +113,37 @@ async function initDb() {
     try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS estado_provincia VARCHAR(255) DEFAULT 'Jalisco';`); } catch (e) {}
     try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS es_principal BOOLEAN DEFAULT TRUE;`); } catch (e) {}
     try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS asignacion_manual BOOLEAN DEFAULT FALSE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS origen_asignacion VARCHAR(50);`); } catch (e) {}
+
+    // Trigger de protección de asignaciones manuales realizadas desde la plataforma CPO
+    try {
+      await db.query(`
+        CREATE OR REPLACE FUNCTION protect_manual_assignment()
+        RETURNS TRIGGER AS $$
+        BEGIN
+          IF OLD.asignacion_manual = TRUE AND NEW.investigador_id IS DISTINCT FROM OLD.investigador_id THEN
+            IF NEW.origen_asignacion IS DISTINCT FROM 'PLATAFORMA_CPO' THEN
+              NEW.investigador_id := OLD.investigador_id;
+              NEW.asignacion_manual := TRUE;
+            ELSE
+              NEW.asignacion_manual := TRUE;
+              NEW.origen_asignacion := NULL;
+            END IF;
+          END IF;
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+
+        DROP TRIGGER IF EXISTS trigger_protect_manual_assignment ON investigaciones;
+        CREATE TRIGGER trigger_protect_manual_assignment
+        BEFORE UPDATE ON investigaciones
+        FOR EACH ROW
+        EXECUTE FUNCTION protect_manual_assignment();
+      `);
+    } catch (e) {
+      console.error('Error al configurar trigger de protección de asignación manual:', e);
+    }
 
     // Trigger de normalización automática de estados de México según municipio
     try {
