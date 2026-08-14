@@ -48,7 +48,7 @@ async function getInvestigaciones(req, res, next) {
 
     if (estado) {
       if (estado === 'PENDIENTE') {
-        whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE')`);
+        whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'EN_PROCESO')`);
       } else {
         queryParams.push(estado);
         whereClauses.push(`inv.estado = $${queryParams.length}`);
