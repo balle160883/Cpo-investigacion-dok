@@ -4,9 +4,6 @@ const { registrarAuditoria } = require('./audit.controller');
 async function getInvestigaciones(req, res, next) {
   try {
     const { estado, buscar, investigador_id } = req.query;
-    const page = Math.max(1, parseInt(req.query.page || '1'));
-    const limit = Math.max(1, parseInt(req.query.limit || (investigador_id ? '500' : '50')));
-    const offset = (page - 1) * limit;
 
     let whereClauses = [];
     let queryParams = [];
@@ -24,8 +21,10 @@ async function getInvestigaciones(req, res, next) {
     // Filtros de Rol por Usuario autenticado
     if (req.user) {
       const userRol = (req.user.rol || '').toLowerCase();
-      if (userRol === 'investigador' && req.user.id && !targetInvestigadorId) {
-        targetInvestigadorId = req.user.id;
+      if (req.user.id && !targetInvestigadorId) {
+        if (userRol === 'investigador' || userRol === 'investigador_campo' || !['admin', 'superadmin', 'validador', 'analista', 'supervisor'].includes(userRol)) {
+          targetInvestigadorId = req.user.id;
+        }
       }
       // VALIDADOR: Solo le aparecen las investigaciones si TODAS las investigaciones de ese crédito están COMPLETADAS
       if (userRol === 'validador') {
@@ -41,6 +40,11 @@ async function getInvestigaciones(req, res, next) {
         whereClauses.push(`inv.estado_validacion = 'VALIDADA'`);
       }
     }
+
+    const page = Math.max(1, parseInt(req.query.page || '1'));
+    // Calcular límite considerando el targetInvestigadorId inferido por el token JWT
+    const limit = Math.max(1, parseInt(req.query.limit || (targetInvestigadorId ? '500' : '50')));
+    const offset = (page - 1) * limit;
 
     if (estado) {
       if (estado === 'PENDIENTE') {
