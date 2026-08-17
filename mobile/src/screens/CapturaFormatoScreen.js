@@ -264,9 +264,15 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       const col = tieneDireccionDiferente && coloniaReal ? coloniaReal : inv?.colonia || '';
       const direccionVisita = `${calleYNum}${col ? ', ' + col : ''}`.trim() || 'Domicilio Registrado';
 
+      const esConCita = supuesto === 'Con cita';
+      const tituloHeader = esConCita ? 'TICKET DE PENDIENTE CON CITA' : 'TICKET DE PENDIENTE CON FOLIO';
+      const infoCita = esConCita
+        ? `\n--------------------------------\nINFORMACIÓN:\nComunicate al : 3339421055 para agendar una cita.\nAtentamente Caja Popular Oblatos.`
+        : '';
+
       const ticketText = 
 `================================
-  TICKET DE PENDIENTE CON FOLIO
+  ${tituloHeader}
 ================================
 FECHA: ${fechaActual}
 FOLIO SOLICITUD: ${folioSolicitud}
@@ -277,16 +283,16 @@ DOMICILIO DE VISITA:
 ${direccionVisita}
 --------------------------------
 DICTAMEN: PENDIENTE
-SUPUESTO: Con Folio
+SUPUESTO: ${supuesto || 'N/A'}
 --------------------------------
 OBSERVACIONES:
-${observaciones || 'Sin observaciones adicionales.'}
+${observaciones || 'Sin observaciones adicionales.'}${infoCita}
 ================================
- CPO INVESTIGACIONES SOCIOECONÓMICAS
+  CPO INVESTIGACIONES SOCIOECONÓMICAS
 ================================`;
 
       await Share.share({
-        title: `Ticket Pendiente - Folio ${folioSolicitud}`,
+        title: `Ticket Pendiente (${supuesto}) - Folio ${folioSolicitud}`,
         message: ticketText,
       });
     } catch (error) {
@@ -899,13 +905,13 @@ ${observaciones || 'Sin observaciones adicionales.'}
           </View>
         )}
 
-        {/* BOTÓN IMPRIMIR / COMPARTIR TICKET (SÓLO SI ES PENDIENTE Y CON FOLIO) */}
-        {(dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') && supuesto === 'Con Folio' && (
+        {/* BOTÓN IMPRIMIR / COMPARTIR TICKET (SÓLO SI ES PENDIENTE Y CON FOLIO O CON CITA) */}
+        {(dictamen === 'PENDIENTE' || dictamen === 'PENDIENTE DE VISITA') && (supuesto === 'Con Folio' || supuesto === 'Con cita') && (
           <TouchableOpacity
             style={styles.printButton}
             onPress={handleCompartirTicket}
           >
-            <Text style={styles.printButtonText}>🖨️ Imprimir Ticket / Compartir (Con Folio)</Text>
+            <Text style={styles.printButtonText}>🖨️ Imprimir Ticket / Compartir ({supuesto})</Text>
           </TouchableOpacity>
         )}
 
