@@ -21,13 +21,26 @@ async function getInvestigaciones(req, res, next) {
     // Filtros de Rol por Usuario autenticado
     if (req.user) {
       const userRol = (req.user.rol || '').toLowerCase();
+      const rolesArray = userRol.split(',').map((r) => r.trim());
+      const esAdminOAsignador = rolesArray.some((r) =>
+        ['admin', 'superadmin', 'asignador', 'supervisor'].includes(r)
+      );
+      const esSoloValidador = rolesArray.includes('validador') && !esAdminOAsignador;
+      const esSoloAnalista = rolesArray.includes('analista') && !esAdminOAsignador;
+      const esInvestigadorCampo =
+        rolesArray.some((r) => ['investigador', 'investigador_campo'].includes(r)) &&
+        !esAdminOAsignador &&
+        !rolesArray.includes('validador');
+
+      // Solo si es un investigador de campo puro se fuerza a filtrar por sus propias asignaciones
       if (req.user.id && !targetInvestigadorId) {
-        if (userRol === 'investigador' || userRol === 'investigador_campo' || !['admin', 'superadmin', 'validador', 'analista', 'supervisor'].includes(userRol)) {
+        if (esInvestigadorCampo) {
           targetInvestigadorId = req.user.id;
         }
       }
-      // VALIDADOR: Solo le aparecen las investigaciones si TODAS las investigaciones de ese crédito están COMPLETADAS
-      if (userRol === 'validador') {
+
+      // VALIDADOR PURO (sin rol asignador ni admin): Solo ve cuando todas las visitas del crédito están completadas
+      if (esSoloValidador) {
         whereClauses.push(`NOT EXISTS (
           SELECT 1 
           FROM investigaciones inv_sub 
@@ -35,8 +48,9 @@ async function getInvestigaciones(req, res, next) {
             AND (inv_sub.estado IS NULL OR inv_sub.estado != 'COMPLETADA')
         )`);
       }
-      // ANALISTA: solo puede ver investigaciones con estado_validacion = 'VALIDADA'
-      if (userRol === 'analista') {
+
+      // ANALISTA PURO: solo puede ver investigaciones con estado_validacion = 'VALIDADA'
+      if (esSoloAnalista) {
         whereClauses.push(`inv.estado_validacion = 'VALIDADA'`);
       }
     }
