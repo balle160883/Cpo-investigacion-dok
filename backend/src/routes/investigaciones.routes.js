@@ -2,6 +2,7 @@ const express = require('express');
 const {
   getInvestigaciones,
   getInvestigacionDetalle,
+  getColoniasActivas,
   asignarInvestigador,
   asignarInvestigadorLote,
   guardarEvidencia,
@@ -14,6 +15,7 @@ const { PERMISSIONS } = require('../rbac/roles');
 const router = express.Router();
 
 router.get('/', authenticate, getInvestigaciones);
+router.get('/colonias', authenticate, getColoniasActivas);
 router.post('/asignar-lote', authenticate, asignarInvestigadorLote);
 router.get('/:id', authenticate, getInvestigacionDetalle);
 router.post('/:id/asignar', authenticate, asignarInvestigador);

@@ -3,7 +3,7 @@ const { registrarAuditoria } = require('./audit.controller');
 
 async function getInvestigaciones(req, res, next) {
   try {
-    const { estado, buscar, investigador_id } = req.query;
+    const { estado, buscar, investigador_id, colonia } = req.query;
 
     let whereClauses = [];
     let queryParams = [];
@@ -66,12 +66,18 @@ async function getInvestigaciones(req, res, next) {
       whereClauses.push(`CAST(inv.investigador_id AS TEXT) = CAST($${queryParams.length} AS TEXT)`);
     }
 
+    if (colonia) {
+      queryParams.push(colonia.trim());
+      whereClauses.push(`TRIM(d.colonia) = $${queryParams.length}`);
+    }
+
     if (buscar) {
       queryParams.push(`%${buscar}%`);
       whereClauses.push(`(
         p.nombre_completo ILIKE $${queryParams.length} OR 
         s.folio ILIKE $${queryParams.length} OR 
-        CAST(inv.id_sif_research AS TEXT) ILIKE $${queryParams.length}
+        CAST(inv.id_sif_research AS TEXT) ILIKE $${queryParams.length} OR
+        d.colonia ILIKE $${queryParams.length}
       )`);
     }
 
@@ -82,6 +88,7 @@ async function getInvestigaciones(req, res, next) {
       FROM investigaciones inv
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
+      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
       ${whereSql};
     `;
 
@@ -592,9 +599,33 @@ async function revalidarInvestigacion(req, res, next) {
   }
 }
 
+// Devuelve las colonias únicas con investigaciones activas, con conteo de total y sin asignar
+async function getColoniasActivas(req, res, next) {
+  try {
+    const { rows } = await db.query(`
+      SELECT
+        TRIM(d.colonia) AS colonia,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE') AS sin_asignar
+      FROM investigaciones inv
+      LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
+      WHERE d.colonia IS NOT NULL
+        AND d.colonia != ''
+        AND (inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'RECHAZADA'))
+      GROUP BY TRIM(d.colonia)
+      ORDER BY COUNT(*) DESC, TRIM(d.colonia) ASC;
+    `);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
+  getColoniasActivas,
   asignarInvestigador,
   asignarInvestigadorLote,
   guardarEvidencia,

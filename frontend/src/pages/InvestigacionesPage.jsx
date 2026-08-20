@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador } from '../services/api';
-import { Search, Filter, Eye, UserPlus, MapPin, CheckCircle, Clock, FileText, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
+import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, fetchColoniasActivas } from '../services/api';
+import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +34,15 @@ export default function InvestigacionesPage() {
   const [estado, setEstado] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Filtro por colonia
+  const [colonias, setColonias] = useState([]);
+  const [coloniaSeleccionada, setColoniaSeleccionada] = useState('');
+  const [coloniaDropdownOpen, setColoniaDropdownOpen] = useState(false);
+  const [loadingColonias, setLoadingColonias] = useState(false);
+
+  // Selección múltiple (checkboxes)
+  const [selectedIds, setSelectedIds] = useState([]);
+
   // Modales: Expediente, Notificaciones, Agenda Dinámica y Prevalidación Domicilio/Contacto
   const [docModalSolicitudId, setDocModalSolicitudId] = useState(null);
   const [notifModalSolicitudId, setNotifModalSolicitudId] = useState(null);
@@ -41,25 +50,44 @@ export default function InvestigacionesPage() {
   const [contactoModalPersonaId, setContactoModalPersonaId] = useState(null);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
-  // Modal Asignar
+  // Modal Asignar (individual)
   const [selectedInv, setSelectedInv] = useState(null);
   const [investigadores, setInvestigadores] = useState([]);
   const [selectedInvestigadorId, setSelectedInvestigadorId] = useState('');
   const [assigning, setAssigning] = useState(false);
 
+  // Modal Asignar Lote
+  const [loteModalOpen, setLoteModalOpen] = useState(false);
+  const [loteInvestigadorId, setLoteInvestigadorId] = useState('');
+  const [assigningLote, setAssigningLote] = useState(false);
+
   useEffect(() => {
     loadInvestigaciones();
-  }, [page, estado]);
+  }, [page, estado, coloniaSeleccionada]);
+
+  useEffect(() => {
+    loadColonias();
+  }, []);
+
+  async function loadColonias() {
+    setLoadingColonias(true);
+    try {
+      const cols = await fetchColoniasActivas();
+      setColonias(cols || []);
+    } catch (err) {
+      console.error('Error cargando colonias:', err);
+    } finally {
+      setLoadingColonias(false);
+    }
+  }
 
   async function loadInvestigaciones() {
     setLoading(true);
+    setSelectedIds([]); // limpiar selección al cambiar de página/filtro
     try {
-      const res = await fetchInvestigaciones({
-        page,
-        limit: 25,
-        estado,
-        buscar,
-      });
+      const params = { page, limit: 25, estado, buscar };
+      if (coloniaSeleccionada) params.colonia = coloniaSeleccionada;
+      const res = await fetchInvestigaciones(params);
       setData(res.data || []);
       setTotal(res.total || 0);
     } catch (err) {
@@ -104,6 +132,66 @@ export default function InvestigacionesPage() {
       setAssigning(false);
     }
   }
+
+  // ── Selección múltiple ──────────────────────────────────────────────────────
+  function toggleSelectId(id) {
+    const idStr = String(id);
+    setSelectedIds((prev) =>
+      prev.includes(idStr) ? prev.filter((item) => item !== idStr) : [...prev, idStr]
+    );
+  }
+
+  function toggleSeleccionarTodos() {
+    const todosIds = data.map((r) => String(r.id_sif_research));
+    const todasSel = todosIds.every((id) => selectedIds.includes(id));
+    if (todasSel) {
+      setSelectedIds((prev) => prev.filter((id) => !todosIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => {
+        const nuevos = todosIds.filter((id) => !prev.includes(id));
+        return [...prev, ...nuevos];
+      });
+    }
+  }
+
+  const todasSeleccionadas = data.length > 0 && data.every((r) => selectedIds.includes(String(r.id_sif_research)));
+  const algunaSeleccionada = data.some((r) => selectedIds.includes(String(r.id_sif_research)));
+
+  // ── Modal asignar lote ──────────────────────────────────────────────────────
+  async function openLoteModal() {
+    if (selectedIds.length === 0) {
+      setToast({ message: 'Selecciona al menos una investigación antes de asignar.', type: 'warning' });
+      return;
+    }
+    try {
+      const invs = await fetchInvestigadores();
+      setInvestigadores(invs || []);
+      if (invs && invs.length > 0) setLoteInvestigadorId(String(invs[0].id));
+    } catch (err) {
+      console.error('Error cargando investigadores:', err);
+    }
+    setLoteModalOpen(true);
+  }
+
+  async function handleLoteSubmit() {
+    if (selectedIds.length === 0 || !loteInvestigadorId) return;
+    setAssigningLote(true);
+    try {
+      const res = await asignarInvestigadorLote(selectedIds, loteInvestigadorId);
+      setLoteModalOpen(false);
+      setSelectedIds([]);
+      setToast({ message: res.message || `${selectedIds.length} investigaciones asignadas con éxito.`, type: 'success' });
+      loadInvestigaciones();
+      loadColonias();
+    } catch (err) {
+      setToast({ message: 'Error asignando en lote: ' + err.message, type: 'error' });
+    } finally {
+      setAssigningLote(false);
+    }
+  }
+
+  // Colonia activa del filtro (objeto completo con conteos)
+  const coloniaObj = colonias.find((c) => c.colonia === coloniaSeleccionada);
 
   function exportarAExcel() {
     if (!data || data.length === 0) {
@@ -232,12 +320,142 @@ export default function InvestigacionesPage() {
       )}
 
 
+      {/* ── Filtro por Colonia + Acciones Masivas (solo no-analista) ─────── */}
+      {!isAnalista && (
+        <div className="flex flex-wrap items-center gap-3">
+
+          {/* Selector de Colonia */}
+          <div className="relative">
+            <button
+              onClick={() => setColoniaDropdownOpen((prev) => !prev)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition ${
+                coloniaSeleccionada
+                  ? 'bg-sky-600/20 border-sky-500 text-sky-300'
+                  : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+              }`}
+              title="Filtrar investigaciones por colonia"
+            >
+              <MapPinned className="w-4 h-4" />
+              {coloniaSeleccionada
+                ? <>¯¯ Colonia: <strong className="ml-1">{coloniaSeleccionada}</strong>
+                    {coloniaObj && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-bold">
+                        {coloniaObj.total}
+                      </span>
+                    )}
+                  </>
+                : 'Filtrar por Colonia'}
+              <ChevronDown className="w-3.5 h-3.5 ml-1" />
+            </button>
+
+            {coloniaDropdownOpen && (
+              <div
+                className="absolute top-full left-0 mt-2 z-40 bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl w-80 max-h-72 overflow-y-auto"
+                onMouseLeave={() => setColoniaDropdownOpen(false)}
+              >
+                <div className="p-2 border-b border-slate-800 text-[11px] text-slate-400 font-semibold uppercase tracking-wider px-4 py-2.5">
+                  Colonias con casos activos
+                </div>
+                <button
+                  onClick={() => { setColoniaSeleccionada(''); setPage(1); setColoniaDropdownOpen(false); }}
+                  className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-slate-800 transition ${!coloniaSeleccionada ? 'text-sky-400 font-bold' : 'text-slate-300'}`}
+                >
+                  <span>🗺️ Ver todas las colonias</span>
+                  {!coloniaSeleccionada && <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full">activo</span>}
+                </button>
+                {loadingColonias ? (
+                  <div className="text-center py-6 text-slate-500 text-xs">Cargando colonias...</div>
+                ) : colonias.length === 0 ? (
+                  <div className="text-center py-6 text-slate-500 text-xs">Sin colonias disponibles</div>
+                ) : (
+                  colonias.map((col) => (
+                    <button
+                      key={col.colonia}
+                      onClick={() => { setColoniaSeleccionada(col.colonia); setPage(1); setColoniaDropdownOpen(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-slate-800 transition ${
+                        coloniaSeleccionada === col.colonia ? 'text-sky-400 font-bold bg-sky-500/10' : 'text-slate-300'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        {col.colonia}
+                      </span>
+                      <div className="flex gap-1 shrink-0">
+                        <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">
+                          {col.total} total
+                        </span>
+                        {parseInt(col.sin_asignar) > 0 && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">
+                            {col.sin_asignar} sin asignar
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Botón limpiar filtro colonia */}
+          {coloniaSeleccionada && (
+            <button
+              onClick={() => { setColoniaSeleccionada(''); setPage(1); }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold border border-slate-700 transition"
+              title="Quitar filtro de colonia"
+            >
+              <X className="w-3.5 h-3.5" /> Quitar filtro
+            </button>
+          )}
+
+          {selectedIds.length > 0 && <div className="h-6 w-px bg-slate-700" />}
+
+          {/* Botón Asignar Seleccionadas */}
+          {selectedIds.length > 0 && (
+            <button
+              onClick={openLoteModal}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-lg shadow-sky-600/30 transition"
+            >
+              <Users className="w-4 h-4" />
+              Asignar {selectedIds.length} seleccionada{selectedIds.length !== 1 ? 's' : ''}
+            </button>
+          )}
+
+          {selectedIds.length > 0 && (
+            <button
+              onClick={() => setSelectedIds([])}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold border border-slate-700 transition"
+              title="Limpiar selección"
+            >
+              <X className="w-3.5 h-3.5" /> Limpiar selección
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Data Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-950/60 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-800">
               <tr>
+                {/* Columna Checkbox — solo para no-analistas */}
+                {!isAnalista && (
+                  <th className="px-4 py-3.5 w-10">
+                    <button
+                      onClick={toggleSeleccionarTodos}
+                      title={todasSeleccionadas ? 'Deseleccionar todas' : 'Seleccionar todas en esta página'}
+                      className="text-slate-400 hover:text-sky-400 transition"
+                    >
+                      {todasSeleccionadas
+                        ? <CheckSquare className="w-4 h-4 text-sky-400" />
+                        : algunaSeleccionada
+                          ? <CheckSquare className="w-4 h-4 text-sky-400/50" />
+                          : <Square className="w-4 h-4" />
+                      }
+                    </button>
+                  </th>
+                )}
                 <th className="px-5 py-3.5">ID / Folio</th>
                 <th className="px-5 py-3.5">Tipo Sujeto</th>
                 <th className="px-5 py-3.5">Nombre del Socio</th>
@@ -251,20 +469,39 @@ export default function InvestigacionesPage() {
             <tbody className="divide-y divide-slate-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-12 text-slate-500">
+                  <td colSpan={isAnalista ? 8 : 9} className="text-center py-12 text-slate-500">
                     Cargando catálogo de investigaciones...
                   </td>
                 </tr>
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-12 text-slate-500">
-                    No se encontraron registros de investigación.
+                  <td colSpan={isAnalista ? 8 : 9} className="text-center py-12 text-slate-500">
+                    {coloniaSeleccionada
+                      ? `No se encontraron investigaciones en la colonia "${coloniaSeleccionada}".`
+                      : 'No se encontraron registros de investigación.'}
                   </td>
                 </tr>
               ) : (
-                data.map((row) => (
-                  <tr key={row.id_sif_research} className="hover:bg-slate-800/30 transition">
-                    <td className="px-5 py-4 font-mono font-semibold text-slate-200">
+                data.map((row) => {
+                  const isChecked = selectedIds.includes(String(row.id_sif_research));
+                  return (
+                    <tr key={row.id_sif_research} className={`hover:bg-slate-800/30 transition ${isChecked ? 'bg-sky-500/5 border-l-2 border-sky-500' : ''}`}>
+                      {/* Checkbox */}
+                      {!isAnalista && (
+                        <td className="px-4 py-4">
+                          <button
+                            onClick={() => toggleSelectId(row.id_sif_research)}
+                            className="text-slate-500 hover:text-sky-400 transition"
+                            title={isChecked ? 'Deseleccionar' : 'Seleccionar'}
+                          >
+                            {isChecked
+                              ? <CheckSquare className="w-4 h-4 text-sky-400" />
+                              : <Square className="w-4 h-4" />
+                            }
+                          </button>
+                        </td>
+                      )}
+                      <td className="px-5 py-4 font-mono font-semibold text-slate-200">
                       <div>#{row.id_sif_research}</div>
                       <div className="text-[11px] text-slate-500 font-sans">Sol: {row.solicitud_folio || 'N/A'}</div>
                       <div className="mt-0.5">
@@ -412,7 +649,8 @@ export default function InvestigacionesPage() {
                       </Link>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -421,7 +659,16 @@ export default function InvestigacionesPage() {
         {/* Pagination Footer */}
         <div className="px-5 py-3 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
           <div>
-            Mostrando página <span className="text-white font-semibold">{page}</span> de <span className="text-white font-semibold">{totalPages}</span> ({total.toLocaleString()} totales)
+            {selectedIds.length > 0 && (
+              <span className="mr-4 text-sky-400 font-semibold">
+                ✓ {selectedIds.length} seleccionada{selectedIds.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            Mostrando página <span className="text-white font-semibold">{page}</span> de{' '}
+            <span className="text-white font-semibold">{totalPages}</span> ({total.toLocaleString()} totales)
+            {coloniaSeleccionada && (
+              <span className="ml-2 text-sky-400">— Colonia: <strong>{coloniaSeleccionada}</strong></span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -512,6 +759,115 @@ export default function InvestigacionesPage() {
                 className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition shadow-lg shadow-sky-600/30"
               >
                 {assigning ? 'Asignando...' : 'Confirmar Asignación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Barra de Acción Masiva Fija (cuando hay selección) ───────── */}
+      {!isAnalista && selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4
+                        bg-slate-900/95 backdrop-blur-md border border-sky-500/40 rounded-2xl
+                        px-6 py-3 shadow-2xl shadow-sky-900/40 ring-1 ring-sky-500/20">
+          <div className="flex items-center gap-2 text-sm text-white font-semibold">
+            <CheckSquare className="w-5 h-5 text-sky-400" />
+            <span>{selectedIds.length} investigación{selectedIds.length !== 1 ? 'es' : ''} seleccionada{selectedIds.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="h-5 w-px bg-slate-600" />
+          <button
+            onClick={openLoteModal}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-bold transition shadow-lg shadow-sky-600/30"
+          >
+            <Users className="w-4 h-4" /> Asignar a Investigador
+          </button>
+          <button
+            onClick={() => setSelectedIds([])}
+            className="text-slate-400 hover:text-white transition"
+            title="Cancelar selección"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Modal Asignar Lote ─────────────────────────────────────────── */}
+      {loteModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl ring-1 ring-sky-500/20">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-sky-400" />
+                  Asignación en Lote
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Se asignarán{' '}
+                  <span className="text-sky-300 font-bold">{selectedIds.length} investigación{selectedIds.length !== 1 ? 'es' : ''}</span>
+                  {coloniaSeleccionada && (
+                    <> de la colonia <span className="text-sky-300 font-bold">{coloniaSeleccionada}</span></>
+                  )}{' '}
+                  al investigador seleccionado.
+                </p>
+              </div>
+              <button onClick={() => setLoteModalOpen(false)} className="text-slate-500 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Resumen de IDs seleccionados */}
+            <div className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 max-h-28 overflow-y-auto">
+              <div className="text-[11px] text-slate-500 font-semibold mb-1.5 uppercase tracking-wider">
+                Investigaciones seleccionadas
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedIds.map((id) => (
+                  <span key={id} className="px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 text-[11px] font-mono border border-sky-500/30">
+                    #{id}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Selector de investigador */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-300">Investigador a asignar:</label>
+              <select
+                value={loteInvestigadorId}
+                onChange={(e) => setLoteInvestigadorId(e.target.value)}
+                className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-slate-200 focus:outline-none focus:border-sky-500"
+              >
+                {investigadores.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.nombre} — {i.rol}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Aviso de sincronización móvil */}
+            <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-amber-300 text-xs">
+              <span className="text-base">⚡</span>
+              <span>
+                Las investigaciones aparecerán <strong>inmediatamente</strong> en la aplicación móvil del investigador al actualizar su lista de trabajo.
+              </span>
+            </div>
+
+            {/* Botones */}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button
+                onClick={() => setLoteModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={assigningLote || !loteInvestigadorId}
+                onClick={handleLoteSubmit}
+                className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-bold transition shadow-lg shadow-sky-600/30"
+              >
+                {assigningLote ? 'Asignando...' : `Confirmar Asignación (${selectedIds.length})`}
               </button>
             </div>
           </div>
