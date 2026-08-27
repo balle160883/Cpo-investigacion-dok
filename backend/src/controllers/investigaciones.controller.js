@@ -100,9 +100,9 @@ async function getInvestigaciones(req, res, next) {
     const countQuery = `
       SELECT count(*)
       FROM investigaciones inv
-      LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
-      LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
-      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
+      LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
+      LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+      LEFT JOIN direcciones d ON p.id_sif = d.persona_id_sif
       ${whereSql};
     `;
 
@@ -114,78 +114,82 @@ async function getInvestigaciones(req, res, next) {
     const offsetIndex = queryParams.length;
 
     const dataQuery = `
+      WITH paginated AS (
+        SELECT 
+          inv.id_sif_research,
+          inv.solicitud_id_sif,
+          inv.persona_id_sif,
+          inv.tipo_sujeto,
+          inv.investigador_id,
+          inv.fecha_asignacion,
+          inv.fecha_cumplimiento,
+          COALESCE(inv.estado, 'PENDIENTE') as estado,
+          inv.observaciones_sif,
+          inv.estado_validacion,
+          inv.validador_id,
+          inv.fecha_validacion,
+          inv.comentarios_validacion,
+          inv.analista_id,
+          inv.fecha_revalidacion,
+          inv.comentarios_revalidacion,
+          p.nombre_completo as sujeto_nombre,
+          p.es_aval,
+          s.folio as solicitud_folio,
+          s.monto_solicitado,
+          s.sucursal_id,
+          d.calle,
+          d.numero_exterior,
+          d.codigo_postal,
+          d.colonia,
+          d.municipio,
+          d.estado_provincia,
+          inv_usr.nombre as investigador_nombre,
+          val_usr.nombre as validador_nombre,
+          an_usr.nombre as analista_nombre
+        FROM investigaciones inv
+        LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
+        LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+        LEFT JOIN direcciones d ON p.id_sif = d.persona_id_sif
+        LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
+        LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
+        LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
+        ${whereSql}
+        ORDER BY inv.fecha_asignacion DESC NULLS LAST, inv.id_sif_research DESC
+        LIMIT $${limitIndex} OFFSET $${offsetIndex}
+      )
       SELECT 
-        inv.id_sif_research,
-        inv.solicitud_id_sif,
-        inv.persona_id_sif,
-        inv.tipo_sujeto,
-        inv.investigador_id,
-        inv.fecha_asignacion,
-        inv.fecha_cumplimiento,
-        COALESCE(inv.estado, 'PENDIENTE') as estado,
-        inv.observaciones_sif,
-        p.nombre_completo as sujeto_nombre,
-        p.es_aval,
-        s.folio as solicitud_folio,
-        s.monto_solicitado,
-        s.sucursal_id,
-        d.calle,
-        d.numero_exterior,
-        d.codigo_postal,
-        d.colonia,
-        d.municipio,
-        d.estado_provincia,
-        inv_usr.nombre as investigador_nombre,
-        inv.estado_validacion,
-        inv.validador_id,
-        val_usr.nombre as validador_nombre,
-        inv.fecha_validacion,
-        inv.comentarios_validacion,
-        inv.analista_id,
-        an_usr.nombre as analista_nombre,
-        inv.fecha_revalidacion,
-        inv.comentarios_revalidacion,
+        pag.*,
         -- PROGRESO DEL PAQUETE DEL CRÉDITO (Solicitante + Avales)
         COALESCE(paq.paquete_total, 1) as paquete_total,
         COALESCE(paq.paquete_completadas, 0) as paquete_completadas,
         (COALESCE(paq.paquete_total, 1) = COALESCE(paq.paquete_completadas, 0)) as paquete_completo,
-        -- VIGENCIA 90 DÍAS: busca si esta persona tiene evidencia reciente en CUALQUIER investigación
+        -- VIGENCIA 90 DÍAS
         vigencia.visita_previa_id,
         vigencia.visita_realizada_en,
         vigencia.visita_vigente_hasta,
         (vigencia.visita_vigente_hasta IS NOT NULL AND vigencia.visita_vigente_hasta > NOW()) AS visita_vigente
-      FROM investigaciones inv
-      LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
-      LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
-      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
-      LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
-      LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
-      LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
-      -- Subconsulta de paquete de crédito completo
+      FROM paginated pag
       LEFT JOIN LATERAL (
         SELECT 
           COUNT(*) as paquete_total,
           COUNT(*) FILTER (WHERE inv_p.estado = 'COMPLETADA') as paquete_completadas
         FROM investigaciones inv_p
-        WHERE CAST(inv_p.solicitud_id_sif AS TEXT) = CAST(inv.solicitud_id_sif AS TEXT)
+        WHERE inv_p.solicitud_id_sif = pag.solicitud_id_sif
       ) paq ON TRUE
-      -- Subconsulta de vigencia: busca la evidencia más reciente de la misma persona en los últimos 90 días
       LEFT JOIN LATERAL (
         SELECT
           inv2.id_sif_research AS visita_previa_id,
           ev2.created_at AS visita_realizada_en,
           (ev2.created_at + INTERVAL '90 days') AS visita_vigente_hasta
         FROM evidencias_visita ev2
-        JOIN investigaciones inv2 ON CAST(ev2.investigacion_id_sif AS TEXT) = CAST(inv2.id_sif_research AS TEXT)
-        WHERE CAST(inv2.persona_id_sif AS TEXT) = CAST(inv.persona_id_sif AS TEXT)
+        JOIN investigaciones inv2 ON ev2.investigacion_id_sif = inv2.id_sif_research
+        WHERE inv2.persona_id_sif = pag.persona_id_sif
           AND ev2.created_at >= NOW() - INTERVAL '90 days'
-          AND CAST(inv2.id_sif_research AS TEXT) != CAST(inv.id_sif_research AS TEXT)
+          AND inv2.id_sif_research != pag.id_sif_research
         ORDER BY ev2.created_at DESC
         LIMIT 1
       ) vigencia ON TRUE
-      ${whereSql}
-      ORDER BY inv.id_sif_research DESC
-      LIMIT $${limitIndex} OFFSET $${offsetIndex};
+      ORDER BY pag.fecha_asignacion DESC NULLS LAST, pag.id_sif_research DESC;
     `;
 
     const totalRes = await db.query(countQuery, countParams);

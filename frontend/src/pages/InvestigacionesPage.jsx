@@ -65,6 +65,15 @@ export default function InvestigacionesPage() {
     loadInvestigaciones();
   }, [page, estado, coloniaSeleccionada]);
 
+  // Debounce para búsqueda al escribir
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      loadInvestigaciones();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [buscar]);
+
   useEffect(() => {
     loadColonias();
   }, []);
@@ -98,7 +107,7 @@ export default function InvestigacionesPage() {
   }
 
   function handleSearch(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setPage(1);
     loadInvestigaciones();
   }
