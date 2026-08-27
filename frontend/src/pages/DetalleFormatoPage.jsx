@@ -276,7 +276,7 @@ export default function DetalleFormatoPage() {
         <div className={clsx('no-print', 'bg-slate-900', 'border', 'border-slate-800', 'p-4', 'rounded-2xl', 'space-y-2', 'shadow-xl')}>
           <div className={clsx('text-xs', 'font-bold', 'text-slate-300', 'flex', 'items-center', 'justify-between', 'border-b', 'border-slate-800', 'pb-2')}>
             <span className={clsx('flex', 'items-center', 'gap-1.5', 'text-sky-400')}>
-              📦 Expediente Completo del Crédito — Folio: {inv.solicitud_folio || `#${inv.solicitud_id_sif}`} • 🏢 Suc. {formatNombreSucursal(inv.sucursal_id)}
+              📦 Expediente Completo del Crédito — Folio: {inv.solicitud_folio || `#${inv.solicitud_id_sif}`} • 🏢 Suc. {formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre)}
             </span>
             <span className={clsx('text-[11px]', 'font-mono', 'text-slate-400')}>
               {data.paqueteInvestigaciones.filter(p => p.estado === 'COMPLETADA').length} de {data.paqueteInvestigaciones.length} Visitas Completadas en Campo
@@ -772,7 +772,7 @@ export default function DetalleFormatoPage() {
           </div>
           <div>
             <span className="font-bold">Sucursal de Captación:</span>{' '}
-            <span className="font-semibold text-slate-800">{formatNombreSucursal(inv.sucursal_id)}</span>
+            <span className="font-semibold text-slate-800">{formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre)}</span>
           </div>
           <div className="col-span-2">
             <span className="font-bold">Fecha:</span> {inv.fecha_asignacion ? new Date(inv.fecha_asignacion).toLocaleDateString('es-MX') : new Date().toLocaleDateString('es-MX')}
