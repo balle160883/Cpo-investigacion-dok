@@ -1,6 +1,78 @@
 const db = require('../../db');
 const { registrarAuditoria } = require('./audit.controller');
 
+/**
+ * Evalúa las inconsistencias y calidad de datos de la tabla personas y direcciones en PostgreSQL
+ * para advertir al asignador antes de enviar la investigación a campo.
+ */
+function evaluarInconsistenciasPersona(row) {
+  const inconsistencias = [];
+  let nivel = 'NINGUNA'; // 'NINGUNA' | 'MEDIA' | 'ALTA'
+
+  // 1. Teléfonos / Contacto
+  const tieneTel = Boolean(
+    (row.telefono_principal && String(row.telefono_principal).trim()) ||
+    (row.telefono_secundario && String(row.telefono_secundario).trim()) ||
+    (row.telefono && String(row.telefono).trim())
+  );
+  
+  const semaforoContacto = row.estado_contacto_semaforo
+    ? String(row.estado_contacto_semaforo).toUpperCase()
+    : (tieneTel ? 'AMARILLO' : 'ROJO');
+
+  if (!tieneTel || semaforoContacto === 'ROJO') {
+    inconsistencias.push('Sin teléfono de contacto registrado o en estatus ROJO');
+    nivel = 'ALTA';
+  } else if (semaforoContacto === 'AMARILLO') {
+    inconsistencias.push('Contacto telefónico no verificado (Semáforo Amarillo)');
+    if (nivel !== 'ALTA') nivel = 'MEDIA';
+  }
+
+  // 2. Domicilio
+  if (!row.domicilio_validado_sucursal) {
+    inconsistencias.push('Domicilio no prevalidado por la sucursal');
+    if (nivel === 'NINGUNA') nivel = 'MEDIA';
+  }
+
+  const calle = row.calle ? String(row.calle).trim() : '';
+  if (!calle || calle.toLowerCase().includes('desconocid')) {
+    inconsistencias.push('Calle de domicilio no especificada o desconocida');
+    nivel = 'ALTA';
+  }
+
+  const numExt = row.numero_exterior ? String(row.numero_exterior).trim() : '';
+  if (!numExt || numExt.toUpperCase() === 'S/N') {
+    inconsistencias.push('Número exterior no especificado o marcado S/N');
+    if (nivel === 'NINGUNA') nivel = 'MEDIA';
+  }
+
+  const colonia = row.colonia ? String(row.colonia).trim() : '';
+  if (!colonia || colonia.toLowerCase().includes('desconocid')) {
+    inconsistencias.push('Colonia no especificada');
+    if (nivel === 'NINGUNA') nivel = 'MEDIA';
+  }
+
+  // 3. Documentos de Identidad (CURP, RFC, Clave de Elector)
+  const curp = row.curp ? String(row.curp).trim() : '';
+  if (!curp || curp.length < 18) {
+    inconsistencias.push('CURP ausente o con formato incompleto');
+    if (nivel === 'NINGUNA') nivel = 'MEDIA';
+  }
+
+  const rfc = row.rfc ? String(row.rfc).trim() : '';
+  if (!rfc || rfc.length < 10) {
+    inconsistencias.push('RFC ausente o incompleto');
+    if (nivel === 'NINGUNA') nivel = 'MEDIA';
+  }
+
+  return {
+    tiene_inconsistencias: inconsistencias.length > 0,
+    nivel_inconsistencia: nivel, // 'ALTA', 'MEDIA', 'NINGUNA'
+    inconsistencias,
+    estado_contacto_semaforo: semaforoContacto,
+  };
+}
+
 async function getInvestigaciones(req, res, next) {
   try {
     const { estado, buscar, investigador_id, colonia, sucursal } = req.query;
@@ -145,6 +217,13 @@ async function getInvestigaciones(req, res, next) {
           inv.comentarios_revalidacion,
           p.nombre_completo as sujeto_nombre,
           p.es_aval,
+          p.estado_contacto_semaforo,
+          p.telefono_principal,
+          p.telefono_secundario,
+          p.curp,
+          p.rfc,
+          p.clave_elector,
+          p.nivel_riesgo,
           s.folio as solicitud_folio,
           s.monto_solicitado,
           s.sucursal_id,
@@ -155,6 +234,7 @@ async function getInvestigaciones(req, res, next) {
           d.colonia,
           d.municipio,
           d.estado_provincia,
+          d.domicilio_validado_sucursal,
           inv_usr.nombre as investigador_nombre,
           val_usr.nombre as validador_nombre,
           an_usr.nombre as analista_nombre
@@ -210,12 +290,21 @@ async function getInvestigaciones(req, res, next) {
     const total = parseInt(totalRes.rows[0].count);
     const totalPages = Math.ceil(total / limit);
 
+    // Enriquecer cada fila con la evaluación de consistencia de la persona
+    const enrichedRows = rows.map((row) => {
+      const inconsistenciasInfo = evaluarInconsistenciasPersona(row);
+      return {
+        ...row,
+        ...inconsistenciasInfo,
+      };
+    });
+
     res.json({
       total,
       page,
       limit,
       totalPages,
-      data: rows,
+      data: enrichedRows,
     });
   } catch (err) {
     next(err);
@@ -250,6 +339,13 @@ async function getInvestigacionDetalle(req, res, next) {
         p.nombre_completo as sujeto_nombre,
         p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido,
         p.genero, p.es_aval,
+        p.estado_contacto_semaforo,
+        p.telefono_principal,
+        p.telefono_secundario,
+        p.curp,
+        p.rfc,
+        p.clave_elector,
+        p.nivel_riesgo,
         s.folio as solicitud_folio,
         s.monto_solicitado,
         s.monto_aprobado,
@@ -257,6 +353,7 @@ async function getInvestigacionDetalle(req, res, next) {
         s.sucursal_nombre,
         s.cliente_id_sif,
         d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.colonia, d.municipio, d.estado_provincia, d.referencias, d.latitud, d.longitud,
+        d.domicilio_validado_sucursal,
         inv_usr.nombre as investigador_nombre,
         inv_usr.telefono as investigador_telefono,
         inv.estado_validacion,
@@ -282,7 +379,11 @@ async function getInvestigacionDetalle(req, res, next) {
       return res.status(404).json({ error: 'Investigación no encontrada' });
     }
 
-    const investigacion = invRes.rows[0];
+    const inconsistenciasDetalle = evaluarInconsistenciasPersona(invRes.rows[0]);
+    const investigacion = {
+      ...invRes.rows[0],
+      ...inconsistenciasDetalle,
+    };
 
     // 2. Avales e Investigaciones vinculadas al mismo Crédito
     let avales = [];

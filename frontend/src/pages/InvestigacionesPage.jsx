@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
-import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2 } from 'lucide-react';
+import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -651,8 +651,36 @@ export default function InvestigacionesPage() {
                         <span>{rowBadge.label}</span>
                       </span>
                     </td>
-                    <td className="px-5 py-4 font-semibold text-white">
-                      {row.sujeto_nombre || 'Socio Desconocido'}
+                    <td className="px-5 py-4">
+                      <div className="font-semibold text-white">
+                        {row.sujeto_nombre || 'Socio Desconocido'}
+                      </div>
+                      {/* ALERTA DE INCONSISTENCIA EN DATOS DE PERSONAS / POSTGRESQL */}
+                      {row.tiene_inconsistencias ? (
+                        <div className="mt-1.5 flex items-start gap-1">
+                          <button
+                            onClick={() => setContactoModalPersonaId(row.persona_id_sif || row.id_sif_research)}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border transition text-left ${
+                              row.nivel_inconsistencia === 'ALTA'
+                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                            }`}
+                            title={`Inconsistencias detectadas en PostgreSQL:\n• ${row.inconsistencias ? row.inconsistencias.join('\n• ') : 'Datos pendientes'}\n\nHaz clic para prevalidar/corregir`}
+                          >
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            <span>
+                              {row.nivel_inconsistencia === 'ALTA' ? '⚠️ Inconsistencia Crítica' : '⚠️ Inconsistencia de Datos'}
+                            </span>
+                            <span className="text-[9px] underline opacity-80 ml-0.5">Revisar</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-medium opacity-80" title="Información validada y consistente en PostgreSQL">
+                            <CheckCircle2 className="w-3 h-3" /> Datos completos
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-xs text-slate-300">
                       <div className="flex items-center gap-1 font-medium text-slate-200">
@@ -862,6 +890,42 @@ export default function InvestigacionesPage() {
               Selecciona al investigador responsable para la visita de <strong className="text-white">{selectedInv.sujeto_nombre}</strong>.
             </p>
 
+            {/* ADVERTENCIA DE INCONSISTENCIA PARA EL ASIGNADOR */}
+            {selectedInv.tiene_inconsistencias && (
+              <div className={`p-3.5 rounded-xl border space-y-2 text-xs ${
+                selectedInv.nivel_inconsistencia === 'ALTA'
+                  ? 'bg-rose-950/40 border-rose-500/50 text-rose-200'
+                  : 'bg-amber-950/40 border-amber-500/50 text-amber-200'
+              }`}>
+                <div className="flex items-center gap-2 font-bold text-sm">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>⚠️ Alerta: Inconsistencia en Datos del Socio</span>
+                </div>
+                <p className="text-[11px] opacity-90">
+                  Se detectaron las siguientes inconsistencias en la ficha de PostgreSQL:
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px] pl-1 font-medium">
+                  {selectedInv.inconsistencias && selectedInv.inconsistencias.map((inc, i) => (
+                    <li key={i}>{inc}</li>
+                  ))}
+                </ul>
+                <div className="pt-1 flex items-center justify-between text-[11px]">
+                  <span className="italic opacity-80">Puedes asignar sabiendo esto o corregirlo antes:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pId = selectedInv.persona_id_sif || selectedInv.id_sif_research;
+                      setSelectedInv(null);
+                      setContactoModalPersonaId(pId);
+                    }}
+                    className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg font-bold transition ml-2 shrink-0"
+                  >
+                    Corregir Datos
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-300">Investigador:</label>
               <select
@@ -889,7 +953,7 @@ export default function InvestigacionesPage() {
                 onClick={handleAssignSubmit}
                 className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition shadow-lg shadow-sky-600/30"
               >
-                {assigning ? 'Asignando...' : 'Confirmar Asignación'}
+                {assigning ? 'Asignando...' : selectedInv.tiene_inconsistencias ? 'Asignar de Todos Modos' : 'Confirmar Asignación'}
               </button>
             </div>
           </div>
@@ -977,8 +1041,27 @@ export default function InvestigacionesPage() {
               </select>
             </div>
 
+            {/* Aviso si existen inconsistencias en el lote */}
+            {(() => {
+              const conInconsistencia = data.filter(d => selectedIds.includes(String(d.id_sif_research)) && d.tiene_inconsistencias);
+              if (conInconsistencia.length === 0) return null;
+              return (
+                <div className="flex items-start gap-2 bg-amber-950/40 border border-amber-500/40 rounded-xl px-4 py-3 text-amber-300 text-xs">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                  <div>
+                    <strong className="block font-semibold">
+                      {conInconsistencia.length} de {selectedIds.length} investigaciones seleccionadas presentan inconsistencias en los datos del socio.
+                    </strong>
+                    <span className="text-[11px] opacity-80">
+                      Como asignador, puedes proceder y asignarlas sabiendo de antemano estos detalles.
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Aviso de sincronización móvil */}
-            <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-amber-300 text-xs">
+            <div className="flex items-start gap-2 bg-sky-500/10 border border-sky-500/20 rounded-xl px-4 py-3 text-sky-300 text-xs">
               <span className="text-base">⚡</span>
               <span>
                 Las investigaciones aparecerán <strong>inmediatamente</strong> en la aplicación móvil del investigador al actualizar su lista de trabajo.
