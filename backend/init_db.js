@@ -100,9 +100,17 @@ async function initDb() {
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_investigador ON investigaciones(investigador_id);`); } catch (e) {}
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_estado ON investigaciones(estado);`); } catch (e) {}
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_solicitud ON investigaciones(solicitud_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_persona ON investigaciones(persona_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_fecha_asig ON investigaciones(fecha_asignacion DESC NULLS LAST);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_investigaciones_estado_fecha ON investigaciones(estado, fecha_asignacion DESC NULLS LAST);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_personas_idsif ON personas(id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_personas_nombre ON personas(nombre_completo);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_solicitudes_idsif ON solicitudes_credito(id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_solicitudes_folio ON solicitudes_credito(folio);`); } catch (e) {}
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_evidencias_investigacion ON evidencias_visita(investigacion_id_sif);`); } catch (e) {}
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_evidencias_jsonb ON evidencias_visita USING gin(estudio_socioeconomico);`); } catch (e) {}
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_direcciones_persona ON direcciones(persona_id_sif);`); } catch (e) {}
+    try { await db.query(`CREATE INDEX IF NOT EXISTS idx_direcciones_colonia ON direcciones(colonia);`); } catch (e) {}
     try { await db.query(`CREATE INDEX IF NOT EXISTS idx_ubicaciones_investigador ON ubicaciones_investigadores(investigador_id);`); } catch (e) {}
 
     // Alteraciones seguras

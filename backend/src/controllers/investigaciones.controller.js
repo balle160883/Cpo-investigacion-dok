@@ -661,13 +661,14 @@ async function getColoniasActivas(req, res, next) {
         COUNT(*) AS total,
         COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE') AS sin_asignar
       FROM investigaciones inv
-      LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
-      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
+      JOIN personas p ON inv.persona_id_sif = p.id_sif
+      JOIN direcciones d ON p.id_sif = d.persona_id_sif
       WHERE d.colonia IS NOT NULL
         AND d.colonia != ''
         AND (inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'RECHAZADA'))
       GROUP BY TRIM(d.colonia)
-      ORDER BY COUNT(*) DESC, TRIM(d.colonia) ASC;
+      ORDER BY COUNT(*) DESC, TRIM(d.colonia) ASC
+      LIMIT 100;
     `);
     res.json(rows);
   } catch (err) {
