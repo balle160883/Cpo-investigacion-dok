@@ -2,17 +2,11 @@ require('dotenv').config();
 const { Pool } = require('pg');
 
 let currentHost = process.env.DB_HOST || '31.97.144.6';
-let currentPort = parseInt(process.env.DB_PORT || '5437', 10);
+let currentPort = parseInt(process.env.DB_PORT || (process.env.DB_HOST ? '5432' : '5437'), 10);
 let currentPassword = process.env.DB_PASSWORD || 'Seguridad2028@';
 
 if (!process.env.DB_PASSWORD) {
   console.warn('⚠️ ATENCIÓN DE SEGURIDAD: DB_PASSWORD no se definió en .env. Se utiliza el valor por defecto.');
-}
-
-// Prevent EAI_AGAIN DNS resolution issues on internal Dokploy network names
-if (currentHost.includes('investigacion-postgres') || currentHost === 'localhost' || currentHost === '127.0.0.1') {
-  currentHost = '31.97.144.6';
-  currentPort = 5437;
 }
 
 console.log(`🔌 Conectando a PostgreSQL -> Host: ${currentHost}:${currentPort}, DB: ${process.env.DB_NAME || 'postgres'}`);
