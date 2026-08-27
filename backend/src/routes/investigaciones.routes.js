@@ -3,6 +3,7 @@ const {
   getInvestigaciones,
   getInvestigacionDetalle,
   getColoniasActivas,
+  getSucursalesActivas,
   asignarInvestigador,
   asignarInvestigadorLote,
   guardarEvidencia,
@@ -17,6 +18,7 @@ const router = express.Router();
 
 router.get('/', authenticate, getInvestigaciones);
 router.get('/colonias', authenticate, getColoniasActivas);
+router.get('/sucursales', authenticate, getSucursalesActivas);
 router.post('/asignar-lote', authenticate, asignarInvestigadorLote);
 router.get('/:id', authenticate, getInvestigacionDetalle);
 router.post('/:id/asignar', authenticate, asignarInvestigador);

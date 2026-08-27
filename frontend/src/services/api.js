@@ -70,6 +70,11 @@ export async function fetchColoniasActivas() {
   return handleResponse(res, 'Error al cargar colonias activas');
 }
 
+export async function fetchSucursalesActivas() {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/sucursales`, { headers: getAuthHeaders() });
+  return handleResponse(res, 'Error al cargar sucursales activas');
+}
+
 export async function fetchInvestigadores() {
   const res = await fetch(`${getApiBaseUrl()}/investigadores`, { headers: getAuthHeaders() });
   return handleResponse(res, 'Error al cargar investigadores');

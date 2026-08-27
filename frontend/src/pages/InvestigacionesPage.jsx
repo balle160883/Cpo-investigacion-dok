@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, fetchColoniasActivas } from '../services/api';
-import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown } from 'lucide-react';
+import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
+import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -40,6 +40,12 @@ export default function InvestigacionesPage() {
   const [coloniaDropdownOpen, setColoniaDropdownOpen] = useState(false);
   const [loadingColonias, setLoadingColonias] = useState(false);
 
+  // Filtro por sucursal
+  const [sucursales, setSucursales] = useState([]);
+  const [sucursalSeleccionada, setSucursalSeleccionada] = useState('');
+  const [sucursalDropdownOpen, setSucursalDropdownOpen] = useState(false);
+  const [loadingSucursales, setLoadingSucursales] = useState(false);
+
   // Selección múltiple (checkboxes)
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -63,7 +69,7 @@ export default function InvestigacionesPage() {
 
   useEffect(() => {
     loadInvestigaciones();
-  }, [page, estado, coloniaSeleccionada]);
+  }, [page, estado, coloniaSeleccionada, sucursalSeleccionada]);
 
   // Debounce para búsqueda al escribir
   useEffect(() => {
@@ -76,6 +82,7 @@ export default function InvestigacionesPage() {
 
   useEffect(() => {
     loadColonias();
+    loadSucursales();
   }, []);
 
   async function loadColonias() {
@@ -90,12 +97,25 @@ export default function InvestigacionesPage() {
     }
   }
 
+  async function loadSucursales() {
+    setLoadingSucursales(true);
+    try {
+      const sucs = await fetchSucursalesActivas();
+      setSucursales(sucs || []);
+    } catch (err) {
+      console.error('Error cargando sucursales:', err);
+    } finally {
+      setLoadingSucursales(false);
+    }
+  }
+
   async function loadInvestigaciones() {
     setLoading(true);
     setSelectedIds([]); // limpiar selección al cambiar de página/filtro
     try {
       const params = { page, limit: 25, estado, buscar };
       if (coloniaSeleccionada) params.colonia = coloniaSeleccionada;
+      if (sucursalSeleccionada) params.sucursal = sucursalSeleccionada;
       const res = await fetchInvestigaciones(params);
       setData(res.data || []);
       setTotal(res.total || 0);
@@ -201,6 +221,8 @@ export default function InvestigacionesPage() {
 
   // Colonia activa del filtro (objeto completo con conteos)
   const coloniaObj = colonias.find((c) => c.colonia === coloniaSeleccionada);
+  // Sucursal activa del filtro
+  const sucursalObj = sucursales.find((s) => String(s.sucursal_id) === String(sucursalSeleccionada));
 
   function exportarAExcel() {
     if (!data || data.length === 0) {
@@ -335,10 +357,98 @@ export default function InvestigacionesPage() {
       {!isAnalista && (
         <div className="flex flex-wrap items-center gap-3">
 
+          {/* Selector de Sucursal de Captación */}
+          <div className="relative">
+            <button
+              onClick={() => { setSucursalDropdownOpen((prev) => !prev); setColoniaDropdownOpen(false); }}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition ${
+                sucursalSeleccionada
+                  ? 'bg-sky-600/20 border-sky-500 text-sky-300'
+                  : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+              }`}
+              title="Filtrar investigaciones por sucursal de captación"
+            >
+              <Building2 className="w-4 h-4 text-sky-400" />
+              {sucursalSeleccionada
+                ? <>Sucursal: <strong className="ml-1">{formatNombreSucursal(sucursalSeleccionada, sucursalObj?.sucursal_nombre)}</strong>
+                    {sucursalObj && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-bold">
+                        {sucursalObj.total}
+                      </span>
+                    )}
+                  </>
+                : 'Filtrar por Sucursal'}
+              <ChevronDown className="w-3.5 h-3.5 ml-1 text-slate-400" />
+            </button>
+
+            {sucursalDropdownOpen && (
+              <div
+                className="absolute top-full left-0 mt-2 z-40 bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl w-80 max-h-72 overflow-y-auto"
+                onMouseLeave={() => setSucursalDropdownOpen(false)}
+              >
+                <div className="p-2 border-b border-slate-800 text-[11px] text-slate-400 font-semibold uppercase tracking-wider px-4 py-2.5 flex items-center justify-between">
+                  <span>Sucursales con casos activos</span>
+                  <span className="text-[10px] text-sky-400 font-normal">{sucursales.length} sucursales</span>
+                </div>
+                <button
+                  onClick={() => { setSucursalSeleccionada(''); setPage(1); setSucursalDropdownOpen(false); }}
+                  className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-slate-800 transition ${!sucursalSeleccionada ? 'text-sky-400 font-bold' : 'text-slate-300'}`}
+                >
+                  <span>🏢 Ver todas las sucursales</span>
+                  {!sucursalSeleccionada && <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full">activo</span>}
+                </button>
+                {loadingSucursales ? (
+                  <div className="text-center py-6 text-slate-500 text-xs">Cargando sucursales...</div>
+                ) : sucursales.length === 0 ? (
+                  <div className="text-center py-6 text-slate-500 text-xs">Sin sucursales disponibles</div>
+                ) : (
+                  sucursales.map((suc) => {
+                    const isSel = String(sucursalSeleccionada) === String(suc.sucursal_id);
+                    return (
+                      <button
+                        key={suc.sucursal_id}
+                        onClick={() => { setSucursalSeleccionada(String(suc.sucursal_id)); setPage(1); setSucursalDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-slate-800 transition ${
+                          isSel ? 'text-sky-400 font-bold bg-sky-500/10' : 'text-slate-300'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 truncate">
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 shrink-0">#{suc.sucursal_id}</span>
+                          <span className="truncate">{formatNombreSucursal(suc.sucursal_id, suc.sucursal_nombre)}</span>
+                        </span>
+                        <div className="flex gap-1 shrink-0 ml-2">
+                          <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">
+                            {suc.total}
+                          </span>
+                          {parseInt(suc.sin_asignar) > 0 && (
+                            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">
+                              {suc.sin_asignar}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Botón limpiar filtro sucursal */}
+          {sucursalSeleccionada && (
+            <button
+              onClick={() => { setSucursalSeleccionada(''); setPage(1); }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold border border-slate-700 transition"
+              title="Quitar filtro de sucursal"
+            >
+              <X className="w-3.5 h-3.5" /> Quitar sucursal
+            </button>
+          )}
+
           {/* Selector de Colonia */}
           <div className="relative">
             <button
-              onClick={() => setColoniaDropdownOpen((prev) => !prev)}
+              onClick={() => { setColoniaDropdownOpen((prev) => !prev); setSucursalDropdownOpen(false); }}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition ${
                 coloniaSeleccionada
                   ? 'bg-sky-600/20 border-sky-500 text-sky-300'
@@ -348,7 +458,7 @@ export default function InvestigacionesPage() {
             >
               <MapPinned className="w-4 h-4" />
               {coloniaSeleccionada
-                ? <>¯¯ Colonia: <strong className="ml-1">{coloniaSeleccionada}</strong>
+                ? <>Colonia: <strong className="ml-1">{coloniaSeleccionada}</strong>
                     {coloniaObj && (
                       <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-bold">
                         {coloniaObj.total}
@@ -356,7 +466,7 @@ export default function InvestigacionesPage() {
                     )}
                   </>
                 : 'Filtrar por Colonia'}
-              <ChevronDown className="w-3.5 h-3.5 ml-1" />
+              <ChevronDown className="w-3.5 h-3.5 ml-1 text-slate-400" />
             </button>
 
             {coloniaDropdownOpen && (
@@ -415,7 +525,7 @@ export default function InvestigacionesPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold border border-slate-700 transition"
               title="Quitar filtro de colonia"
             >
-              <X className="w-3.5 h-3.5" /> Quitar filtro
+              <X className="w-3.5 h-3.5" /> Quitar colonia
             </button>
           )}
 

@@ -3,7 +3,7 @@ const { registrarAuditoria } = require('./audit.controller');
 
 async function getInvestigaciones(req, res, next) {
   try {
-    const { estado, buscar, investigador_id, colonia } = req.query;
+    const { estado, buscar, investigador_id, colonia, sucursal } = req.query;
 
     let whereClauses = [];
     let queryParams = [];
@@ -44,7 +44,7 @@ async function getInvestigaciones(req, res, next) {
         whereClauses.push(`NOT EXISTS (
           SELECT 1 
           FROM investigaciones inv_sub 
-          WHERE CAST(inv_sub.solicitud_id_sif AS TEXT) = CAST(inv.solicitud_id_sif AS TEXT)
+          WHERE inv_sub.solicitud_id_sif = inv.solicitud_id_sif
             AND (inv_sub.estado IS NULL OR inv_sub.estado != 'COMPLETADA')
         )`);
       }
@@ -77,7 +77,18 @@ async function getInvestigaciones(req, res, next) {
 
     if (targetInvestigadorId) {
       queryParams.push(targetInvestigadorId);
-      whereClauses.push(`CAST(inv.investigador_id AS TEXT) = CAST($${queryParams.length} AS TEXT)`);
+      whereClauses.push(`inv.investigador_id = $${queryParams.length}`);
+    }
+
+    if (sucursal) {
+      const sucursalNum = parseInt(sucursal, 10);
+      if (!isNaN(sucursalNum)) {
+        queryParams.push(sucursalNum);
+        whereClauses.push(`s.sucursal_id = $${queryParams.length}`);
+      } else {
+        queryParams.push(`%${sucursal.trim()}%`);
+        whereClauses.push(`s.sucursal_nombre ILIKE $${queryParams.length}`);
+      }
     }
 
     if (colonia) {
@@ -678,6 +689,28 @@ async function getColoniasActivas(req, res, next) {
   }
 }
 
+// Devuelve las sucursales únicas con investigaciones activas, con conteo de total y sin asignar
+async function getSucursalesActivas(req, res, next) {
+  try {
+    const { rows } = await db.query(`
+      SELECT
+        s.sucursal_id,
+        COALESCE(MAX(s.sucursal_nombre), '') AS sucursal_nombre,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE') AS sin_asignar
+      FROM investigaciones inv
+      JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+      WHERE s.sucursal_id IS NOT NULL
+        AND (inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'RECHAZADA'))
+      GROUP BY s.sucursal_id
+      ORDER BY s.sucursal_id ASC;
+    `);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Guardar o actualizar comentarios/observaciones del validador de crédito
 async function guardarComentariosValidador(req, res, next) {
   try {
@@ -728,6 +761,7 @@ module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
   getColoniasActivas,
+  getSucursalesActivas,
   asignarInvestigador,
   asignarInvestigadorLote,
   guardarEvidencia,
