@@ -163,6 +163,11 @@ export default function DetalleFormatoPage() {
   const isAval = esAval(inv);
   const badgeProps = getBadgeSujetoProps(inv);
 
+  const paquete = data.paqueteInvestigaciones || [];
+  const totalVisitas = paquete.length;
+  const completadasVisitas = paquete.filter(p => ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(p.estado)).length;
+  const isPaqueteCompleto = totalVisitas <= 1 || completadasVisitas === totalVisitas;
+
   const plantillasDictamen = [
     'Estudio socioeconómico y domicilio 100% verificado en campo.',
     'Capacidad de pago y solvencia confirmadas mediante comprobantes.',
@@ -335,14 +340,23 @@ export default function DetalleFormatoPage() {
 
           {/* Botones VALIDADOR: Aprobar o Rechazar el estudio del investigador */}
           {canValidate && (
-            <div className={clsx('flex', 'items-center', 'gap-2')}>
-              <button
-                onClick={() => setShowValidarModal(true)}
-                disabled={validating || ['VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'].includes(inv.estado)}
-                className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-emerald-600', 'hover:bg-emerald-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-emerald-600/30')}
-              >
-                <CheckCircle2 className={clsx('w-4', 'h-4')} /> {validating ? 'Procesando...' : '✅ Validar con Dictamen'}
-              </button>
+            <div className={clsx('flex', 'items-center', 'gap-2', 'flex-wrap')}>
+              {!isPaqueteCompleto ? (
+                <div className={clsx('px-3', 'py-1.5', 'rounded-xl', 'bg-amber-500/10', 'border', 'border-amber-500/30', 'text-amber-300', 'text-xs', 'flex', 'items-center', 'gap-1.5')}>
+                  <AlertTriangle className={clsx('w-4', 'h-4', 'text-amber-400', 'flex-shrink-0')} />
+                  <span>
+                    Visitas pendientes ({completadasVisitas}/{totalVisitas}): El botón de validación se activará cuando todas las investigaciones (titular y avales) estén completadas.
+                  </span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowValidarModal(true)}
+                  disabled={validating || ['VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'].includes(inv.estado)}
+                  className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-emerald-600', 'hover:bg-emerald-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-emerald-600/30')}
+                >
+                  <CheckCircle2 className={clsx('w-4', 'h-4')} /> {validating ? 'Procesando...' : '✅ Validar con Dictamen'}
+                </button>
+              )}
 
               <button
                 onClick={() => setShowRechazoModal(true)}

@@ -521,14 +521,30 @@ async function validarInvestigacion(req, res, next) {
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_validacion TIMESTAMP;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_validacion TEXT;`);
 
-    // Obtener estado anterior para audit log
+    // Obtener datos anteriores para audit log y verificación de paquete
     const { rows: prev } = await db.query(
-      `SELECT estado, observaciones_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      `SELECT estado, observaciones_sif, solicitud_id_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
       [id]
     );
 
     if (prev.length === 0) {
       return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+
+    // Si la acción es VALIDAR, verificar que todas las investigaciones del crédito (solicitante y avales) estén completadas
+    if (accion === 'VALIDAR' && prev[0].solicitud_id_sif) {
+      const { rows: incompletas } = await db.query(`
+        SELECT id_sif_research, estado
+        FROM investigaciones
+        WHERE CAST(solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
+          AND (estado IS NULL OR estado NOT IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'))
+      `, [prev[0].solicitud_id_sif]);
+
+      if (incompletas.length > 0) {
+        return res.status(422).json({
+          error: `No se puede validar esta investigación porque el paquete del crédito aún tiene ${incompletas.length} investigación(es) pendiente(s) de completar en campo (solicitante/avales).`,
+        });
+      }
     }
 
     await db.query(`
