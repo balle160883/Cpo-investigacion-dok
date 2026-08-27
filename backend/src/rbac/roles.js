@@ -15,6 +15,8 @@ const ROLES = {
   ADMIN: 'admin',
   ASIGNADOR: 'asignador',
   VALIDADOR: 'validador',
+  COORDINADORA_ANALISTAS: 'coordinadora_analistas',
+  COORDINADOR_ANALISTAS: 'coordinador_analistas',
   GERENTE_ANALISTAS: 'gerente_analistas',
   ANALISTA: 'analista',
   INVESTIGADOR: 'investigador',
@@ -81,6 +83,22 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.EXPORTAR_DATOS,
   ],
 
+  [ROLES.COORDINADORA_ANALISTAS]: [
+    PERMISSIONS.VER_INVESTIGACIONES,
+    PERMISSIONS.REVALIDAR_INVESTIGACION,
+    PERMISSIONS.VER_DASHBOARD,
+    PERMISSIONS.VER_PRODUCTIVIDAD,
+    PERMISSIONS.EXPORTAR_DATOS,
+  ],
+
+  [ROLES.COORDINADOR_ANALISTAS]: [
+    PERMISSIONS.VER_INVESTIGACIONES,
+    PERMISSIONS.REVALIDAR_INVESTIGACION,
+    PERMISSIONS.VER_DASHBOARD,
+    PERMISSIONS.VER_PRODUCTIVIDAD,
+    PERMISSIONS.EXPORTAR_DATOS,
+  ],
+
   [ROLES.GERENTE_ANALISTAS]: [
     PERMISSIONS.VER_INVESTIGACIONES,
     PERMISSIONS.REVALIDAR_INVESTIGACION,
@@ -140,12 +158,26 @@ const ROLE_META = {
     icon: '✅',
     description: 'Validación y aprobación de estudios',
   },
-  [ROLES.GERENTE_ANALISTAS]: {
-    label: 'Gerente de Analistas',
+  [ROLES.COORDINADORA_ANALISTAS]: {
+    label: 'Coordinadora de Analistas',
     color: 'indigo',
     badge: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40',
     icon: '👩‍💼',
-    description: 'Supervisión gerencial de analistas, auditoría de tiempos y control de dictámenes',
+    description: 'Coordinación y supervisión de analistas, auditoría de tiempos y control de dictámenes',
+  },
+  [ROLES.COORDINADOR_ANALISTAS]: {
+    label: 'Coordinador de Analistas',
+    color: 'indigo',
+    badge: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40',
+    icon: '👩‍💼',
+    description: 'Coordinación y supervisión de analistas, auditoría de tiempos y control de dictámenes',
+  },
+  [ROLES.GERENTE_ANALISTAS]: {
+    label: 'Coordinadora de Analistas',
+    color: 'indigo',
+    badge: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40',
+    icon: '👩‍💼',
+    description: 'Coordinación y supervisión de analistas, auditoría de tiempos y control de dictámenes',
   },
   [ROLES.ANALISTA]: {
     label: 'Analista de Investigaciones',
