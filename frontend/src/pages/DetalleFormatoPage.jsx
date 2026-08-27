@@ -169,16 +169,32 @@ export default function DetalleFormatoPage() {
   const isPaqueteCompleto = totalVisitas <= 1 || completadasVisitas === totalVisitas;
 
   const plantillasDictamen = [
-    'Estudio socioeconómico y domicilio 100% verificado en campo.',
-    'Capacidad de pago y solvencia confirmadas mediante comprobantes.',
-    'Arraigo domiciliario y laboral favorable (>5 años).',
-    'Aval solvente con comprobantes de ingresos y domicilio propio.',
-    'Recomendado para aprobación definitiva del crédito.',
-    'Validado con recomendación de verificar historial crediticio.',
+    'Estudio socioeconómico verificado y validado en campo.',
+    'Se corroboró arraigo vecinal y solvencia económica favorable.',
+    'Domicilio confirmado con geolocalización y referencias positivas.',
+    'Aval solvente y con capacidad de respaldo acreditada.',
+    'Validado con visto bueno para autorización de crédito.'
+  ];
+
+  const plantillasInconsistenciaAnalista = [
+    'Inconsistencia en ingresos vs egresos declarados.',
+    'Documentación o firmas incompletas en el expediente.',
+    'Discrepancia en domicilio o fotografía no coincide con el predio.',
+    'Datos del aval no coinciden con la solicitud de crédito.',
+    'Se requiere visita complementaria o aclaración de referencias.'
   ];
 
   function agregarPlantillaValidar(texto) {
     setComentariosValidar((prev) => {
+      const limpio = (prev || '').trim();
+      if (!limpio) return texto;
+      if (limpio.endsWith('.')) return `${limpio} ${texto}`;
+      return `${limpio}. ${texto}`;
+    });
+  }
+
+  function agregarPlantillaDevolucion(texto) {
+    setComentariosDevolucion((prev) => {
       const limpio = (prev || '').trim();
       if (!limpio) return texto;
       if (limpio.endsWith('.')) return `${limpio} ${texto}`;
@@ -351,10 +367,10 @@ export default function DetalleFormatoPage() {
               ) : (
                 <button
                   onClick={() => setShowValidarModal(true)}
-                  disabled={validating || ['VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'].includes(inv.estado)}
-                  className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-emerald-600', 'hover:bg-emerald-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-emerald-600/30')}
+                  disabled={validating || ['VALIDADA', 'APROBADA_FINAL'].includes(inv.estado)}
+                  className={clsx('px-4', 'py-2', 'rounded-xl', inv.estado === 'DEVUELTA_A_VALIDADOR' ? 'bg-orange-600 hover:bg-orange-500 shadow-orange-600/30' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg')}
                 >
-                  <CheckCircle2 className={clsx('w-4', 'h-4')} /> {validating ? 'Procesando...' : '✅ Validar con Dictamen'}
+                  <CheckCircle2 className={clsx('w-4', 'h-4')} /> {validating ? 'Procesando...' : inv.estado === 'DEVUELTA_A_VALIDADOR' ? '🔄 Re-Validar tras Corrección' : '✅ Validar con Dictamen'}
                 </button>
               )}
 
@@ -368,6 +384,22 @@ export default function DetalleFormatoPage() {
             </div>
           )}
         </div>
+
+        {/* AVISO DE INCONSISTENCIA REPORTADA POR EL ANALISTA */}
+        {inv.estado === 'DEVUELTA_A_VALIDADOR' && (
+          <div className="p-4 rounded-2xl bg-orange-950/60 border border-orange-500/50 text-orange-200 text-xs space-y-2 shadow-lg">
+            <div className="font-bold flex items-center gap-2 text-orange-400 text-sm">
+              <AlertTriangle className="w-5 h-5 text-orange-400" />
+              <span>⚠️ Inconsistencia Reportada por el Analista ({inv.analista_nombre || 'Analista'}):</span>
+            </div>
+            <div className="font-mono bg-slate-950/90 p-3 rounded-xl border border-orange-900/60 text-orange-100 text-xs leading-relaxed">
+              "{inv.comentarios_revalidacion || 'Se reportaron inconsistencias que requieren revisión y corrección.'}"
+            </div>
+            <p className="text-[11px] text-orange-300">
+              💡 Por favor revisa los datos y evidencias del estudio, haz los ajustes u observaciones necesarias y presiona el botón <strong>"Re-Validar tras Corrección"</strong> para reenviar el expediente al Analista.
+            </p>
+          </div>
+        )}
 
         {/* TARJETA DESTACADA: DICTAMEN Y OBSERVACIONES DEL VALIDADOR DE CRÉDITO (Visible para Analista y Validador) */}
         {(inv.validador_nombre || inv.comentarios_validacion || ['VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'].includes(inv.estado)) && (
@@ -664,13 +696,13 @@ export default function DetalleFormatoPage() {
         </div>
       )}
 
-      {/* MODAL DE DEVOLUCIÓN AL VALIDADOR (por el Analista) */}
+      {/* MODAL DE DEVOLUCIÓN AL VALIDADOR POR INCONSISTENCIA (por el Analista) */}
       {showDevolucionModal && (
         <div className={clsx('fixed', 'inset-0', 'bg-slate-950/80', 'backdrop-blur-sm', 'z-50', 'flex', 'items-center', 'justify-center', 'p-4')}>
-          <div className={clsx('bg-slate-900', 'border', 'border-slate-800', 'rounded-2xl', 'max-w-md', 'w-full', 'p-6', 'space-y-4', 'shadow-2xl')}>
+          <div className={clsx('bg-slate-900', 'border', 'border-slate-800', 'rounded-2xl', 'max-w-lg', 'w-full', 'p-6', 'space-y-4', 'shadow-2xl')}>
             <div className={clsx('flex', 'items-center', 'justify-between', 'border-b', 'border-slate-800', 'pb-3')}>
-              <h3 className={clsx('text-lg', 'font-bold', 'text-orange-400', 'flex', 'items-center', 'gap-2')}>
-                <AlertTriangle className={clsx('w-5', 'h-5')} /> Devolver al Validador
+              <h3 className={clsx('text-base', 'font-bold', 'text-orange-400', 'flex', 'items-center', 'gap-2')}>
+                <AlertTriangle className={clsx('w-5', 'h-5')} /> Devolver al Validador por Inconsistencia
               </h3>
               <button onClick={() => setShowDevolucionModal(false)} className={clsx('text-slate-400', 'hover:text-white')}>
                 <X className={clsx('w-5', 'h-5')} />
@@ -678,14 +710,33 @@ export default function DetalleFormatoPage() {
             </div>
 
             <p className={clsx('text-xs', 'text-slate-300')}>
-              Indique el motivo por el cual devuelve el estudio al Validador para que lo revise nuevamente. Este comentario quedará registrado en el historial:
+              Describe detalladamente las inconsistencias u observaciones encontradas. El <strong>Validador de Crédito</strong> recibirá tu reporte para corregir o complementar la información:
             </p>
+
+            {/* Chips de motivos comunes */}
+            <div className="space-y-1.5">
+              <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-orange-400" /> Motivos comunes de inconsistencia:
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {plantillasInconsistenciaAnalista.map((pl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => agregarPlantillaDevolucion(pl)}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-orange-300 border border-slate-700 transition text-left"
+                  >
+                    + {pl}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <textarea
               value={comentariosDevolucion}
               onChange={(e) => setComentariosDevolucion(e.target.value)}
-              placeholder="Ej. Falta documentación del domicilio, el formato del aval está incompleto..."
-              className={clsx('w-full', 'h-28', 'bg-slate-950', 'border', 'border-slate-800', 'rounded-xl', 'p-3', 'text-xs', 'text-white', 'placeholder-slate-500', 'focus:outline-none', 'focus:border-orange-500', 'resize-none')}
+              placeholder="Escribe aquí las inconsistencias detectadas (ej. El ingreso reportado no cuadra con los estados de cuenta adjuntos...)"
+              className={clsx('w-full', 'h-32', 'bg-slate-950', 'border', 'border-slate-800', 'rounded-xl', 'p-3', 'text-xs', 'text-white', 'placeholder-slate-500', 'focus:outline-none', 'focus:border-orange-500', 'resize-none')}
             />
 
             <div className={clsx('flex', 'items-center', 'justify-end', 'gap-3', 'pt-2')}>
@@ -698,9 +749,9 @@ export default function DetalleFormatoPage() {
               <button
                 onClick={() => handleEjecutarRevalidacion('DEVOLVER_VALIDADOR', comentariosDevolucion)}
                 disabled={revalidating || !comentariosDevolucion.trim()}
-                className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-orange-600', 'hover:bg-orange-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5')}
+                className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-orange-600', 'hover:bg-orange-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-orange-600/30')}
               >
-                🔄 Confirmar Devolución
+                {revalidating ? 'Enviando...' : '🔄 Devolver al Validador'}
               </button>
             </div>
           </div>
