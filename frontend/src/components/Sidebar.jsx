@@ -9,6 +9,7 @@ const ROLE_META = {
   validador:   { label: 'Validador de Crédito', badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40', icon: '✅' },
   'asignador,validador': { label: 'Asignador y Validador', badge: 'bg-teal-500/20 text-teal-300 border border-teal-500/40', icon: '📍✅' },
   'validador,asignador': { label: 'Asignador y Validador', badge: 'bg-teal-500/20 text-teal-300 border border-teal-500/40', icon: '📍✅' },
+  gerente_analistas: { label: 'Gerente de Analistas', badge: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40', icon: '👩‍💼' },
   analista:    { label: 'Analista de Investigaciones', badge: 'bg-teal-500/20 text-teal-300 border border-teal-500/40', icon: '📊' },
   investigador:{ label: 'Investigador en Campo', badge: 'bg-blue-500/20 text-blue-300 border border-blue-500/40', icon: '🔍' },
   auditor:     { label: 'Auditor', badge: 'bg-rose-500/20 text-rose-300 border border-rose-500/40', icon: '📋' },
@@ -19,7 +20,7 @@ export default function Sidebar({ user }) {
   const roleMeta = ROLE_META[userRole] || { label: userRole, badge: 'bg-slate-700 text-slate-300', icon: '👤' };
 
   const canViewSlaTimer = ['superadmin'].some(r => userRole.includes(r));
-  const canViewSupervisionAnalistas = ['superadmin', 'supervisor_analistas', 'analista'].some(r => userRole.includes(r));
+  const canViewSupervisionAnalistas = ['superadmin', 'gerente_analistas', 'supervisor_analistas'].some(r => userRole.includes(r));
   const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].some(r => userRole.includes(r));
   const canViewInvestigadores = ['superadmin', 'admin', 'asignador'].some(r => userRole.includes(r));
   const canViewAudit = ['superadmin', 'auditor'].some(r => userRole.includes(r));

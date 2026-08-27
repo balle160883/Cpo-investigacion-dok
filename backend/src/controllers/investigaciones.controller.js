@@ -23,7 +23,7 @@ async function getInvestigaciones(req, res, next) {
       const userRol = (req.user.rol || '').toLowerCase();
       const rolesArray = userRol.split(',').map((r) => r.trim());
       const esAdminOAsignador = rolesArray.some((r) =>
-        ['admin', 'superadmin', 'asignador', 'supervisor'].includes(r)
+        ['admin', 'superadmin', 'asignador', 'supervisor', 'gerente_analistas'].includes(r)
       );
       const esSoloValidador = rolesArray.includes('validador') && !esAdminOAsignador;
       const esSoloAnalista = rolesArray.includes('analista') && !esAdminOAsignador;

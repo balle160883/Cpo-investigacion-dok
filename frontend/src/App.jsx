@@ -32,7 +32,7 @@ function AppRoutes() {
 
   const userRole = (user?.rol || '').toLowerCase();
   const canViewSlaTimer = ['superadmin'].some(r => userRole.includes(r));
-  const canViewSupervisionAnalistas = ['superadmin', 'supervisor_analistas', 'analista'].some(r => userRole.includes(r));
+  const canViewSupervisionAnalistas = ['superadmin', 'gerente_analistas', 'supervisor_analistas'].some(r => userRole.includes(r));
   const canViewMap = ['superadmin', 'admin', 'asignador', 'validador'].some(r => userRole.includes(r));
   const canViewInvestigadores = ['superadmin', 'admin', 'asignador'].some(r => userRole.includes(r));
   const canViewAudit = ['superadmin', 'auditor'].some(r => userRole.includes(r));
