@@ -136,6 +136,15 @@ async function getInvestigaciones(req, res, next) {
         d.municipio,
         d.estado_provincia,
         inv_usr.nombre as investigador_nombre,
+        inv.estado_validacion,
+        inv.validador_id,
+        val_usr.nombre as validador_nombre,
+        inv.fecha_validacion,
+        inv.comentarios_validacion,
+        inv.analista_id,
+        an_usr.nombre as analista_nombre,
+        inv.fecha_revalidacion,
+        inv.comentarios_revalidacion,
         -- PROGRESO DEL PAQUETE DEL CRÉDITO (Solicitante + Avales)
         COALESCE(paq.paquete_total, 1) as paquete_total,
         COALESCE(paq.paquete_completadas, 0) as paquete_completadas,
@@ -150,6 +159,8 @@ async function getInvestigaciones(req, res, next) {
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
       LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
+      LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
+      LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
       -- Subconsulta de paquete de crédito completo
       LEFT JOIN LATERAL (
         SELECT 
@@ -204,6 +215,9 @@ async function getInvestigacionDetalle(req, res, next) {
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS validador_id INTEGER;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_validacion TIMESTAMP;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_validacion TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS analista_id INTEGER;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_revalidacion TIMESTAMP;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_revalidacion TEXT;`);
 
     // 1. Investigacion principal
     const invRes = await db.query(`
@@ -231,13 +245,18 @@ async function getInvestigacionDetalle(req, res, next) {
         inv.estado_validacion,
         inv.fecha_validacion,
         inv.comentarios_validacion,
-        val_usr.nombre as validador_nombre
+        val_usr.nombre as validador_nombre,
+        inv.analista_id,
+        an_usr.nombre as analista_nombre,
+        inv.fecha_revalidacion,
+        inv.comentarios_revalidacion
       FROM investigaciones inv
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
       LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
       LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
+      LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
       WHERE CAST(inv.id_sif_research AS TEXT) = CAST($1 AS TEXT)
       LIMIT 1;
     `, [id]);
@@ -636,6 +655,52 @@ async function getColoniasActivas(req, res, next) {
   }
 }
 
+// Guardar o actualizar comentarios/observaciones del validador de crédito
+async function guardarComentariosValidador(req, res, next) {
+  try {
+    const id = req.params.id;
+    const { comentarios } = req.body;
+    const validadorId = req.user?.id || null;
+
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_validacion TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS validador_id INTEGER;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_validacion TIMESTAMP;`);
+
+    const { rows: prev } = await db.query(
+      `SELECT estado, comentarios_validacion, validador_id FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      [id]
+    );
+
+    if (prev.length === 0) {
+      return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+
+    await db.query(`
+      UPDATE investigaciones
+      SET comentarios_validacion = $1,
+          validador_id = COALESCE(validador_id, $2),
+          updated_at = NOW()
+      WHERE CAST(id_sif_research AS TEXT) = CAST($3 AS TEXT);
+    `, [comentarios || '', validadorId, id]);
+
+    await registrarAuditoria(req, {
+      accion: 'ACTUALIZAR_COMENTARIOS_VALIDADOR',
+      entidad: 'investigaciones',
+      entidad_id: id,
+      datos_anteriores: { comentarios_validacion: prev[0].comentarios_validacion },
+      datos_nuevos: { comentarios_validacion: comentarios },
+    });
+
+    res.json({
+      success: true,
+      message: 'Comentarios del validador actualizados correctamente',
+      comentarios_validacion: comentarios,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
@@ -645,4 +710,5 @@ module.exports = {
   guardarEvidencia,
   validarInvestigacion,
   revalidarInvestigacion,
+  guardarComentariosValidador,
 };

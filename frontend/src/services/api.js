@@ -120,6 +120,15 @@ export async function revalidarInvestigacion(investigacionId, { accion, comentar
   return handleResponse(res, 'Error al revalidar investigación');
 }
 
+export async function guardarComentariosValidador(investigacionId, { comentarios }) {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/${investigacionId}/comentarios-validador`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ comentarios }),
+  });
+  return handleResponse(res, 'Error al guardar comentarios del validador');
+}
+
 export async function fetchChecklistDocumental(solicitudId, tipoCredito = 'GENERAL') {
   const res = await fetch(`${getApiBaseUrl()}/documentos/checklist/${solicitudId}?tipoCredito=${tipoCredito}`, {
     headers: getAuthHeaders(),

@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import { fetchInvestigaciones, fetchUbicacionesInvestigadores, fetchInvestigadores, asignarInvestigadorLote } from '../services/api';
 import { Navigation, UserCheck, RefreshCw, Layers, Wifi, CheckSquare, Square, MapPin, UserPlus, X, ShieldAlert } from 'lucide-react';
 import Toast from '../components/Toast';
+import { esAval, getBadgeSujetoProps } from '../utils/formatters';
 
 // Mapbox Token from configuration
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -154,17 +155,18 @@ export default function MapaPage() {
             el.style.color = '#ffffff';
             el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
             el.style.cursor = 'pointer';
-            el.style.border = '2px solid #ffffff';
-            el.style.backgroundColor = isCompleted ? '#10b981' : '#0284c7';
-            el.innerText = item.tipo_sujeto === 'CLIENTE' ? 'S' : 'A';
+            const esAvalItem = esAval(item);
+            const itemBadge = getBadgeSujetoProps(item);
+            el.style.backgroundColor = isCompleted ? '#10b981' : (esAvalItem ? '#9333ea' : '#0284c7');
+            el.innerText = esAvalItem ? 'A' : 'S';
 
             const marker = new mapboxgl.Marker(el)
               .setLngLat([lng, lat])
               .setPopup(
                 new mapboxgl.Popup({ offset: 25 }).setHTML(`
                   <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                    <div style="font-size: 10px; font-weight: bold; color: ${isCompleted ? '#059669' : '#0284c7'}; text-transform: uppercase;">
-                      ${item.tipo_sujeto === 'CLIENTE' ? 'Solicitante' : 'Aval'} • ${item.estado}
+                    <div style="font-size: 10px; font-weight: bold; color: ${isCompleted ? '#059669' : (esAvalItem ? '#9333ea' : '#0284c7')}; text-transform: uppercase;">
+                      ${itemBadge.icon} ${itemBadge.label} • ${item.estado}
                     </div>
                     <strong style="font-size: 13px; color: #0f172a;">${item.sujeto_nombre || 'Socio'}</strong><br/>
                     <span style="font-size: 11px; color: #475569;">📍 ${item.calle || 'Calle N/A'} #${item.numero_exterior || ''}</span><br/>

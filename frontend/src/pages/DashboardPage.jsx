@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fetchStats, fetchInvestigaciones, fetchInvestigadores, fetchProductividadInvestigadores } from '../services/api';
 import { Files, Clock, CheckCircle2, AlertCircle, Users, ChevronRight, MapPin, Award, TrendingUp, ShieldCheck, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getBadgeSujetoProps } from '../utils/formatters';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -128,16 +129,21 @@ export default function DashboardPage() {
             <div className="py-12 text-center text-slate-500 text-sm italic">Cargando datos del servidor...</div>
           ) : (
             <div className="divide-y divide-slate-800/60">
-              {recientes.map((item) => (
-                <div key={item.id_sif_research} className="py-3 flex items-center justify-between hover:bg-slate-800/30 px-2 rounded-xl transition">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold ${
-                      item.tipo_sujeto === 'CLIENTE' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                    }`}>
-                      {item.tipo_sujeto === 'CLIENTE' ? 'SOL' : 'AVL'}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-white">{item.sujeto_nombre || 'Socio Sin Nombre'}</div>
+              {recientes.map((item) => {
+                const itemBadge = getBadgeSujetoProps(item);
+                return (
+                  <div key={item.id_sif_research} className="py-3 flex items-center justify-between hover:bg-slate-800/30 px-2 rounded-xl transition">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold ${itemBadge.badgeClass}`} title={itemBadge.fullLabel}>
+                        {itemBadge.shortLabel}
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-white flex items-center gap-2">
+                          <span>{item.sujeto_nombre || 'Socio Sin Nombre'}</span>
+                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${itemBadge.badgeClass}`}>
+                            {itemBadge.icon} {itemBadge.label}
+                          </span>
+                        </div>
                       <div className="text-xs text-slate-400 flex items-center gap-2">
                         <span className="font-mono text-slate-400">Folio: {item.solicitud_folio || item.id_sif_research}</span>
                         <span>•</span>
@@ -149,26 +155,27 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                      item.estado === 'COMPLETADA'
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        : item.estado === 'EN_PROCESO'
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
-                    }`}>
-                      {item.estado}
-                    </span>
-                    <Link
-                      to={`/investigaciones/${item.id_sif_research}`}
-                      className="p-2 rounded-lg bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white transition"
-                      title="Ver Formato Digital"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                        item.estado === 'COMPLETADA'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : item.estado === 'EN_PROCESO'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}>
+                        {item.estado}
+                      </span>
+                      <Link
+                        to={`/investigaciones/${item.id_sif_research}`}
+                        className="p-2 rounded-lg bg-slate-800 hover:bg-sky-600 text-slate-300 hover:text-white transition"
+                        title="Ver Formato Digital"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

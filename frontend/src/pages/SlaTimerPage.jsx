@@ -18,7 +18,7 @@ import {
   Hourglass
 } from 'lucide-react';
 import { fetchSlaStats } from '../services/api';
-import { formatNombreSucursal } from '../utils/formatters';
+import { formatNombreSucursal, esAval, getBadgeSujetoProps } from '../utils/formatters';
 
 export default function SlaTimerPage() {
   const [loading, setLoading] = useState(true);
@@ -318,8 +318,19 @@ export default function SlaTimerPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4 font-semibold text-white">
-                        {c.sujeto_nombre || 'Socio'}
-                        <div className="text-[10px] text-slate-400 font-normal">{c.tipo_sujeto}</div>
+                        {(() => {
+                          const cBadge = getBadgeSujetoProps(c);
+                          return (
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span>{c.sujeto_nombre || 'Socio'}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${cBadge.badgeClass}`}>
+                                  {cBadge.icon} {cBadge.label}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-5 py-4 font-mono text-slate-300">
                         {formatFechaHora(c.fecha_creacion_sif)}

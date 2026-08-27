@@ -8,7 +8,7 @@ import ChecklistDocumentalModal from '../components/ChecklistDocumentalModal';
 import NotificacionesInterareasModal from '../components/NotificacionesInterareasModal';
 import AgendaVisitasModal from '../components/AgendaVisitasModal';
 import PrevalidacionContactoModal from '../components/PrevalidacionContactoModal';
-import { formatNombreSucursal } from '../utils/formatters';
+import { formatNombreSucursal, esAval, getEtiquetaSujeto, getEtiquetaSujetoUpper, getBadgeSujetoProps } from '../utils/formatters';
 
 // Helper: formatea fecha en DD/Mon/AAAA
 function formatFechaCorta(fechaStr) {
@@ -218,7 +218,7 @@ export default function InvestigacionesPage() {
     const rows = data.map((r) => [
       r.id_sif_research,
       r.solicitud_folio || 'N/A',
-      r.tipo_sujeto === 'CLIENTE' ? 'SOLICITANTE' : 'AVAL',
+      getEtiquetaSujetoUpper(r),
       `"${(r.sujeto_nombre || '').replace(/"/g, '""')}"`,
       `$${parseFloat(r.monto_solicitado || 0).toFixed(2)}`,
       `"${(r.calle ? `${r.calle} #${r.numero_exterior || ''}` : 'Sin Calle').replace(/"/g, '""')}"`,
@@ -484,6 +484,7 @@ export default function InvestigacionesPage() {
               ) : (
                 data.map((row) => {
                   const isChecked = selectedIds.includes(String(row.id_sif_research));
+                  const rowBadge = getBadgeSujetoProps(row);
                   return (
                     <tr key={row.id_sif_research} className={`hover:bg-slate-800/30 transition ${isChecked ? 'bg-sky-500/5 border-l-2 border-sky-500' : ''}`}>
                       {/* Checkbox */}
@@ -524,12 +525,9 @@ export default function InvestigacionesPage() {
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase ${
-                        row.tipo_sujeto === 'CLIENTE'
-                          ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                          : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                      }`}>
-                        {row.tipo_sujeto === 'CLIENTE' ? 'Solicitante' : 'Aval'}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase inline-flex items-center gap-1 ${rowBadge.badgeClass}`}>
+                        <span>{rowBadge.icon}</span>
+                        <span>{rowBadge.label}</span>
                       </span>
                     </td>
                     <td className="px-5 py-4 font-semibold text-white">
@@ -594,6 +592,18 @@ export default function InvestigacionesPage() {
                           : row.estado === 'RECHAZADA' ? 'RECHAZADA ❌'
                           : row.estado}
                       </span>
+                      {/* Dictamen/Observaciones del Validador */}
+                      {row.validador_nombre && (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-teal-400" title={`Validador: ${row.validador_nombre}${row.comentarios_validacion ? ` — "${row.comentarios_validacion}"` : ''}`}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
+                          <span className="truncate max-w-[130px]">Val: {row.validador_nombre}</span>
+                        </div>
+                      )}
+                      {row.comentarios_validacion && (
+                        <div className="mt-0.5 text-[10px] text-slate-400 italic truncate max-w-[150px]" title={`Dictamen Validador: "${row.comentarios_validacion}"`}>
+                          💬 "{row.comentarios_validacion}"
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-5 py-4 text-right space-x-2">

@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { fetchInvestigacionDetalle, validarInvestigacion, revalidarInvestigacion } from '../services/api';
+import { fetchInvestigacionDetalle, validarInvestigacion, revalidarInvestigacion, guardarComentariosValidador } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { 
+  Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, 
+  ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, Edit3, MessageSquareText, FileCheck, Sparkles 
+} from 'lucide-react';
 import Toast from '../components/Toast';
-import { formatNombreSucursal } from '../utils/formatters';
+import { formatNombreSucursal, esAval, getEtiquetaSujeto, getEtiquetaSujetoUpper, getBadgeSujetoProps } from '../utils/formatters';
 
 // Helper clsx para formateo seguro de clases CSS
 const clsx = (...classes) => classes.flat(Infinity).filter(Boolean).join(' ');
@@ -30,9 +33,16 @@ export default function DetalleFormatoPage() {
 
   // Validación del Validador
   const [validating, setValidating] = useState(false);
+  const [showValidarModal, setShowValidarModal] = useState(false);
+  const [comentariosValidar, setComentariosValidar] = useState('Estudio socioeconómico verificado favorablemente. Domicilio e ingresos comprobados.');
   const [showRechazoModal, setShowRechazoModal] = useState(false);
   const [comentariosRechazo, setComentariosRechazo] = useState('');
   const [toast, setToast] = useState({ message: '', type: 'success' });
+
+  // Edición directa de comentarios del Validador
+  const [showEditarComentariosModal, setShowEditarComentariosModal] = useState(false);
+  const [comentariosEdicion, setComentariosEdicion] = useState('');
+  const [savingComentarios, setSavingComentarios] = useState(false);
 
   // Revalidación del Analista
   const [revalidating, setRevalidating] = useState(false);
@@ -150,7 +160,50 @@ export default function DetalleFormatoPage() {
 
   const firmaCaptured = ev.firma_url || '';
   const firmaInvestigadorCaptured = ev.firma_investigador_url || '';
-  const isAval = inv.es_aval === true || (inv.tipo_sujeto || '').toUpperCase().includes('AVAL');
+  const isAval = esAval(inv);
+  const badgeProps = getBadgeSujetoProps(inv);
+
+  const plantillasDictamen = [
+    'Estudio socioeconómico y domicilio 100% verificado en campo.',
+    'Capacidad de pago y solvencia confirmadas mediante comprobantes.',
+    'Arraigo domiciliario y laboral favorable (>5 años).',
+    'Aval solvente con comprobantes de ingresos y domicilio propio.',
+    'Recomendado para aprobación definitiva del crédito.',
+    'Validado con recomendación de verificar historial crediticio.',
+  ];
+
+  function agregarPlantillaValidar(texto) {
+    setComentariosValidar((prev) => {
+      const limpio = (prev || '').trim();
+      if (!limpio) return texto;
+      if (limpio.endsWith('.')) return `${limpio} ${texto}`;
+      return `${limpio}. ${texto}`;
+    });
+  }
+
+  function agregarPlantillaEdicion(texto) {
+    setComentariosEdicion((prev) => {
+      const limpio = (prev || '').trim();
+      if (!limpio) return texto;
+      if (limpio.endsWith('.')) return `${limpio} ${texto}`;
+      return `${limpio}. ${texto}`;
+    });
+  }
+
+  async function handleGuardarComentariosEdicion() {
+    if (!comentariosEdicion.trim()) return;
+    setSavingComentarios(true);
+    try {
+      await guardarComentariosValidador(id, { comentarios: comentariosEdicion.trim() });
+      setToast({ message: 'Observaciones del validador actualizadas con éxito', type: 'success' });
+      setShowEditarComentariosModal(false);
+      await loadData();
+    } catch (err) {
+      setToast({ message: 'Error guardando observaciones: ' + err.message, type: 'error' });
+    } finally {
+      setSavingComentarios(false);
+    }
+  }
 
   const isValidated = Boolean(
     inv.validador_nombre ||
@@ -198,8 +251,8 @@ export default function DetalleFormatoPage() {
           <ChevronLeft className={clsx('w-4', 'h-4')} /> Volver a Investigaciones
         </Link>
         <div className={clsx('flex', 'items-center', 'gap-3')}>
-          <span className={clsx('text-xs', 'text-slate-400')}>
-            Formato: <strong className="text-white">{isAval ? 'AVAL' : 'SOLICITANTE'}</strong>
+          <span className={clsx('text-xs', 'text-slate-400', 'flex', 'items-center', 'gap-1.5')}>
+            Formato: <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${badgeProps.badgeClass}`}>{badgeProps.fullLabel}</span>
           </span>
           <button
             onClick={handlePrint}
@@ -227,8 +280,7 @@ export default function DetalleFormatoPage() {
           <div className={clsx('flex', 'flex-wrap', 'gap-2', 'pt-1')}>
             {data.paqueteInvestigaciones.map((p) => {
               const isCurrent = String(p.id_sif_research) === String(id);
-              const isAval = p.es_aval === true || (p.tipo_sujeto || '').toUpperCase().includes('AVAL');
-              const isCli = !isAval;
+              const pBadge = getBadgeSujetoProps(p);
               return (
                 <Link
                   key={p.id_sif_research}
@@ -238,7 +290,9 @@ export default function DetalleFormatoPage() {
                       : 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800'
                     }`}
                 >
-                  <span>{isCli ? '👤 Solicitante:' : '🤝 Aval:'}</span>
+                  <span className={isCurrent ? 'text-white' : pBadge.textClass}>
+                    {pBadge.icon} {pBadge.label}:
+                  </span>
                   <span className="font-semibold">{p.sujeto_nombre || 'Socio'}</span>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] ${p.estado === 'COMPLETADA' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}>
@@ -252,7 +306,6 @@ export default function DetalleFormatoPage() {
       )}
 
       {/* PANEL DE VALIDACIÓN Y DICTAMEN DE ANÁLISIS DE CRÉDITO (Oculto en impresión) */}
-
       <div className={clsx('no-print', 'bg-slate-900', 'border', 'border-slate-800', 'p-5', 'rounded-2xl', 'space-y-4', 'shadow-xl')}>
         <div className={clsx('flex', 'flex-wrap', 'items-center', 'justify-between', 'gap-3', 'border-b', 'border-slate-800', 'pb-3')}>
           <div className={clsx('flex', 'items-center', 'gap-3')}>
@@ -267,7 +320,7 @@ export default function DetalleFormatoPage() {
               </span>
             ) : inv.estado === 'VALIDADA' ? (
               <span className={clsx('px-3', 'py-1', 'rounded-full', 'bg-emerald-500/20', 'text-emerald-400', 'border', 'border-emerald-500/40', 'text-xs', 'font-bold', 'flex', 'items-center', 'gap-1.5')}>
-                <CheckCircle2 className={clsx('w-4', 'h-4')} /> VALIDADO POR ANALISTA DE CRÉDITO
+                <CheckCircle2 className={clsx('w-4', 'h-4')} /> VALIDADO POR VALIDADOR DE CRÉDITO
               </span>
             ) : inv.estado === 'RECHAZADA' ? (
               <span className={clsx('px-3', 'py-1', 'rounded-full', 'bg-rose-500/20', 'text-rose-400', 'border', 'border-rose-500/40', 'text-xs', 'font-bold', 'flex', 'items-center', 'gap-1.5')}>
@@ -284,11 +337,11 @@ export default function DetalleFormatoPage() {
           {canValidate && (
             <div className={clsx('flex', 'items-center', 'gap-2')}>
               <button
-                onClick={() => handleEjecutarValidacion('VALIDAR', 'Estudio socioecónómico validado correctamente')}
+                onClick={() => setShowValidarModal(true)}
                 disabled={validating || ['VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'].includes(inv.estado)}
                 className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-emerald-600', 'hover:bg-emerald-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-emerald-600/30')}
               >
-                <CheckCircle2 className={clsx('w-4', 'h-4')} /> {validating ? 'Procesando...' : '✅ Validar Estudio'}
+                <CheckCircle2 className={clsx('w-4', 'h-4')} /> {validating ? 'Procesando...' : '✅ Validar con Dictamen'}
               </button>
 
               <button
@@ -302,19 +355,68 @@ export default function DetalleFormatoPage() {
           )}
         </div>
 
-        {/* Detalle de validación del Validador si existe */}
-        {inv.validador_nombre && (
-          <div className={clsx('text-xs', 'text-slate-300', 'bg-slate-950/60', 'p-3', 'rounded-xl', 'border', 'border-slate-800', 'space-y-1')}>
-            <div className={clsx('text-[10px]', 'text-teal-400', 'font-bold', 'uppercase', 'tracking-wider', 'mb-1')}>Paso 1 — Dictamen del Validador de Crédito</div>
-            <div className={clsx('flex', 'items-center', 'justify-between', 'text-slate-400')}>
-              <span><strong>Validador:</strong> {inv.validador_nombre}</span>
-              <span><strong>Fecha:</strong> {formatFechaCorta(inv.fecha_validacion)}</span>
-            </div>
-            {inv.comentarios_validacion && (
-              <div className={clsx('text-slate-200', 'pt-1', 'font-mono', 'text-[11px]')}>
-                <strong>Comentarios:</strong> {inv.comentarios_validacion}
+        {/* TARJETA DESTACADA: DICTAMEN Y OBSERVACIONES DEL VALIDADOR DE CRÉDITO (Visible para Analista y Validador) */}
+        {(inv.validador_nombre || inv.comentarios_validacion || ['VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'].includes(inv.estado)) && (
+          <div className={clsx('bg-gradient-to-r', 'from-teal-950/60', 'via-slate-900', 'to-slate-950', 'border', 'border-teal-500/30', 'p-4', 'rounded-2xl', 'space-y-3', 'shadow-xl')}>
+            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-teal-500/20 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/40">
+                  <FileCheck className="w-4 h-4" />
+                </span>
+                <div>
+                  <h4 className="text-xs font-bold text-teal-300 uppercase tracking-wider">
+                    Paso 1 — Dictamen y Observaciones del Validador de Crédito
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Revisión previa para el análisis y dictamen final de crédito
+                  </p>
+                </div>
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                {canValidate && (
+                  <button
+                    onClick={() => {
+                      setComentariosEdicion(inv.comentarios_validacion || '');
+                      setShowEditarComentariosModal(true);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+                    title="Editar o agregar notas al dictamen"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" /> Editar Observaciones
+                  </button>
+                )}
+                <span className="text-[11px] font-mono text-slate-300 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                  📅 {formatFechaCorta(inv.fecha_validacion)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                <div className="text-[10px] text-slate-400 uppercase font-semibold">Validador de Crédito:</div>
+                <div className="text-sm font-bold text-teal-300 mt-0.5 flex items-center gap-1.5">
+                  <span>✅</span>
+                  <span>{inv.validador_nombre || 'Validador Autorizado'}</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 md:col-span-2">
+                <div className="text-[10px] text-teal-400 uppercase font-semibold mb-1">
+                  Observaciones para el Analista:
+                </div>
+                <div className="text-xs text-slate-200 leading-relaxed font-sans bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                  {inv.comentarios_validacion ? (
+                    <p className="whitespace-pre-line text-teal-100 font-medium">
+                      "{inv.comentarios_validacion}"
+                    </p>
+                  ) : (
+                    <p className="text-slate-400 italic">
+                      Estudio validado sin observaciones adicionales.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -325,8 +427,8 @@ export default function DetalleFormatoPage() {
               <ShieldCheck className={clsx('w-4', 'h-4')} />
               Paso 2 — Tu Revisión Final como Analista
             </div>
-            <p className={clsx('text-xs', 'text-slate-400')}>
-              El Validador ya aprobó este estudio. Revisa el formato completo y emite tu dictamen final:
+            <p className={clsx('text-xs', 'text-slate-300')}>
+              El Validador ya aprobó este estudio con las observaciones indicadas arriba. Revisa el formato completo y emite tu dictamen final:
             </p>
             <div className={clsx('flex', 'items-center', 'gap-3', 'flex-wrap')}>
               <button
@@ -381,6 +483,129 @@ export default function DetalleFormatoPage() {
           </div>
         )}
       </div>
+
+      {/* MODAL DE VALIDACIÓN CON CAPTURA DE COMENTARIOS (Validador) */}
+      {showValidarModal && (
+        <div className={clsx('fixed', 'inset-0', 'bg-slate-950/80', 'backdrop-blur-sm', 'z-50', 'flex', 'items-center', 'justify-center', 'p-4')}>
+          <div className={clsx('bg-slate-900', 'border', 'border-slate-800', 'rounded-2xl', 'max-w-lg', 'w-full', 'p-6', 'space-y-4', 'shadow-2xl')}>
+            <div className={clsx('flex', 'items-center', 'justify-between', 'border-b', 'border-slate-800', 'pb-3')}>
+              <h3 className={clsx('text-base', 'font-bold', 'text-emerald-400', 'flex', 'items-center', 'gap-2')}>
+                <CheckCircle2 className={clsx('w-5', 'h-5')} /> Dictamen y Validación de Crédito
+              </h3>
+              <button onClick={() => setShowValidarModal(false)} className={clsx('text-slate-400', 'hover:text-white')}>
+                <X className={clsx('w-5', 'h-5')} />
+              </button>
+            </div>
+
+            <p className={clsx('text-xs', 'text-slate-300')}>
+              Ingresa tus observaciones y dictamen de validación. Este comentario quedará registrado formalmente y será visualizado por el <strong>Analista de Crédito</strong>:
+            </p>
+
+            {/* Chips de plantillas rápidas */}
+            <div className="space-y-1.5">
+              <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-400" /> Plantillas de dictamen rápido:
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {plantillasDictamen.map((pl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => agregarPlantillaValidar(pl)}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-300 border border-slate-700 transition"
+                  >
+                    + {pl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <textarea
+              value={comentariosValidar}
+              onChange={(e) => setComentariosValidar(e.target.value)}
+              placeholder="Escribe aquí las observaciones del estudio socioeconómico y dictamen para el analista..."
+              className={clsx('w-full', 'h-28', 'bg-slate-950', 'border', 'border-slate-800', 'rounded-xl', 'p-3', 'text-xs', 'text-white', 'placeholder-slate-500', 'focus:outline-none', 'focus:border-emerald-500', 'resize-none')}
+            />
+
+            <div className={clsx('flex', 'items-center', 'justify-end', 'gap-3', 'pt-2')}>
+              <button
+                onClick={() => setShowValidarModal(false)}
+                className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-slate-800', 'hover:bg-slate-700', 'text-slate-300', 'text-xs', 'font-semibold')}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleEjecutarValidacion('VALIDAR', comentariosValidar)}
+                disabled={validating || !comentariosValidar.trim()}
+                className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-emerald-600', 'hover:bg-emerald-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-emerald-600/30')}
+              >
+                {validating ? 'Validando...' : 'Confirmar Validación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EDICIÓN DIRECTA DE COMENTARIOS (Validador) */}
+      {showEditarComentariosModal && (
+        <div className={clsx('fixed', 'inset-0', 'bg-slate-950/80', 'backdrop-blur-sm', 'z-50', 'flex', 'items-center', 'justify-center', 'p-4')}>
+          <div className={clsx('bg-slate-900', 'border', 'border-slate-800', 'rounded-2xl', 'max-w-lg', 'w-full', 'p-6', 'space-y-4', 'shadow-2xl')}>
+            <div className={clsx('flex', 'items-center', 'justify-between', 'border-b', 'border-slate-800', 'pb-3')}>
+              <h3 className={clsx('text-base', 'font-bold', 'text-teal-400', 'flex', 'items-center', 'gap-2')}>
+                <Edit3 className={clsx('w-5', 'h-5')} /> Modificar Observaciones del Validador
+              </h3>
+              <button onClick={() => setShowEditarComentariosModal(false)} className={clsx('text-slate-400', 'hover:text-white')}>
+                <X className={clsx('w-5', 'h-5')} />
+              </button>
+            </div>
+
+            <p className={clsx('text-xs', 'text-slate-300')}>
+              Actualiza las notas y observaciones que el <strong>Analista</strong> verá en este expediente:
+            </p>
+
+            <div className="space-y-1.5">
+              <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-400" /> Plantillas de dictamen rápido:
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {plantillasDictamen.map((pl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => agregarPlantillaEdicion(pl)}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-teal-300 border border-slate-700 transition"
+                  >
+                    + {pl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <textarea
+              value={comentariosEdicion}
+              onChange={(e) => setComentariosEdicion(e.target.value)}
+              placeholder="Escribe aquí las observaciones actualizadas..."
+              className={clsx('w-full', 'h-28', 'bg-slate-950', 'border', 'border-slate-800', 'rounded-xl', 'p-3', 'text-xs', 'text-white', 'placeholder-slate-500', 'focus:outline-none', 'focus:border-teal-500', 'resize-none')}
+            />
+
+            <div className={clsx('flex', 'items-center', 'justify-end', 'gap-3', 'pt-2')}>
+              <button
+                onClick={() => setShowEditarComentariosModal(false)}
+                className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-slate-800', 'hover:bg-slate-700', 'text-slate-300', 'text-xs', 'font-semibold')}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGuardarComentariosEdicion}
+                disabled={savingComentarios || !comentariosEdicion.trim()}
+                className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-teal-600', 'hover:bg-teal-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-teal-600/30')}
+              >
+                {savingComentarios ? 'Guardando...' : 'Guardar Observaciones'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE RECHAZO */}
       {showRechazoModal && (
@@ -508,11 +733,8 @@ export default function DetalleFormatoPage() {
             </h2>
             <div className={clsx('text-xs', 'font-semibold', 'text-slate-700', 'mt-1', 'flex', 'items-center', 'justify-center', 'gap-2')}>
               <span>ESTUDIO DOMICILIARIO:</span>
-              <span className={`px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wide border ${isAval
-                  ? 'bg-purple-100 text-purple-900 border-purple-400'
-                  : 'bg-sky-100 text-sky-900 border-sky-400'
-                }`}>
-                {isAval ? '🤝 AVAL DE CRÉDITO' : '👤 SOLICITANTE DE PRÉSTAMO'}
+              <span className={`px-2.5 py-0.5 rounded text-xs font-extrabold uppercase tracking-wide border ${badgeProps.badgePrintClass}`}>
+                {badgeProps.icon} {badgeProps.label.toUpperCase()} DE CRÉDITO
               </span>
             </div>
           </div>
@@ -814,6 +1036,26 @@ export default function DetalleFormatoPage() {
             )}
           </div>
         </div>
+
+        {/* Dictamen y Observaciones Formales del Validador de Crédito en el Documento Oficial */}
+        {inv.comentarios_validacion && (
+          <div className={clsx('p-4', 'rounded-xl', 'border-2', 'border-slate-800', 'bg-slate-50', 'space-y-1.5', 'text-xs')}>
+            <div className={clsx('text-[11px]', 'font-extrabold', 'text-slate-900', 'uppercase', 'tracking-wide', 'flex', 'items-center', 'justify-between', 'border-b', 'border-slate-300', 'pb-1')}>
+              <span>📋 Dictamen y Observaciones del Validador de Crédito</span>
+              <span className="text-[10px] font-normal text-slate-600 font-mono">
+                {inv.fecha_validacion ? `Fecha: ${new Date(inv.fecha_validacion).toLocaleDateString('es-MX')}` : ''}
+              </span>
+            </div>
+            <p className={clsx('text-xs', 'text-slate-800', 'italic', 'font-medium', 'leading-relaxed', 'pt-1')}>
+              "{inv.comentarios_validacion}"
+            </p>
+            {inv.validador_nombre && (
+              <div className={clsx('text-[10px]', 'text-slate-700', 'text-right', 'font-bold')}>
+                Validador Responsable: {inv.validador_nombre.toUpperCase()}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Signatures & Evidence Footer (2-column layout) */}
         <div className={clsx('pt-8', 'border-t', 'border-slate-300', 'grid', 'grid-cols-2', 'gap-12', 'text-center', 'text-xs')}>
