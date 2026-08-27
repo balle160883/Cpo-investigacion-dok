@@ -211,6 +211,7 @@ export default function InvestigacionesPage() {
     const headers = [
       'ID Investigación (SIF)',
       'Folio Solicitud',
+      'Sucursal de Captación',
       'Tipo Sujeto',
       'Nombre Completo Socio',
       'Monto Solicitado',
@@ -227,6 +228,7 @@ export default function InvestigacionesPage() {
     const rows = data.map((r) => [
       r.id_sif_research,
       r.solicitud_folio || 'N/A',
+      `"${formatNombreSucursal(r.sucursal_id)}"`,
       getEtiquetaSujetoUpper(r),
       `"${(r.sujeto_nombre || '').replace(/"/g, '""')}"`,
       `$${parseFloat(r.monto_solicitado || 0).toFixed(2)}`,
@@ -514,9 +516,9 @@ export default function InvestigacionesPage() {
                       <td className="px-5 py-4 font-mono font-semibold text-slate-200">
                       <div>#{row.id_sif_research}</div>
                       <div className="text-[11px] text-slate-500 font-sans">Sol: {row.solicitud_folio || 'N/A'}</div>
-                      <div className="mt-0.5">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                          🏢 {formatNombreSucursal(row.sucursal_id)}
+                      <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm" title={`Sucursal de Captación: ${formatNombreSucursal(row.sucursal_id)}`}>
+                          🏢 Suc. {formatNombreSucursal(row.sucursal_id)}
                         </span>
                       </div>
                       {row.paquete_total > 1 && (
