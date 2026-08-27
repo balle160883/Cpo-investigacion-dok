@@ -616,12 +616,6 @@ async function revalidarInvestigacion(req, res, next) {
     }
 
     const estadoActual = prev[0].estado_validacion || prev[0].estado;
-    if (estadoActual !== 'VALIDADA') {
-      return res.status(422).json({
-        error: `Solo se puede revalidar una investigación con estado VALIDADA. Estado actual: ${estadoActual}`,
-      });
-    }
-
     const nuevoEstado = accion === 'APROBAR_FINAL' ? 'APROBADA_FINAL' : 'DEVUELTA_A_VALIDADOR';
     const analistaId = req.user?.id || null;
 
