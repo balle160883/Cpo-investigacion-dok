@@ -130,13 +130,34 @@ async function initDb() {
         CREATE OR REPLACE FUNCTION protect_manual_assignment()
         RETURNS TRIGGER AS $$
         BEGIN
-          IF OLD.asignacion_manual = TRUE AND NEW.investigador_id IS DISTINCT FROM OLD.investigador_id THEN
-            IF NEW.origen_asignacion IS DISTINCT FROM 'PLATAFORMA_CPO' THEN
-              NEW.investigador_id := OLD.investigador_id;
+          -- 1. Si la actualización proviene directamente de la Plataforma Web CPO
+          IF NEW.origen_asignacion = 'PLATAFORMA_CPO' THEN
+            NEW.asignacion_manual := TRUE;
+            NEW.origen_asignacion := NULL;
+            IF NEW.estado IS NULL OR NEW.estado = 'PENDIENTE' THEN
+              NEW.estado := 'EN_PROCESO';
+            END IF;
+          -- 2. Si la actualización proviene del Sincronizador de SIF (externo)
+          ELSE
+            -- Si la investigación ya fue asignada manualmente o está en proceso en CPO
+            IF OLD.asignacion_manual = TRUE OR OLD.estado = 'EN_PROCESO' THEN
+              -- Preservar el investigador asignado en CPO
+              IF OLD.investigador_id IS NOT NULL THEN
+                NEW.investigador_id := OLD.investigador_id;
+              END IF;
               NEW.asignacion_manual := TRUE;
-            ELSE
-              NEW.asignacion_manual := TRUE;
-              NEW.origen_asignacion := NULL;
+
+              -- Preservar la fecha de asignación si SIF no envía una
+              IF OLD.fecha_asignacion IS NOT NULL AND NEW.fecha_asignacion IS NULL THEN
+                NEW.fecha_asignacion := OLD.fecha_asignacion;
+              END IF;
+
+              -- Preservar estado EN_PROCESO para que el sincronizador no la regrese a PENDIENTE
+              -- Solo se permite que cambie si en SIF pasa a COMPLETADA o si ya fue VALIDADA/APROBADA
+              IF (OLD.estado = 'EN_PROCESO' OR OLD.estado IN ('VALIDADA', 'APROBADA_FINAL')) 
+                 AND (NEW.estado = 'PENDIENTE' OR NEW.estado IS NULL) THEN
+                NEW.estado := OLD.estado;
+              END IF;
             END IF;
           END IF;
           RETURN NEW;
