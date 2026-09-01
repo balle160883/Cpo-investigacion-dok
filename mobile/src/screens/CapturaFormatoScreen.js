@@ -5,10 +5,11 @@ import * as Location from 'expo-location';
 import { guardarEvidenciaInvestigacion, escanearINEConFoto } from '../api/apiClient';
 import SignaturePad from '../components/SignaturePad';
 import { formatBase64Image } from '../utils/imageOptimizer';
+import { formatNombreSucursal, esAval } from '../utils/formatters';
 
 export default function CapturaFormatoScreen({ route, navigation }) {
   const { id, inv } = route.params || {};
-  const isAval = inv?.es_aval === true || (inv?.tipo_sujeto || '').toUpperCase().includes('AVAL');
+  const isAval = esAval(inv);
 
   // Form Fields based on Word Formats
   const [quienAtendio, setQuienAtendio] = useState('titular'); // titular | familiar
@@ -259,7 +260,9 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
       const sujetoNombre = inv?.sujeto_nombre || 'Socio / Solicitante';
       const personaSif = inv?.persona_id_sif || 'N/A';
-      const folioSolicitud = inv?.solicitud_folio || id || 'N/A';
+      const folioSolicitud = inv?.solicitud_folio || (inv?.solicitud_id_sif ? `#${inv?.solicitud_id_sif}` : 'N/A');
+      const numInvestigacion = id || inv?.id_sif_research || 'N/A';
+      const sucNombre = formatNombreSucursal(inv?.sucursal_id, inv?.sucursal_nombre);
       const calleYNum = tieneDireccionDiferente && calleReal ? calleReal : `${inv?.calle || ''} ${inv?.numero_exterior || ''}`.trim();
       const col = tieneDireccionDiferente && coloniaReal ? coloniaReal : inv?.colonia || '';
       const direccionVisita = `${calleYNum}${col ? ', ' + col : ''}`.trim() || 'Domicilio Registrado';
@@ -275,7 +278,11 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   ${tituloHeader}
 ================================
 FECHA: ${fechaActual}
-FOLIO SOLICITUD: ${folioSolicitud}
+FOLIO CRÉDITO: ${folioSolicitud}
+N° INVESTIGACIÓN: #${numInvestigacion}
+SUCURSAL: Suc. ${sucNombre}
+--------------------------------
+TIPO SUJETO: ${isAval ? '🤝 AVAL DE CRÉDITO' : '👤 SOLICITANTE DE PRÉSTAMO'}
 SOCIO / CLIENTE: ${sujetoNombre}
 N° SOCIO SIF: ${personaSif}
 --------------------------------
@@ -292,7 +299,7 @@ ${observaciones || 'Sin observaciones adicionales.'}${infoCita}
 ================================`;
 
       await Share.share({
-        title: `Ticket Pendiente (${supuesto}) - Folio ${folioSolicitud}`,
+        title: `Ticket Pendiente (${supuesto}) - Solicitud ${folioSolicitud}`,
         message: ticketText,
       });
     } catch (error) {
