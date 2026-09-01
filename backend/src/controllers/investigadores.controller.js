@@ -72,17 +72,12 @@ async function guardarUbicacion(req, res, next) {
 
 async function getUbicaciones(req, res, next) {
   try {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, JWT_SECRET);
-        const role = (decoded?.rol || '').toLowerCase();
-        const allowed = ['superadmin', 'asignador', 'validador', 'analista', 'admin'];
-        if (role && !allowed.includes(role)) {
-          return res.status(403).json({ error: 'Acceso denegado. Permiso solo para administradores' });
-        }
-      } catch (e) {}
+    const userRol = (req.user?.rol || '').toLowerCase();
+    const rolesArray = userRol.split(',').map((r) => r.trim());
+    const allowed = ['superadmin', 'asignador', 'validador', 'analista', 'admin', 'supervisor', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'];
+    const isAllowed = rolesArray.some((r) => allowed.includes(r));
+    if (userRol && !isAllowed) {
+      return res.status(403).json({ error: 'Acceso denegado. Permiso solo para administradores o asignadores' });
     }
 
     try {

@@ -1,15 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { io } from 'socket.io-client';
-import { fetchInvestigaciones, fetchUbicacionesInvestigadores, fetchInvestigadores, asignarInvestigadorLote } from '../services/api';
+import { fetchInvestigaciones, fetchUbicacionesInvestigadores, fetchInvestigadores, asignarInvestigadorLote, getApiBaseUrl } from '../services/api';
 import { Navigation, UserCheck, RefreshCw, Layers, Wifi, CheckSquare, Square, MapPin, UserPlus, X, ShieldAlert } from 'lucide-react';
 import Toast from '../components/Toast';
 import { esAval, getBadgeSujetoProps } from '../utils/formatters';
 
 // Mapbox Token from configuration
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 function getDistanceKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -60,7 +58,7 @@ export default function MapaPage() {
 
     // Conectar Socket.io para actualización instantánea vía WebSockets
     try {
-      const socketUrl = API_BASE_URL.replace('/api', '');
+      const socketUrl = getApiBaseUrl().replace('/api', '');
       socketRef.current = io(socketUrl, {
         reconnection: true,
         reconnectionDelay: 2000,
