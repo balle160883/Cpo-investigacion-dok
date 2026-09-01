@@ -424,13 +424,14 @@ async function getInvestigacionDetalle(req, res, next) {
     let evidencia = null;
     if (evRes.rows.length > 0) {
       evidencia = { ...evRes.rows[0] };
-      // Si el último registro no tiene fotos, recuperar las fotos del registro previo que sí las contenga
+      // Consolidar fotos
       if (!Array.isArray(evidencia.fotos_urls) || evidencia.fotos_urls.length === 0) {
         const conFotos = evRes.rows.find(r => Array.isArray(r.fotos_urls) && r.fotos_urls.length > 0);
         if (conFotos) {
           evidencia.fotos_urls = conFotos.fotos_urls;
         }
       }
+      // Consolidar firmas
       if (!evidencia.firma_url) {
         const conFirma = evRes.rows.find(r => r.firma_url);
         if (conFirma) evidencia.firma_url = conFirma.firma_url;
@@ -439,6 +440,18 @@ async function getInvestigacionDetalle(req, res, next) {
         const conFirmaInv = evRes.rows.find(r => r.firma_investigador_url);
         if (conFirmaInv) evidencia.firma_investigador_url = conFirmaInv.firma_investigador_url;
       }
+      // Consolidar campos del estudio socioeconómico (ocupación, colores, valores, etc.)
+      let mergedEstudio = typeof evidencia.estudio_socioeconomico === 'object' && evidencia.estudio_socioeconomico ? { ...evidencia.estudio_socioeconomico } : {};
+      for (const row of evRes.rows) {
+        if (row.estudio_socioeconomico && typeof row.estudio_socioeconomico === 'object') {
+          for (const [key, val] of Object.entries(row.estudio_socioeconomico)) {
+            if ((mergedEstudio[key] === undefined || mergedEstudio[key] === '' || mergedEstudio[key] === 0 || mergedEstudio[key] === null) && (val !== '' && val !== 0 && val !== null && val !== undefined)) {
+              mergedEstudio[key] = val;
+            }
+          }
+        }
+      }
+      evidencia.estudio_socioeconomico = mergedEstudio;
     }
 
     // 4. Vigencia 90 días: ¿Esta persona tiene una visita anterior válida en otra investigación?
