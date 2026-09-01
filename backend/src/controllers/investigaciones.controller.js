@@ -415,13 +415,31 @@ async function getInvestigacionDetalle(req, res, next) {
       paqueteInvestigaciones = paqueteRes.rows;
     }
 
-    // 3. Evidencia realizada
+    // 3. Evidencia realizada (con consolidación de fotos y firmas)
     const evRes = await db.query(
-      'SELECT * FROM evidencias_visita WHERE CAST(investigacion_id_sif AS TEXT) = CAST($1 AS TEXT) ORDER BY created_at DESC LIMIT 1;',
+      'SELECT * FROM evidencias_visita WHERE CAST(investigacion_id_sif AS TEXT) = CAST($1 AS TEXT) ORDER BY created_at DESC;',
       [id]
     );
 
-    const evidencia = evRes.rows.length > 0 ? evRes.rows[0] : null;
+    let evidencia = null;
+    if (evRes.rows.length > 0) {
+      evidencia = { ...evRes.rows[0] };
+      // Si el último registro no tiene fotos, recuperar las fotos del registro previo que sí las contenga
+      if (!Array.isArray(evidencia.fotos_urls) || evidencia.fotos_urls.length === 0) {
+        const conFotos = evRes.rows.find(r => Array.isArray(r.fotos_urls) && r.fotos_urls.length > 0);
+        if (conFotos) {
+          evidencia.fotos_urls = conFotos.fotos_urls;
+        }
+      }
+      if (!evidencia.firma_url) {
+        const conFirma = evRes.rows.find(r => r.firma_url);
+        if (conFirma) evidencia.firma_url = conFirma.firma_url;
+      }
+      if (!evidencia.firma_investigador_url) {
+        const conFirmaInv = evRes.rows.find(r => r.firma_investigador_url);
+        if (conFirmaInv) evidencia.firma_investigador_url = conFirmaInv.firma_investigador_url;
+      }
+    }
 
     // 4. Vigencia 90 días: ¿Esta persona tiene una visita anterior válida en otra investigación?
     let vigenciaPrevia = null;
@@ -582,6 +600,33 @@ async function guardarEvidencia(req, res, next) {
     const supuestoValor = supuesto || estudio_socioeconomico?.supuesto || '';
     const dictamenInfo = dictamen ? `Dictamen: ${dictamen}${supuestoValor ? ` [Supuesto: ${supuestoValor}]` : ''}` : '';
 
+    let fotosFinales = Array.isArray(fotos_urls) ? fotos_urls : [];
+    let firmaFinal = firma_url || null;
+    let firmaInvFinal = firma_investigador_url || null;
+
+    // Si la nueva petición no incluye fotos o firmas, verificar si ya existen en una evidencia previa para conservarlas
+    if (fotosFinales.length === 0 || !firmaFinal || !firmaInvFinal) {
+      const prevEv = await db.query(
+        `SELECT fotos_urls, firma_url, firma_investigador_url 
+         FROM evidencias_visita 
+         WHERE CAST(investigacion_id_sif AS TEXT) = CAST($1 AS TEXT) 
+         ORDER BY created_at DESC 
+         LIMIT 1;`,
+        [id]
+      );
+      if (prevEv.rows.length > 0) {
+        if (fotosFinales.length === 0 && Array.isArray(prevEv.rows[0].fotos_urls) && prevEv.rows[0].fotos_urls.length > 0) {
+          fotosFinales = prevEv.rows[0].fotos_urls;
+        }
+        if (!firmaFinal && prevEv.rows[0].firma_url) {
+          firmaFinal = prevEv.rows[0].firma_url;
+        }
+        if (!firmaInvFinal && prevEv.rows[0].firma_investigador_url) {
+          firmaInvFinal = prevEv.rows[0].firma_investigador_url;
+        }
+      }
+    }
+
     await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;`);
 
     await db.query(`
@@ -603,9 +648,9 @@ async function guardarEvidencia(req, res, next) {
       latitud_checkin || 0,
       longitud_checkin || 0,
       JSON.stringify(estudio_socioeconomico || {}),
-      JSON.stringify(fotos_urls || []),
-      firma_url || null,
-      firma_investigador_url || null,
+      JSON.stringify(fotosFinales),
+      firmaFinal,
+      firmaInvFinal,
       notas_investigador || dictamenInfo
     ]);
 
