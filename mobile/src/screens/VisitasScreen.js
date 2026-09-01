@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { getAssignedInvestigaciones, enviarUbicacionGPS, getPendingOfflineSurveys, syncPendingSurveys, logout } from '../api/apiClient';
 import { abrirNavegacionNativa } from '../utils/navigationHelper';
+import { formatNombreSucursal, esAval } from '../utils/formatters';
 
 function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return null;
@@ -371,86 +372,107 @@ export default function VisitasScreen({ navigation, route }) {
               )}
             </View>
           )}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate('DetalleInvestigacion', { id: item.id_sif_research })}
-            >
-              <View style={styles.cardHeader}>
-                {(() => {
-                  const isAvalItem = item?.es_aval === true || (item?.tipo_sujeto || '').toUpperCase().includes('AVAL');
-                  return (
+          renderItem={({ item }) => {
+            const isAvalItem = esAval(item);
+            const folioCredito = item.solicitud_folio || (item.solicitud_id_sif ? `#${item.solicitud_id_sif}` : 'N/A');
+            const sucNombre = formatNombreSucursal(item.sucursal_id, item.sucursal_nombre);
+
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => navigation.navigate('DetalleInvestigacion', { id: item.id_sif_research })}
+              >
+                {/* Cabecera del ticket: Folio Investigación, Folio Crédito y Badge Solicitante/Aval */}
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.folio}>#{item.id_sif_research}</Text>
+                    <Text style={styles.solicitudFolio}>Sol: {folioCredito}</Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {item.distanciaKm !== null && (
+                      <View style={styles.distanciaBadgeContainer}>
+                        <Text style={styles.distanciaBadgeText}>📏 {item.distanciaKm} km</Text>
+                      </View>
+                    )}
+
                     <View style={[styles.badge, !isAvalItem ? styles.badgeSol : styles.badgeAval]}>
-                      <Text style={styles.badgeText}>
+                      <Text style={[styles.badgeText, !isAvalItem ? styles.badgeTextSol : styles.badgeTextAval]}>
                         {!isAvalItem ? '👤 SOLICITANTE' : '🤝 AVAL'}
                       </Text>
                     </View>
-                  );
-                })()}
+                  </View>
+                </View>
 
-                {item.distanciaKm !== null && (
-                  <View style={styles.distanciaBadgeContainer}>
-                    <Text style={styles.distanciaBadgeText}>📏 a {item.distanciaKm} km</Text>
+                {/* Sucursal de Captación y Paquete si aplica */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <View style={styles.sucursalContainer}>
+                    <Text style={styles.sucursalText}>🏢 Suc. {sucNombre}</Text>
+                  </View>
+                  {item.paquete_total > 1 && (
+                    <View style={[styles.paqueteBadge, item.paquete_completo ? styles.paqueteComp : styles.paquetePend]}>
+                      <Text style={[styles.paqueteText, item.paquete_completo ? styles.paqueteTextComp : styles.paqueteTextPend]}>
+                        {item.paquete_completo ? '🟢' : '⏳'} Paquete {item.paquete_completadas || 0}/{item.paquete_total}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.nombre}>{item.sujeto_nombre || 'Socio Sin Nombre'}</Text>
+                
+                <Text style={styles.direccion}>
+                  📍 {item.calle ? `${item.calle} #${item.numero_exterior || ''}` : 'Sin Calle'}
+                </Text>
+                
+                {/* COLONIA, MUNICIPIO Y ESTADO */}
+                <Text style={styles.ubicacionDetalle}>
+                  🏡 {item.colonia ? `Col. ${item.colonia}` : 'Sin Colonia'}{item.municipio ? `, ${item.municipio}` : ''}{item.estado_provincia ? `, ${item.estado_provincia}` : ''}
+                </Text>
+
+                {/* BADGE VIGENCIA 90 DÍAS */}
+                {item.visita_vigente && (
+                  <View style={styles.vigenciaBadge}>
+                    <Text style={styles.vigenciaBadgeText}>
+                      ✅ Visita vigente hasta {formatFechaCorta(item.visita_vigente_hasta)} — Puede reutilizarse
+                    </Text>
                   </View>
                 )}
 
-                <Text style={styles.folio}>Folio: #{item.id_sif_research}</Text>
-              </View>
+                {/* RECHAZO MOTIVO BANNER */}
+                {item.estado === 'RECHAZADA' && (
+                  <View style={styles.rechazoBadge}>
+                    <Text style={styles.rechazoBadgeTitle}>❌ RECHAZADA — Corrección Requerida:</Text>
+                    <Text style={styles.rechazoBadgeText}>
+                      {item.comentarios_validacion || 'Se solicitó corregir la información o fotografías enviadas.'}
+                    </Text>
+                  </View>
+                )}
 
-              <Text style={styles.nombre}>{item.sujeto_nombre || 'Socio Sin Nombre'}</Text>
-              
-              <Text style={styles.direccion}>
-                📍 {item.calle ? `${item.calle} #${item.numero_exterior || ''}` : 'Sin Calle'}
-              </Text>
-              
-              {/* COLONIA, MUNICIPIO Y ESTADO */}
-              <Text style={styles.ubicacionDetalle}>
-                🏡 {item.colonia ? `Col. ${item.colonia}` : 'Sin Colonia'}{item.municipio ? `, ${item.municipio}` : ''}{item.estado_provincia ? `, ${item.estado_provincia}` : ''}
-              </Text>
-
-              {/* BADGE VIGENCIA 90 DÍAS */}
-              {item.visita_vigente && (
-                <View style={styles.vigenciaBadge}>
-                  <Text style={styles.vigenciaBadgeText}>
-                    ✅ Visita vigente hasta {formatFechaCorta(item.visita_vigente_hasta)} — Puede reutilizarse
+                <View style={styles.cardFooter}>
+                  <Text style={styles.monto}>
+                    Monto: ${parseFloat(item.monto_solicitado || 0).toLocaleString('es-MX')}
                   </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <TouchableOpacity
+                      style={styles.navQuickBtn}
+                      onPress={() => abrirNavegacionSencilla(item)}
+                    >
+                      <Text style={styles.navQuickText}>🗺️ Ruta</Text>
+                    </TouchableOpacity>
+                    <Text style={[
+                      styles.estado,
+                      item.estado === 'VALIDADA' ? styles.estadoValidadas :
+                      item.estado === 'RECHAZADA' ? styles.estadoRechazadas :
+                      item.estado === 'COMPLETADA' ? styles.estadoComp : styles.estadoPend
+                    ]}>
+                      {item.estado === 'VALIDADA' ? 'VALIDADA ✅' : item.estado === 'RECHAZADA' ? 'RECHAZADA ❌' : item.estado}
+                    </Text>
+                  </View>
                 </View>
-              )}
 
-              {/* RECHAZO MOTIVO BANNER */}
-              {item.estado === 'RECHAZADA' && (
-                <View style={styles.rechazoBadge}>
-                  <Text style={styles.rechazoBadgeTitle}>❌ RECHAZADA — Corrección Requerida:</Text>
-                  <Text style={styles.rechazoBadgeText}>
-                    {item.comentarios_validacion || 'Se solicitó corregir la información o fotografías enviadas.'}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.cardFooter}>
-                <Text style={styles.monto}>
-                  Monto: ${parseFloat(item.monto_solicitado || 0).toLocaleString('es-MX')}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <TouchableOpacity
-                    style={styles.navQuickBtn}
-                    onPress={() => abrirNavegacionSencilla(item)}
-                  >
-                    <Text style={styles.navQuickText}>🗺️ Ruta</Text>
-                  </TouchableOpacity>
-                  <Text style={[
-                    styles.estado,
-                    item.estado === 'VALIDADA' ? styles.estadoValidadas :
-                    item.estado === 'RECHAZADA' ? styles.estadoRechazadas :
-                    item.estado === 'COMPLETADA' ? styles.estadoComp : styles.estadoPend
-                  ]}>
-                    {item.estado === 'VALIDADA' ? 'VALIDADA ✅' : item.estado === 'RECHAZADA' ? 'RECHAZADA ❌' : item.estado}
-                  </Text>
-                </View>
-              </View>
-
-            </TouchableOpacity>
-          )}
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
     </View>
@@ -513,11 +535,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  badgeSol: { backgroundColor: 'rgba(2, 132, 199, 0.2)' },
-  badgeAval: { backgroundColor: 'rgba(168, 85, 247, 0.2)' },
-  badgeText: { color: '#38bdf8', fontSize: 10, fontWeight: 'bold' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+  folio: { color: '#ffffff', fontSize: 13, fontWeight: 'bold', fontFamily: 'monospace' },
+  solicitudFolio: { color: '#94a3b8', fontSize: 11, fontWeight: '600', marginTop: 1 },
+  sucursalContainer: {
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  sucursalText: { color: '#38bdf8', fontSize: 10, fontWeight: 'bold' },
+  paqueteBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  paqueteComp: { backgroundColor: 'rgba(52, 211, 153, 0.15)', borderColor: 'rgba(52, 211, 153, 0.35)' },
+  paquetePend: { backgroundColor: 'rgba(251, 191, 36, 0.15)', borderColor: 'rgba(251, 191, 36, 0.35)' },
+  paqueteText: { fontSize: 9, fontWeight: 'bold' },
+  paqueteTextComp: { color: '#34d399' },
+  paqueteTextPend: { color: '#fbbf24' },
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  badgeSol: { backgroundColor: 'rgba(2, 132, 199, 0.2)', borderColor: 'rgba(56, 189, 248, 0.4)' },
+  badgeAval: { backgroundColor: 'rgba(168, 85, 247, 0.2)', borderColor: 'rgba(192, 132, 252, 0.4)' },
+  badgeText: { fontSize: 10, fontWeight: 'bold' },
+  badgeTextSol: { color: '#38bdf8' },
+  badgeTextAval: { color: '#c084fc' },
   distanciaBadgeContainer: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 8,
@@ -527,7 +573,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   distanciaBadgeText: { color: '#34d399', fontSize: 10, fontWeight: 'bold' },
-  folio: { color: '#64748b', fontSize: 12, fontFamily: 'monospace' },
   nombre: { fontSize: 16, fontWeight: 'bold', color: '#ffffff', marginBottom: 4 },
   direccion: { fontSize: 13, color: '#cbd5e1', marginBottom: 2 },
   ubicacionDetalle: { fontSize: 12, color: '#38bdf8', fontWeight: '500', marginBottom: 12 },

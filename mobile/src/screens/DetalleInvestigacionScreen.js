@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, ActivityIndicator, Alert } from 'react-native';
 import { getInvestigacionDetalle } from '../api/apiClient';
 import { abrirGoogleMapsNativo, abrirWazeNativo } from '../utils/navigationHelper';
+import { formatNombreSucursal, esAval } from '../utils/formatters';
 
 export default function DetalleInvestigacionScreen({ route, navigation }) {
   const { id } = route.params;
@@ -34,21 +35,31 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
     abrirWazeNativo(inv);
   }
 
+  const isAval = esAval(inv);
+  const folioCredito = inv.solicitud_folio || (inv.solicitud_id_sif ? `#${inv.solicitud_id_sif}` : 'N/A');
+  const sucNombre = formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre);
+
   return (
-
-
     <ScrollView style={styles.container}>
       <View style={styles.card}>
-        {(() => {
-          const isAval = inv?.es_aval === true || (inv?.tipo_sujeto || '').toUpperCase().includes('AVAL');
-          return (
-            <Text style={styles.typeBadge}>
-              {isAval ? '🤝 AVAL DE CRÉDITO' : '👤 SOLICITANTE DE PRÉSTAMO'}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <View style={[styles.badge, !isAval ? styles.badgeSol : styles.badgeAval]}>
+            <Text style={[styles.badgeText, !isAval ? styles.badgeTextSol : styles.badgeTextAval]}>
+              {!isAval ? '👤 SOLICITANTE DE PRÉSTAMO' : '🤝 AVAL DE CRÉDITO'}
             </Text>
-          );
-        })()}
+          </View>
+          <Text style={styles.folioHeader}>#{inv.id_sif_research || id}</Text>
+        </View>
+
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Text style={styles.solicitudFolio}>Sol: {folioCredito}</Text>
+          <View style={styles.sucursalContainer}>
+            <Text style={styles.sucursalText}>🏢 Suc. {sucNombre}</Text>
+          </View>
+        </View>
+
         <Text style={styles.nombre}>{inv.sujeto_nombre || 'Socio Sin Nombre'}</Text>
-        <Text style={styles.meta}>Socio N° {inv.persona_id_sif || 'N/A'} • Solicitud #{inv.solicitud_folio || 'N/A'}</Text>
+        <Text style={styles.meta}>Socio N° {inv.persona_id_sif || 'N/A'} • Monto: ${parseFloat(inv.monto_solicitado || 0).toLocaleString('es-MX')}</Text>
       </View>
 
       <View style={styles.section}>
@@ -94,6 +105,23 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a', padding: 16 },
   card: { backgroundColor: '#1e293b', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#334155' },
+  folioHeader: { color: '#ffffff', fontSize: 14, fontWeight: 'bold', fontFamily: 'monospace' },
+  solicitudFolio: { color: '#94a3b8', fontSize: 12, fontWeight: '600' },
+  sucursalContainer: {
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  sucursalText: { color: '#38bdf8', fontSize: 10, fontWeight: 'bold' },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  badgeSol: { backgroundColor: 'rgba(2, 132, 199, 0.2)', borderColor: 'rgba(56, 189, 248, 0.4)' },
+  badgeAval: { backgroundColor: 'rgba(168, 85, 247, 0.2)', borderColor: 'rgba(192, 132, 252, 0.4)' },
+  badgeText: { fontSize: 10, fontWeight: 'bold' },
+  badgeTextSol: { color: '#38bdf8' },
+  badgeTextAval: { color: '#c084fc' },
   typeBadge: { color: '#38bdf8', fontSize: 11, fontWeight: 'bold', marginBottom: 4 },
   nombre: { fontSize: 20, fontWeight: 'bold', color: '#ffffff' },
   meta: { fontSize: 12, color: '#94a3b8', marginTop: 4 },
