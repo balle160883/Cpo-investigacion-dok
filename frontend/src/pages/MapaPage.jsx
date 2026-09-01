@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { io } from 'socket.io-client';
 import { fetchInvestigaciones, fetchUbicacionesInvestigadores, fetchInvestigadores, asignarInvestigadorLote, getApiBaseUrl } from '../services/api';
-import { Navigation, UserCheck, RefreshCw, Layers, Wifi, CheckSquare, Square, MapPin, UserPlus, X, ShieldAlert } from 'lucide-react';
+import { Navigation, UserCheck, RefreshCw, Layers, Wifi, CheckSquare, Square, MapPin, UserPlus, X, ShieldAlert, Building2, AlertTriangle, Layers3 } from 'lucide-react';
 import Toast from '../components/Toast';
-import { esAval, getBadgeSujetoProps } from '../utils/formatters';
+import { esAval, getBadgeSujetoProps, formatNombreSucursal } from '../utils/formatters';
 
 // Mapbox Token from configuration
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -155,6 +155,9 @@ export default function MapaPage() {
             el.style.cursor = 'pointer';
             const esAvalItem = esAval(item);
             const itemBadge = getBadgeSujetoProps(item);
+            const sucNombre = formatNombreSucursal(item.sucursal_id, item.sucursal_nombre);
+            const folioText = item.solicitud_folio || (item.solicitud_id_sif ? `#${item.solicitud_id_sif}` : 'N/A');
+
             el.style.backgroundColor = isCompleted ? '#10b981' : (esAvalItem ? '#9333ea' : '#0284c7');
             el.innerText = esAvalItem ? 'A' : 'S';
 
@@ -162,14 +165,26 @@ export default function MapaPage() {
               .setLngLat([lng, lat])
               .setPopup(
                 new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                  <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                    <div style="font-size: 10px; font-weight: bold; color: ${isCompleted ? '#059669' : (esAvalItem ? '#9333ea' : '#0284c7')}; text-transform: uppercase;">
-                      ${itemBadge.icon} ${itemBadge.label} • ${item.estado}
+                  <div style="color: #0f172a; padding: 6px; font-family: sans-serif; min-width: 190px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                      <span style="font-size: 10px; font-weight: bold; color: ${isCompleted ? '#059669' : (esAvalItem ? '#9333ea' : '#0284c7')}; text-transform: uppercase;">
+                        ${itemBadge.icon} ${itemBadge.label}
+                      </span>
+                      <span style="font-size: 11px; font-weight: bold; font-family: monospace; color: #0f172a;">#${item.id_sif_research}</span>
                     </div>
-                    <strong style="font-size: 13px; color: #0f172a;">${item.sujeto_nombre || 'Socio'}</strong><br/>
+                    <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 3px;">
+                      Sol: <strong style="color: #1e293b;">${folioText}</strong>
+                    </div>
+                    <div style="font-size: 10px; font-weight: bold; color: #0369a1; margin-bottom: 4px;">
+                      🏢 Suc. ${sucNombre}
+                    </div>
+                    <strong style="font-size: 13px; color: #0f172a; display: block; margin-bottom: 2px;">${item.sujeto_nombre || 'Socio'}</strong>
                     <span style="font-size: 11px; color: #475569;">📍 ${item.calle || 'Calle N/A'} #${item.numero_exterior || ''}</span><br/>
                     <span style="font-size: 10px; color: #64748b;">Colonia: ${item.colonia || 'S/N'}</span><br/>
-                    <span style="font-size: 10px; color: #0284c7; font-weight: bold;">Investigador: ${item.investigador_nombre || 'Sin Asignar'}</span>
+                    <div style="margin-top: 5px; padding-top: 4px; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+                      <span style="font-size: 10px; color: #0284c7; font-weight: bold;">👤 ${item.investigador_nombre || 'Sin Asignar'}</span>
+                      <span style="font-size: 9px; font-weight: bold; padding: 2px 5px; border-radius: 4px; background: ${isCompleted ? '#d1fae5; color: #065f46;' : '#e0f2fe; color: #0369a1;'}">${item.estado}</span>
+                    </div>
                   </div>
                 `)
               )
@@ -457,10 +472,15 @@ export default function MapaPage() {
               <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">
                 📍 Visitas Disponibles ({investigaciones.length})
               </span>
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {investigaciones.map((inv, idx) => {
                   const idStr = String(inv.id_sif_research);
                   const isSelected = selectedIds.includes(idStr);
+                  const esAvalInv = esAval(inv);
+                  const badge = getBadgeSujetoProps(inv);
+                  const folioCredito = inv.solicitud_folio || (inv.solicitud_id_sif ? `#${inv.solicitud_id_sif}` : 'N/A');
+                  const sucNombre = formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre);
+
                   return (
                     <div
                       key={idx}
@@ -471,26 +491,71 @@ export default function MapaPage() {
                           centrarEnUbicacion(inv.longitud, inv.latitud, inv.sujeto_nombre);
                         }
                       }}
-                      className={`p-2.5 text-[11px] rounded-xl border cursor-pointer transition flex items-center justify-between ${
+                      className={`p-2.5 rounded-xl border cursor-pointer transition flex flex-col gap-1.5 ${
                         isSelected
-                          ? 'bg-sky-900/60 border-sky-400 text-white shadow-lg'
-                          : 'bg-slate-800/40 hover:bg-slate-800 border-slate-800 text-slate-300'
+                          ? 'bg-sky-950/80 border-sky-400 text-white shadow-lg ring-1 ring-sky-400'
+                          : 'bg-slate-800/50 hover:bg-slate-800 border-slate-800 text-slate-300'
                       }`}
                     >
-                      <div className="flex items-center gap-2 truncate max-w-[170px]">
-                        {loteMode && (
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelectId(idStr)}
-                            className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500"
-                          />
-                        )}
-                        <span className="font-semibold truncate">{inv.sujeto_nombre}</span>
+                      {/* Cabecera del ticket: ID Investigación, Folio de Crédito y Badge Solicitante/Aval */}
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {loteMode && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectId(idStr)}
+                              className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500 mr-0.5"
+                            />
+                          )}
+                          <span className="font-mono font-bold text-white text-xs">#{inv.id_sif_research}</span>
+                          <span className="text-[11px] text-slate-400 font-sans font-medium truncate">
+                            Sol: <strong className="text-slate-300 font-mono">{folioCredito}</strong>
+                          </span>
+                        </div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase inline-flex items-center gap-1 shrink-0 ${badge.badgeClass}`}>
+                          <span>{badge.icon}</span>
+                          <span>{badge.label}</span>
+                        </span>
                       </div>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${inv.estado === 'COMPLETADA' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-sky-500/20 text-sky-400'}`}>
-                        {inv.estado}
-                      </span>
+
+                      {/* Sucursal y Paquete */}
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/30">
+                          🏢 Suc. {sucNombre}
+                        </span>
+                        {inv.paquete_total > 1 && (
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                            inv.paquete_completo
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}>
+                            {inv.paquete_completo ? '🟢' : '⏳'} Paquete {inv.paquete_completadas}/{inv.paquete_total}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Nombre del Socio / Aval y Estado */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold truncate text-white text-xs">{inv.sujeto_nombre || 'Socio Desconocido'}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                          inv.estado === 'COMPLETADA'
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : inv.estado === 'EN_PROCESO'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-sky-500/20 text-sky-400'
+                        }`}>
+                          {inv.estado}
+                        </span>
+                      </div>
+
+                      {/* Advertencia de Inconsistencia si aplica */}
+                      {inv.tiene_inconsistencias && (
+                        <div className="text-[9px] text-rose-300 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded flex items-center gap-1 font-semibold truncate">
+                          <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                          <span>{inv.nivel_inconsistencia === 'ALTA' ? '⚠️ Inconsistencia Crítica' : '⚠️ Inconsistencia'}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
