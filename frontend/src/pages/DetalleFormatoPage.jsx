@@ -7,7 +7,7 @@ import {
   ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, Edit3, MessageSquareText, FileCheck, Sparkles 
 } from 'lucide-react';
 import Toast from '../components/Toast';
-import { formatNombreSucursal, esAval, getEtiquetaSujeto, getEtiquetaSujetoUpper, getBadgeSujetoProps } from '../utils/formatters';
+import { formatNombreSucursal, esAval, getEtiquetaSujeto, getEtiquetaSujetoUpper, getBadgeSujetoProps, formatFechaHoraCaptura } from '../utils/formatters';
 
 // Helper clsx para formateo seguro de clases CSS
 const clsx = (...classes) => classes.flat(Infinity).filter(Boolean).join(' ');
@@ -854,16 +854,7 @@ export default function DetalleFormatoPage() {
           <div className="col-span-2">
             <span className="font-bold">Fecha Captura Sucursal:</span>{' '}
             <span className="font-semibold text-slate-800">
-              {inv.fecha_asignacion || inv.created_at
-                ? new Date(inv.fecha_asignacion || inv.created_at).toLocaleString('es-MX', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  })
-                : new Date().toLocaleDateString('es-MX')}
+              {formatFechaHoraCaptura(inv.created_at || inv.fecha_asignacion, inv.sucursal_id)}
             </span>
           </div>
 

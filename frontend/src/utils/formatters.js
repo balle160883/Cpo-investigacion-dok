@@ -185,3 +185,56 @@ export function getBadgeSujetoProps(item) {
     bgClass: 'bg-sky-500/10',
   };
 }
+
+/**
+ * Mapeo de Zonas Horarias por Sucursal / Estado en México:
+ * - Zona Pacífico (UTC-7): Sinaloa, Sonora, Nayarit
+ * - Zona Centro (UTC-6): Jalisco, Aguascalientes, Michoacán, Guanajuato, etc.
+ */
+export const SUCURSAL_TIMEZONE_MAP = {
+  // Nayarit
+  '40': 'America/Mazatlan', // Rosamorada
+  '51': 'America/Mazatlan', // Acaponeta
+  '54': 'America/Mazatlan', // Tepic
+  // Sinaloa
+  '42': 'America/Mazatlan', // Río Presidio
+  '43': 'America/Mazatlan', // Mazatlán
+  '44': 'America/Mazatlan', // La Cruz
+  '45': 'America/Mazatlan', // Guamúchil
+  '46': 'America/Mazatlan', // Guasave
+  '47': 'America/Mazatlan', // Los Mochis
+  // Sonora
+  '48': 'America/Hermosillo', // Navojoa
+};
+
+export function getTimezonePorSucursal(sucursalId) {
+  if (!sucursalId) return 'America/Mexico_City';
+  const idStr = String(sucursalId).replace(/\D/g, '');
+  return SUCURSAL_TIMEZONE_MAP[idStr] || 'America/Mexico_City';
+}
+
+/**
+ * Formatea de forma precisa la fecha y hora de captura de la sucursal,
+ * respetando la zona horaria del estado donde se ubica la sucursal (Centro o Pacífico).
+ */
+export function formatFechaHoraCaptura(fechaRaw, sucursalId) {
+  if (!fechaRaw) return 'Sin fecha';
+  try {
+    const d = new Date(fechaRaw);
+    if (isNaN(d.getTime())) return 'Fecha inválida';
+
+    const tz = getTimezonePorSucursal(sucursalId);
+    return d.toLocaleString('es-MX', {
+      timeZone: tz,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch (e) {
+    return String(fechaRaw);
+  }
+}
+
