@@ -206,6 +206,7 @@ async function getInvestigaciones(req, res, next) {
           inv.investigador_id,
           inv.fecha_asignacion,
           inv.fecha_cumplimiento,
+          inv.created_at,
           COALESCE(inv.estado, 'PENDIENTE') as estado,
           inv.observaciones_sif,
           inv.estado_validacion,
