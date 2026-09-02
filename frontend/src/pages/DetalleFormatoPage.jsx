@@ -888,7 +888,15 @@ export default function DetalleFormatoPage() {
             )}
           </div>
           <div>
-            <span className="font-bold">Teléfono:</span> {est.telefono || 'N/A'}
+            <span className="font-bold">Teléfono:</span>{' '}
+            <span className="font-semibold text-slate-800">
+              {est.telefono_visitado || est.telefono || inv.telefono_principal || inv.telefono || 'N/A'}
+            </span>
+            {est.telefono_visitado && est.telefono_visitado !== (inv.telefono_principal || inv.telefono) && (
+              <span className="block text-[10px] text-teal-700 font-bold">
+                📞 Verificado en Visita: {est.telefono_visitado}
+              </span>
+            )}
           </div>
         </div>
 
@@ -924,8 +932,15 @@ export default function DetalleFormatoPage() {
                 <span><strong>Tipo:</strong> {est.tipo_identificacion || 'INE'}</span>
                 <span><strong>Folio:</strong> {est.folio_identificacion || 'N/A'}</span>
               </div>
-              <div className={clsx('text-[11px]', 'pt-1')}>
-                <strong>Ocupación ({isAval ? 'del Aval' : 'del Solicitante'}):</strong> <span className={clsx('font-semibold', 'text-slate-900')}>{est.ocupacion || 'No especificada'}</span>
+              <div className={clsx('text-[11px]', 'pt-1', 'grid', 'grid-cols-2', 'gap-2')}>
+                <div>
+                  <strong>Ocupación ({isAval ? 'del Aval' : 'del Solicitante'}):</strong>{' '}
+                  <span className={clsx('font-semibold', 'text-slate-900')}>{est.ocupacion || 'No especificada'}</span>
+                </div>
+                <div>
+                  <strong>Teléfono en Visita:</strong>{' '}
+                  <span className={clsx('font-semibold', 'text-slate-900')}>{est.telefono_visitado || inv.telefono_principal || inv.telefono || 'N/A'}</span>
+                </div>
               </div>
 
               <div className={clsx('font-bold', 'border-b', 'border-slate-300', 'pb-1', 'pt-2')}>Particulares del Domicilio:</div>
@@ -982,7 +997,11 @@ export default function DetalleFormatoPage() {
                 <div>Mayores 18 años: <strong>{est.personas_mayores_18 || '2'}</strong> | Menores 18 años: <strong>{est.personas_menores_18 || '0'}</strong></div>
                 <div>Personas que generan ingresos: <strong>{est.personas_generan_ingresos || '1'}</strong></div>
                 <div>Personas que estudian: <strong>{est.personas_estudian || '0'}</strong></div>
-                <div>Reciben pensión: <strong>{est.recibe_pension ? 'SÍ' : 'NO'}</strong></div>
+                <div>
+                  Persona con pensión: <strong>{est.recibe_pension ? 'SÍ' : (parseInt(est.personas_reciben_pension || 0) > 0 ? 'SÍ' : 'NO')}</strong>
+                  {parseInt(est.personas_reciben_pension || 0) > 0 && <span className="text-slate-700 font-semibold"> ({est.personas_reciben_pension} pers.)</span>}
+                  {est.tipo_pension ? <span className="text-slate-600 italic"> - {est.tipo_pension}</span> : ''}
+                </div>
               </div>
             </div>
           </div>
@@ -991,7 +1010,14 @@ export default function DetalleFormatoPage() {
           <div className={clsx('border-t', 'border-slate-300', 'p-3', 'bg-slate-50', 'grid', 'grid-cols-3', 'gap-4', 'text-xs')}>
             <div><strong>Valor Estimado Casa:</strong> ${parseFloat(est.valor_estimado_casa || 0).toLocaleString('es-MX')}</div>
             <div><strong>Valor Muebles:</strong> ${parseFloat(est.valor_estimado_muebles || 0).toLocaleString('es-MX')}</div>
-            <div><strong>Valor Automóvil:</strong> ${parseFloat(est.valor_estimado_automovil || 0).toLocaleString('es-MX')}</div>
+            <div>
+              <strong>Automóvil / Vehículo:</strong> ${parseFloat(est.valor_estimado_automovil || 0).toLocaleString('es-MX')}
+              {est.tiene_vehiculo !== undefined && (
+                <div className="text-[10px] text-slate-700 mt-0.5 font-medium">
+                  {est.tiene_vehiculo ? `🚗 ${est.detalles_vehiculo || 'Cuenta con vehículo'}` : '🚫 No cuenta con vehículo'}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

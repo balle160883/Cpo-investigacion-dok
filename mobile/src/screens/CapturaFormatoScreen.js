@@ -45,9 +45,21 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [personasMenores18, setPersonasMenores18] = useState('0');
   const [personasGeneranIngresos, setPersonasGeneranIngresos] = useState('1');
 
+  // Pensión
+  const [recibePension, setRecibePension] = useState('NO');
+  const [personasPensionadas, setPersonasPensionadas] = useState('0');
+  const [tipoPension, setTipoPension] = useState('');
+
+  // Teléfono visitado
+  const [telefonoVisitado, setTelefonoVisitado] = useState(inv?.telefono_principal || inv?.telefono || '');
+
+  // Vehículo
+  const [tieneVehiculo, setTieneVehiculo] = useState('NO');
+  const [detallesVehiculo, setDetallesVehiculo] = useState('');
+  const [valorAuto, setValorAuto] = useState('0');
+
   const [valorCasa, setValorCasa] = useState('0');
   const [valorMuebles, setValorMuebles] = useState('0');
-  const [valorAuto, setValorAuto] = useState('0');
 
   const [dictamen, setDictamen] = useState('DOMICILIO CONFIRMADO');
   const [supuesto, setSupuesto] = useState('');
@@ -352,9 +364,15 @@ ${observaciones || 'Sin observaciones adicionales.'}${infoCita}
         personas_mayores_18: parseInt(personasMayores18 || '0'),
         personas_menores_18: parseInt(personasMenores18 || '0'),
         personas_generan_ingresos: parseInt(personasGeneranIngresos || '0'),
+        recibe_pension: recibePension === 'SI',
+        personas_reciben_pension: parseInt(personasPensionadas || (recibePension === 'SI' ? '1' : '0')),
+        tipo_pension: tipoPension,
+        telefono_visitado: telefonoVisitado,
+        tiene_vehiculo: tieneVehiculo === 'SI',
+        detalles_vehiculo: detallesVehiculo,
         valor_estimado_casa: parseFloat(valorCasa || 0),
         valor_estimado_muebles: parseFloat(valorMuebles || 0),
-        valor_estimado_automovil: parseFloat(valorAuto || 0),
+        valor_estimado_automovil: tieneVehiculo === 'SI' ? parseFloat(valorAuto || 0) : 0,
         tiene_direccion_diferente: tieneDireccionDiferente,
         calle_real: calleReal,
         colonia_real: coloniaReal,
@@ -489,6 +507,16 @@ ${observaciones || 'Sin observaciones adicionales.'}${infoCita}
           )}
         </TouchableOpacity>
 
+
+        <Text style={styles.label}>Teléfono de Contacto (Persona que Atiende / Visitada):</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej. 33 1234 5678"
+          placeholderTextColor="#64748b"
+          value={telefonoVisitado}
+          onChangeText={setTelefonoVisitado}
+          keyboardType="phone-pad"
+        />
 
         <Text style={styles.label}>Ocupación ({isAval ? 'del Aval' : 'del Solicitante'}):</Text>
         <TextInput
@@ -766,6 +794,56 @@ ${observaciones || 'Sin observaciones adicionales.'}${infoCita}
             placeholder="Ej. 1"
             placeholderTextColor="#64748b"
           />
+
+          {/* PERSONA CON PENSIÓN */}
+          <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#1e293b' }}>
+            <Text style={styles.label}>¿Algún Integrante del Hogar Recibe Pensión?:</Text>
+            <View style={styles.row}>
+              <TouchableOpacity
+                style={[styles.chip, recibePension === 'NO' && styles.chipActive]}
+                onPress={() => {
+                  setRecibePension('NO');
+                  setPersonasPensionadas('0');
+                }}
+              >
+                <Text style={styles.chipText}>NO [ ]</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, recibePension === 'SI' && styles.chipActive]}
+                onPress={() => {
+                  setRecibePension('SI');
+                  if (personasPensionadas === '0') setPersonasPensionadas('1');
+                }}
+              >
+                <Text style={styles.chipText}>SÍ [X] (Con Pensión)</Text>
+              </TouchableOpacity>
+            </View>
+
+            {recibePension === 'SI' && (
+              <View style={{ marginTop: 8, backgroundColor: '#0f172a', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#38bdf8' }}>
+                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#38bdf8', marginBottom: 6 }}>
+                  🏦 Detalle de la Pensión:
+                </Text>
+                <Text style={styles.label}>Personas que Reciben Pensión:</Text>
+                <TextInput
+                  style={styles.input}
+                  value={personasPensionadas}
+                  onChangeText={setPersonasPensionadas}
+                  keyboardType="numeric"
+                  placeholder="Ej. 1"
+                  placeholderTextColor="#64748b"
+                />
+                <Text style={styles.label}>Tipo / Origen de Pensión:</Text>
+                <TextInput
+                  style={styles.input}
+                  value={tipoPension}
+                  onChangeText={setTipoPension}
+                  placeholder="Ej. Jubilación IMSS, Adulto Mayor, Viudez, Incapacidad"
+                  placeholderTextColor="#64748b"
+                />
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={{ marginTop: 8 }}>
@@ -787,6 +865,55 @@ ${observaciones || 'Sin observaciones adicionales.'}${infoCita}
             placeholder="0.00"
             placeholderTextColor="#64748b"
           />
+        </View>
+
+        {/* VEHÍCULO / AUTOMÓVIL */}
+        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#334155' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#38bdf8', marginBottom: 6 }}>
+            🚗 Vehículo / Automóvil:
+          </Text>
+
+          <Text style={styles.label}>¿Cuenta con Vehículo Propio?:</Text>
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[styles.chip, tieneVehiculo === 'NO' && styles.chipActive]}
+              onPress={() => {
+                setTieneVehiculo('NO');
+                setValorAuto('0');
+              }}
+            >
+              <Text style={styles.chipText}>NO [ ]</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, tieneVehiculo === 'SI' && styles.chipActive]}
+              onPress={() => setTieneVehiculo('SI')}
+            >
+              <Text style={styles.chipText}>SÍ [X] (Tiene Vehículo)</Text>
+            </TouchableOpacity>
+          </View>
+
+          {tieneVehiculo === 'SI' && (
+            <View style={{ marginTop: 8, backgroundColor: '#0f172a', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#38bdf8' }}>
+              <Text style={styles.label}>Marca, Modelo, Año y/o Placas:</Text>
+              <TextInput
+                style={styles.input}
+                value={detallesVehiculo}
+                onChangeText={setDetallesVehiculo}
+                placeholder="Ej. Nissan Versa 2020 / Placas JKL-1234"
+                placeholderTextColor="#64748b"
+              />
+
+              <Text style={styles.label}>Valor Estimado del Automóvil ($):</Text>
+              <TextInput
+                style={styles.input}
+                value={valorAuto}
+                onChangeText={setValorAuto}
+                keyboardType="numeric"
+                placeholder="Ej. 120,000"
+                placeholderTextColor="#64748b"
+              />
+            </View>
+          )}
         </View>
 
         {/* INFORMACIÓN DE REFERENCIAS / AVALES (PARENTESCO Y TIEMPO CONOCERLO) */}

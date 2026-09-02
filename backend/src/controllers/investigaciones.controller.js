@@ -669,8 +669,8 @@ async function guardarEvidencia(req, res, next) {
 
     await db.query(`
       UPDATE investigaciones
-      SET estado = 'COMPLETADA', fecha_cumplimiento = NOW(), observaciones_sif = $1, updated_at = NOW()
-      WHERE id_sif_research = $2;
+      SET estado = 'COMPLETADA', fecha_cumplimiento = NOW(), observaciones_sif = $1, origen_asignacion = 'PLATAFORMA_CPO', asignacion_manual = TRUE, updated_at = NOW()
+      WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
     `, [notas_investigador ? `${notas_investigador}${supuestoValor ? ` (Supuesto: ${supuestoValor})` : ''}` : (dictamenInfo || 'Completada desde App Móvil'), id]);
 
     res.json({ success: true, message: 'Estudio e investigación guardados correctamente' });

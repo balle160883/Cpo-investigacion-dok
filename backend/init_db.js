@@ -130,7 +130,7 @@ async function initDb() {
         CREATE OR REPLACE FUNCTION protect_manual_assignment()
         RETURNS TRIGGER AS $$
         BEGIN
-          -- 1. Si la actualización proviene directamente de la Plataforma Web CPO
+          -- 1. Si la actualización proviene directamente de la Plataforma Web CPO o App Móvil
           IF NEW.origen_asignacion = 'PLATAFORMA_CPO' THEN
             NEW.asignacion_manual := TRUE;
             NEW.origen_asignacion := NULL;
@@ -139,8 +139,11 @@ async function initDb() {
             END IF;
           -- 2. Si la actualización proviene del Sincronizador de SIF (externo)
           ELSE
-            -- Si la investigación ya fue asignada manualmente o está en proceso en CPO
-            IF OLD.asignacion_manual = TRUE OR OLD.estado = 'EN_PROCESO' THEN
+            -- Si la investigación ya fue asignada manualmente, está en proceso/completada/validada en CPO o ya tiene evidencias
+            IF OLD.asignacion_manual = TRUE 
+               OR OLD.estado IN ('EN_PROCESO', 'COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR', 'RECHAZADA')
+               OR EXISTS (SELECT 1 FROM evidencias_visita ev WHERE CAST(ev.investigacion_id_sif AS TEXT) = CAST(OLD.id_sif_research AS TEXT)) THEN
+
               -- Preservar el investigador asignado en CPO
               IF OLD.investigador_id IS NOT NULL THEN
                 NEW.investigador_id := OLD.investigador_id;
@@ -152,11 +155,23 @@ async function initDb() {
                 NEW.fecha_asignacion := OLD.fecha_asignacion;
               END IF;
 
-              -- Preservar estado EN_PROCESO para que el sincronizador no la regrese a PENDIENTE
-              -- Solo se permite que cambie si en SIF pasa a COMPLETADA o si ya fue VALIDADA/APROBADA
-              IF (OLD.estado = 'EN_PROCESO' OR OLD.estado IN ('VALIDADA', 'APROBADA_FINAL')) 
+              -- Preservar fecha de cumplimiento si ya fue completada
+              IF OLD.fecha_cumplimiento IS NOT NULL AND NEW.fecha_cumplimiento IS NULL THEN
+                NEW.fecha_cumplimiento := OLD.fecha_cumplimiento;
+              END IF;
+
+              -- Preservar estado completado o en proceso para que el sincronizador de SIF no la regrese a PENDIENTE
+              IF (OLD.estado IN ('EN_PROCESO', 'COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR', 'RECHAZADA') 
+                  OR EXISTS (SELECT 1 FROM evidencias_visita ev WHERE CAST(ev.investigacion_id_sif AS TEXT) = CAST(OLD.id_sif_research AS TEXT)))
                  AND (NEW.estado = 'PENDIENTE' OR NEW.estado IS NULL) THEN
-                NEW.estado := OLD.estado;
+                
+                -- Si ya cuenta con evidencias de visita capturadas, el estado mínimo debe ser COMPLETADA
+                IF EXISTS (SELECT 1 FROM evidencias_visita ev WHERE CAST(ev.investigacion_id_sif AS TEXT) = CAST(OLD.id_sif_research AS TEXT)) 
+                   AND (OLD.estado IS NULL OR OLD.estado IN ('PENDIENTE', 'EN_PROCESO')) THEN
+                  NEW.estado := 'COMPLETADA';
+                ELSE
+                  NEW.estado := OLD.estado;
+                END IF;
               END IF;
             END IF;
           END IF;
