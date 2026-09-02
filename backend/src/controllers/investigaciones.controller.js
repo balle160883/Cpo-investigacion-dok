@@ -196,6 +196,24 @@ async function getInvestigaciones(req, res, next) {
     queryParams.push(offset);
     const offsetIndex = queryParams.length;
 
+    let orderClause = '';
+    let outerOrderClause = '';
+
+    if (estado && ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'HISTORICO'].includes(estado.toUpperCase())) {
+      orderClause = 'ORDER BY COALESCE(inv.fecha_cumplimiento, inv.fecha_asignacion, inv.created_at) DESC, inv.id_sif_research DESC';
+      outerOrderClause = 'ORDER BY COALESCE(pag.fecha_cumplimiento, pag.fecha_asignacion, pag.created_at) DESC, pag.id_sif_research DESC;';
+    } else {
+      // Cola activa o pendientes: Mostrar primero las no completadas con la fecha de captación de sucursal más vieja (ASC) para darles prioridad
+      orderClause = `ORDER BY 
+        CASE WHEN inv.estado IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL') THEN 1 ELSE 0 END ASC,
+        COALESCE(inv.fecha_asignacion, inv.created_at) ASC, 
+        inv.id_sif_research ASC`;
+      outerOrderClause = `ORDER BY 
+        CASE WHEN pag.estado IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL') THEN 1 ELSE 0 END ASC,
+        COALESCE(pag.fecha_asignacion, pag.created_at) ASC, 
+        pag.id_sif_research ASC;`;
+    }
+
     const dataQuery = `
       WITH paginated AS (
         SELECT 
@@ -247,7 +265,7 @@ async function getInvestigaciones(req, res, next) {
         LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
         LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
         ${whereSql}
-        ORDER BY COALESCE(inv.fecha_asignacion, inv.created_at) DESC, inv.id_sif_research DESC
+        ${orderClause}
         LIMIT $${limitIndex} OFFSET $${offsetIndex}
       )
       SELECT 
@@ -282,7 +300,7 @@ async function getInvestigaciones(req, res, next) {
         ORDER BY ev2.created_at DESC
         LIMIT 1
       ) vigencia ON TRUE
-      ORDER BY COALESCE(pag.fecha_asignacion, pag.created_at) DESC, pag.id_sif_research DESC;
+      ${outerOrderClause}
     `;
 
     const totalRes = await db.query(countQuery, countParams);
