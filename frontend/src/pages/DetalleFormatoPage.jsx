@@ -852,7 +852,19 @@ export default function DetalleFormatoPage() {
             <span className="font-semibold text-slate-800">{formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre)}</span>
           </div>
           <div className="col-span-2">
-            <span className="font-bold">Fecha:</span> {inv.fecha_asignacion ? new Date(inv.fecha_asignacion).toLocaleDateString('es-MX') : new Date().toLocaleDateString('es-MX')}
+            <span className="font-bold">Fecha Captura Sucursal:</span>{' '}
+            <span className="font-semibold text-slate-800">
+              {inv.fecha_asignacion || inv.created_at
+                ? new Date(inv.fecha_asignacion || inv.created_at).toLocaleString('es-MX', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })
+                : new Date().toLocaleDateString('es-MX')}
+            </span>
           </div>
 
           <div className={clsx('col-span-2', 'flex', 'items-center', 'gap-1.5')}>

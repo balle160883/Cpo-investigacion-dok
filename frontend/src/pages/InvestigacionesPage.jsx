@@ -631,6 +631,21 @@ export default function InvestigacionesPage() {
                           🏢 Suc. {formatNombreSucursal(row.sucursal_id, row.sucursal_nombre)}
                         </span>
                       </div>
+                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-300 font-sans font-medium" title="Fecha y Hora en que la sucursal capturó la solicitud en SIF">
+                        <span className="text-sky-400">📅</span>
+                        <span>
+                          {row.fecha_asignacion || row.created_at
+                            ? new Date(row.fecha_asignacion || row.created_at).toLocaleString('es-MX', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })
+                            : 'Sin fecha'}
+                        </span>
+                      </div>
                       {row.paquete_total > 1 && (
                         <div className="mt-1">
                           {row.paquete_completo ? (

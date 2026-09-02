@@ -246,7 +246,7 @@ async function getInvestigaciones(req, res, next) {
         LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
         LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
         ${whereSql}
-        ORDER BY inv.fecha_asignacion DESC NULLS LAST, inv.id_sif_research DESC
+        ORDER BY COALESCE(inv.fecha_asignacion, inv.created_at) DESC, inv.id_sif_research DESC
         LIMIT $${limitIndex} OFFSET $${offsetIndex}
       )
       SELECT 
@@ -281,7 +281,7 @@ async function getInvestigaciones(req, res, next) {
         ORDER BY ev2.created_at DESC
         LIMIT 1
       ) vigencia ON TRUE
-      ORDER BY pag.fecha_asignacion DESC NULLS LAST, pag.id_sif_research DESC;
+      ORDER BY COALESCE(pag.fecha_asignacion, pag.created_at) DESC, pag.id_sif_research DESC;
     `;
 
     const totalRes = await db.query(countQuery, countParams);
