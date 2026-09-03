@@ -237,7 +237,8 @@ async function getInvestigaciones(req, res, next) {
           p.nombre_completo as sujeto_nombre,
           p.es_aval,
           p.estado_contacto_semaforo,
-          p.telefono_principal,
+          COALESCE(p.telefono_principal, p.telefono) as telefono_principal,
+          p.telefono,
           p.telefono_secundario,
           p.curp,
           p.rfc,
@@ -359,7 +360,8 @@ async function getInvestigacionDetalle(req, res, next) {
         p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido,
         p.genero, p.es_aval,
         p.estado_contacto_semaforo,
-        p.telefono_principal,
+        COALESCE(p.telefono_principal, p.telefono) as telefono_principal,
+        p.telefono,
         p.telefono_secundario,
         p.curp,
         p.rfc,
@@ -692,6 +694,31 @@ async function guardarEvidencia(req, res, next) {
       WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
     `, [notas_investigador ? `${notas_investigador}${supuestoValor ? ` (Supuesto: ${supuestoValor})` : ''}` : (dictamenInfo || 'Completada desde App Móvil'), id]);
 
+    // Si se capturó o confirmó un teléfono durante la visita, actualizar la tabla personas
+    if (estudio_socioeconomico?.telefono_visitado && String(estudio_socioeconomico.telefono_visitado).trim()) {
+      const telVisitadoLimpio = String(estudio_socioeconomico.telefono_visitado).trim();
+      try {
+        await db.query(`
+          UPDATE personas
+          SET telefono_principal = $1,
+              telefono = $1,
+              estado_contacto_semaforo = 'VERDE',
+              fuente_datos_contacto = 'VISITA_INVESTIGADOR',
+              fecha_validacion_contacto = NOW(),
+              usuario_validacion_contacto = $2,
+              updated_at = NOW()
+          WHERE CAST(id_sif AS TEXT) = (
+            SELECT CAST(persona_id_sif AS TEXT) 
+            FROM investigaciones 
+            WHERE CAST(id_sif_research AS TEXT) = CAST($3 AS TEXT) OR CAST(id AS TEXT) = CAST($3 AS TEXT) 
+            LIMIT 1
+          );
+        `, [telVisitadoLimpio, req.user?.nombre || 'Investigador Móvil', id]);
+      } catch (errTel) {
+        console.error('Aviso: No se pudo actualizar teléfono en tabla personas al guardar visita:', errTel.message);
+      }
+    }
+
     res.json({ success: true, message: 'Estudio e investigación guardados correctamente' });
   } catch (err) {
     next(err);
@@ -929,6 +956,70 @@ async function guardarComentariosValidador(req, res, next) {
   }
 }
 
+async function actualizarTelefonoInvestigacion(req, res, next) {
+  try {
+    const id = req.params.id;
+    const { telefono, telefonoSecundario } = req.body;
+
+    if (!telefono || !String(telefono).trim()) {
+      return res.status(400).json({ error: 'El número de teléfono es requerido.' });
+    }
+
+    const telLimpio = String(telefono).trim();
+    const telSec = telefonoSecundario ? String(telefonoSecundario).trim() : null;
+
+    // 1. Obtener la persona vinculada a la investigación
+    const { rows: invRows } = await db.query(
+      `SELECT persona_id_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) OR CAST(id AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
+      [id]
+    );
+
+    if (invRows.length === 0) {
+      return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+
+    const personaId = invRows[0].persona_id_sif;
+
+    // 2. Actualizar personas
+    if (personaId) {
+      await db.query(
+        `UPDATE personas
+         SET telefono_principal = $1,
+             telefono = $1,
+             telefono_secundario = COALESCE($2, telefono_secundario),
+             estado_contacto_semaforo = 'VERDE',
+             fuente_datos_contacto = 'INVESTIGADOR_MOVIL',
+             fecha_validacion_contacto = NOW(),
+             usuario_validacion_contacto = $3,
+             updated_at = NOW()
+         WHERE CAST(id_sif AS TEXT) = CAST($4 AS TEXT);`,
+        [telLimpio, telSec, req.user?.nombre || 'Investigador Móvil', personaId]
+      );
+    }
+
+    // 3. Actualizar evidencias_visita si ya existe registro
+    try {
+      await db.query(
+        `UPDATE evidencias_visita
+         SET estudio_socioeconomico = jsonb_set(COALESCE(estudio_socioeconomico, '{}'::jsonb), '{telefono_visitado}', to_jsonb($1::text))
+         WHERE CAST(investigacion_id_sif AS TEXT) = CAST($2 AS TEXT);`,
+        [telLimpio, id]
+      );
+    } catch (e) {
+      console.log('Aviso al actualizar teléfono en evidencia:', e.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Teléfono actualizado correctamente en la base de datos',
+      telefono_principal: telLimpio,
+      telefono_secundario: telSec,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
@@ -940,4 +1031,6 @@ module.exports = {
   validarInvestigacion,
   revalidarInvestigacion,
   guardarComentariosValidador,
+  actualizarTelefonoInvestigacion,
 };
+

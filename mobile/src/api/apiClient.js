@@ -360,3 +360,25 @@ export async function escanearINEConFoto(base64Image) {
   if (!res.ok) throw new Error(data.error || 'Error al procesar la imagen del INE');
   return data;
 }
+
+/**
+ * Actualiza el teléfono de contacto de la persona investigada en la base de datos PostgreSQL.
+ * @param {string|number} id - ID de la investigación (id_sif_research)
+ * @param {string} telefono - Nuevo número de teléfono
+ * @param {string} [telefonoSecundario] - Teléfono secundario opcional
+ */
+export async function actualizarTelefonoInvestigacion(id, telefono, telefonoSecundario) {
+  const token = await getToken();
+  const res = await fetch(`${BASE_URL}/investigaciones/${id}/telefono`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : '',
+    },
+    body: JSON.stringify({ telefono, telefonoSecundario }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al actualizar el teléfono');
+  return data;
+}
+

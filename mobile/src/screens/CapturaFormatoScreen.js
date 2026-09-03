@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, Share } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, Share, Linking } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { guardarEvidenciaInvestigacion, escanearINEConFoto } from '../api/apiClient';
@@ -509,14 +509,36 @@ ${observaciones || 'Sin observaciones adicionales.'}${infoCita}
 
 
         <Text style={styles.label}>Teléfono de Contacto (Persona que Atiende / Visitada):</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ej. 33 1234 5678"
-          placeholderTextColor="#64748b"
-          value={telefonoVisitado}
-          onChangeText={setTelefonoVisitado}
-          keyboardType="phone-pad"
-        />
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+          <TextInput
+            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            placeholder="Ej. 33 1234 5678"
+            placeholderTextColor="#64748b"
+            value={telefonoVisitado}
+            onChangeText={setTelefonoVisitado}
+            keyboardType="phone-pad"
+          />
+          {Boolean(telefonoVisitado) && (
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#059669',
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+                borderRadius: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onPress={() => {
+                const clean = String(telefonoVisitado).replace(/[^0-9+]/g, '');
+                Linking.openURL(`tel:${clean}`).catch(() => {
+                  Alert.alert('Error', 'No se pudo abrir la aplicación de llamadas.');
+                });
+              }}
+            >
+              <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12 }}>📞 Llamar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <Text style={styles.label}>Ocupación ({isAval ? 'del Aval' : 'del Solicitante'}):</Text>
         <TextInput

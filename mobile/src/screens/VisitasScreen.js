@@ -419,6 +419,13 @@ export default function VisitasScreen({ navigation, route }) {
                 </View>
 
                 <Text style={styles.nombre}>{item.sujeto_nombre || 'Socio Sin Nombre'}</Text>
+
+                {/* TELÉFONO DE CONTACTO */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, marginBottom: 4 }}>
+                  <Text style={{ fontSize: 13, color: item.telefono_principal ? '#38bdf8' : '#64748b', fontWeight: item.telefono_principal ? 'bold' : 'normal' }}>
+                    📞 {item.telefono_principal || 'Sin teléfono registrado'}
+                  </Text>
+                </View>
                 
                 <Text style={styles.direccion}>
                   📍 {item.calle ? `${item.calle} #${item.numero_exterior || ''}` : 'Sin Calle'}
