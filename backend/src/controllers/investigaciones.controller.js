@@ -790,6 +790,61 @@ async function validarInvestigacion(req, res, next) {
       datos_nuevos: { estado: nuevoEstado, comentarios_validacion: comentarios },
     });
 
+    // Disparar Notificación por Correo a Analistas si está habilitado el disparador
+    if (accion === 'VALIDAR') {
+      (async () => {
+        try {
+          const { rows: trRows } = await db.query("SELECT valor FROM configuracion_sistema WHERE clave = 'email_triggers';");
+          const triggers = trRows.length > 0 ? trRows[0].valor : {};
+          if (triggers.notificar_analista_al_validar) {
+            const { sendCreditoValidadoEmail } = require('../utils/mailer.service');
+
+            // Obtener información del crédito y socio
+            const { rows: infoRows } = await db.query(`
+              SELECT 
+                inv.id_sif_research,
+                s.folio as solicitud_folio,
+                s.monto_solicitado,
+                s.sucursal_nombre,
+                p.nombre_completo as cliente_nombre
+              FROM investigaciones inv
+              LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
+              LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+              WHERE CAST(inv.id_sif_research AS TEXT) = CAST($1 AS TEXT)
+              LIMIT 1;
+            `, [id]);
+
+            // Obtener correos de los analistas activos
+            const { rows: analistasRows } = await db.query(`
+              SELECT email FROM investigadores 
+              WHERE (rol ILIKE '%analista%' OR rol ILIKE '%superadmin%') 
+                AND activo = TRUE 
+                AND email IS NOT NULL 
+                AND email != '';
+            `);
+
+            const dataCr = infoRows[0] || {};
+            const emails = analistasRows.map(r => r.email).filter(Boolean);
+
+            for (const emailTo of emails) {
+              await sendCreditoValidadoEmail({
+                to: emailTo,
+                solicitudFolio: dataCr.solicitud_folio,
+                clienteNombre: dataCr.cliente_nombre,
+                sucursalNombre: dataCr.sucursal_nombre,
+                montoSolicitado: dataCr.monto_solicitado,
+                validadorNombre: req.user?.nombre || 'Validador de Crédito',
+                comentariosValidador: comentarios || 'Visto bueno otorgado.',
+                investigacionId: id,
+              });
+            }
+          }
+        } catch (errEmail) {
+          console.error('[EMAIL ERROR] Error enviando alerta a analistas tras validación:', errEmail.message);
+        }
+      })();
+    }
+
     res.json({
       success: true,
       message: `Investigación marcada como ${nuevoEstado} correctamente`,

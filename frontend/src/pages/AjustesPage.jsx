@@ -468,30 +468,43 @@ export default function AjustesPage() {
             <div className="border-t border-slate-800 pt-5 space-y-3">
               <h4 className="font-bold text-slate-200 text-xs uppercase tracking-wider">Disparadores Automáticos de Correo</h4>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <label className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between cursor-pointer">
-                  <div>
-                    <div className="font-bold text-slate-200">📩 Alertas a Validadores / Analistas</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                <label className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between cursor-pointer hover:border-slate-700 transition">
+                  <div className="pr-2">
+                    <div className="font-bold text-slate-200">📩 Alertas a Validadores</div>
                     <div className="text-[11px] text-slate-400">Notificar al correo cuando un investigador complete una visita en campo.</div>
                   </div>
                   <input
                     type="checkbox"
                     checked={emailTriggers.notificar_validador_al_completar}
                     onChange={(e) => setEmailTriggers({ ...emailTriggers, notificar_validador_al_completar: e.target.checked })}
-                    className="w-4 h-4 rounded accent-sky-500"
+                    className="w-4 h-4 rounded accent-sky-500 shrink-0"
                   />
                 </label>
 
-                <label className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between cursor-pointer">
-                  <div>
-                    <div className="font-bold text-slate-200">📩 Alertas de Devolución a Sucursales</div>
-                    <div className="text-[11px] text-slate-400">Notificar a la sucursal cuando un analista devuelva un expediente.</div>
+                <label className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between cursor-pointer hover:border-slate-700 transition">
+                  <div className="pr-2">
+                    <div className="font-bold text-slate-200">📩 Visto Bueno a Analistas</div>
+                    <div className="text-[11px] text-slate-400">Notificar a los analistas cuando el validador apruebe y valide las visitas del préstamo.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={emailTriggers.notificar_analista_al_validar}
+                    onChange={(e) => setEmailTriggers({ ...emailTriggers, notificar_analista_al_validar: e.target.checked })}
+                    className="w-4 h-4 rounded accent-sky-500 shrink-0"
+                  />
+                </label>
+
+                <label className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between cursor-pointer hover:border-slate-700 transition">
+                  <div className="pr-2">
+                    <div className="font-bold text-slate-200">📩 Alertas de Devolución a Sucursal</div>
+                    <div className="text-[11px] text-slate-400">Notificar a la sucursal cuando un analista o validador devuelva un expediente.</div>
                   </div>
                   <input
                     type="checkbox"
                     checked={emailTriggers.notificar_sucursal_devolucion}
                     onChange={(e) => setEmailTriggers({ ...emailTriggers, notificar_sucursal_devolucion: e.target.checked })}
-                    className="w-4 h-4 rounded accent-sky-500"
+                    className="w-4 h-4 rounded accent-sky-500 shrink-0"
                   />
                 </label>
               </div>
