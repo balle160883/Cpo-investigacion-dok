@@ -111,13 +111,13 @@ async function getInvestigaciones(req, res, next) {
         }
       }
 
-      // VALIDADOR PURO (sin rol asignador ni admin): Solo ve cuando todas las visitas del crédito están completadas
+      // VALIDADOR PURO (sin rol asignador ni admin): Solo ve cuando todas las visitas del crédito están completadas o con visita reagendada
       if (esSoloValidador) {
         whereClauses.push(`NOT EXISTS (
           SELECT 1 
           FROM investigaciones inv_sub 
           WHERE inv_sub.solicitud_id_sif = inv.solicitud_id_sif
-            AND (inv_sub.estado IS NULL OR inv_sub.estado != 'COMPLETADA')
+            AND (inv_sub.estado IS NULL OR inv_sub.estado NOT IN ('COMPLETADA', 'REAGENDADA'))
         )`);
       }
 
@@ -134,7 +134,7 @@ async function getInvestigaciones(req, res, next) {
 
     if (estado) {
       if (estado === 'PENDIENTE') {
-        whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'EN_PROCESO')`);
+        whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'EN_PROCESO' OR inv.estado = 'REAGENDADA')`);
       } else if (estado === 'TODAS') {
         // Muestra todas las investigaciones históricas sin filtrar por estado
       } else {
@@ -688,11 +688,60 @@ async function guardarEvidencia(req, res, next) {
       notas_investigador || dictamenInfo
     ]);
 
-    await db.query(`
-      UPDATE investigaciones
-      SET estado = 'COMPLETADA', fecha_cumplimiento = NOW(), observaciones_sif = $1, origen_asignacion = 'PLATAFORMA_CPO', asignacion_manual = TRUE, updated_at = NOW()
-      WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
-    `, [notas_investigador ? `${notas_investigador}${supuestoValor ? ` (Supuesto: ${supuestoValor})` : ''}` : (dictamenInfo || 'Completada desde App Móvil'), id]);
+    // Detección de visita con cita o folio
+    const esCitaOFolio = 
+      (supuestoValor && /con\s*(folio|cita)/i.test(supuestoValor.trim())) ||
+      (dictamen && /pendiente/i.test(dictamen) && /folio|cita/i.test(supuestoValor || ''));
+
+    if (esCitaOFolio) {
+      // 1. NO se marca como COMPLETADA.
+      // 2. Se pasa a estado 'REAGENDADA' y se desasigna el investigador (investigador_id = NULL)
+      //    para que pase directamente a la bandeja del Asignador como pendiente de asignación (Opción A).
+      // 3. Se guarda el ticket/supuesto en observaciones_sif para informar tanto al asignador como al validador.
+      const obsReagenda = notas_investigador
+        ? `${notas_investigador} [REAGENDADA: Visita de campo registrada ${supuestoValor ? `con ${supuestoValor}` : ''} - Turnada a reasignación]`
+        : `Visita de campo registrada ${supuestoValor ? `con ${supuestoValor}` : ''}. Turnada al asignador para reagenda y reasignación de fecha.`;
+
+      await db.query(`
+        UPDATE investigaciones
+        SET estado = 'REAGENDADA',
+            investigador_id = NULL,
+            fecha_cumplimiento = NULL,
+            observaciones_sif = $1,
+            origen_asignacion = 'PLATAFORMA_CPO',
+            asignacion_manual = TRUE,
+            updated_at = NOW()
+        WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
+      `, [obsReagenda, id]);
+
+      // Registrar auditoría
+      registrarAuditoria({
+        usuario_id: req.user?.id || null,
+        usuario_nombre: req.user?.nombre || req.user?.email || 'Investigador Móvil',
+        usuario_rol: req.user?.rol || 'investigador',
+        accion: 'VISITA_REAGENDADA_CITA_FOLIO',
+        recurso: 'investigaciones',
+        recurso_id: String(id),
+        descripcion: `Investigación #${id} turnada a reasignación por visita con ${supuestoValor || 'Cita/Folio'}`,
+        datos_nuevos: { estado: 'REAGENDADA', investigador_id: null, supuesto: supuestoValor },
+      });
+
+      // Emitir evento WebSocket para actualizar en tiempo real el panel web
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('investigaciones_actualizadas', {
+          tipo: 'VISITA_REAGENDADA',
+          investigacion_id: id,
+          supuesto: supuestoValor,
+        });
+      }
+    } else {
+      await db.query(`
+        UPDATE investigaciones
+        SET estado = 'COMPLETADA', fecha_cumplimiento = NOW(), observaciones_sif = $1, origen_asignacion = 'PLATAFORMA_CPO', asignacion_manual = TRUE, updated_at = NOW()
+        WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
+      `, [notas_investigador ? `${notas_investigador}${supuestoValor ? ` (Supuesto: ${supuestoValor})` : ''}` : (dictamenInfo || 'Completada desde App Móvil'), id]);
+    }
 
     // Si se capturó o confirmó un teléfono durante la visita, actualizar la tabla personas
     if (estudio_socioeconomico?.telefono_visitado && String(estudio_socioeconomico.telefono_visitado).trim()) {
@@ -719,7 +768,13 @@ async function guardarEvidencia(req, res, next) {
       }
     }
 
-    res.json({ success: true, message: 'Estudio e investigación guardados correctamente' });
+    res.json({
+      success: true,
+      reagendada: esCitaOFolio,
+      message: esCitaOFolio
+        ? 'Visita con folio/cita registrada correctamente. La investigación ha sido turnada al asignador para su reagenda.'
+        : 'Estudio e investigación guardados correctamente',
+    });
   } catch (err) {
     next(err);
   }
@@ -763,9 +818,11 @@ async function validarInvestigacion(req, res, next) {
       `, [prev[0].solicitud_id_sif]);
 
       if (incompletas.length > 0) {
-        return res.status(422).json({
-          error: `No se puede validar esta investigación porque el paquete del crédito aún tiene ${incompletas.length} investigación(es) pendiente(s) de completar en campo (solicitante/avales).`,
-        });
+        const tieneReagendada = incompletas.some(r => r.estado === 'REAGENDADA');
+        const mensajeError = tieneReagendada
+          ? 'No se puede validar esta investigación porque el crédito cuenta con visitas en estado REAGENDADA (con cita o folio) que deben ser cumplimentadas en campo antes de emitir dictamen final.'
+          : `No se puede validar esta investigación porque el paquete del crédito aún tiene ${incompletas.length} investigación(es) pendiente(s) de completar en campo (solicitante/avales).`;
+        return res.status(422).json({ error: mensajeError });
       }
     }
 
@@ -926,7 +983,7 @@ async function getColoniasActivas(req, res, next) {
       SELECT
         TRIM(d.colonia) AS colonia,
         COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE') AS sin_asignar
+        COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'REAGENDADA') AS sin_asignar
       FROM investigaciones inv
       JOIN personas p ON inv.persona_id_sif = p.id_sif
       JOIN direcciones d ON p.id_sif = d.persona_id_sif
@@ -951,7 +1008,7 @@ async function getSucursalesActivas(req, res, next) {
         s.sucursal_id,
         COALESCE(MAX(s.sucursal_nombre), '') AS sucursal_nombre,
         COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE') AS sin_asignar
+        COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'REAGENDADA') AS sin_asignar
       FROM investigaciones inv
       JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
       WHERE s.sucursal_id IS NOT NULL

@@ -735,6 +735,8 @@ export default function InvestigacionesPage() {
                           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold'
                           : row.estado === 'RECHAZADA'
                           ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold'
+                          : row.estado === 'REAGENDADA'
+                          ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold animate-pulse'
                           : row.estado === 'COMPLETADA'
                           ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                           : row.estado === 'EN_PROCESO'
@@ -745,8 +747,14 @@ export default function InvestigacionesPage() {
                           : row.estado === 'DEVUELTA_A_VALIDADOR' ? '🔄 DEVUELTA'
                           : row.estado === 'VALIDADA' ? 'VALIDADA ✅'
                           : row.estado === 'RECHAZADA' ? 'RECHAZADA ❌'
+                          : row.estado === 'REAGENDADA' ? '🔄 REAGENDADA (CITA/FOLIO)'
                           : row.estado}
                       </span>
+                      {row.estado === 'REAGENDADA' && row.observaciones_sif && (
+                        <div className="mt-1 text-[10px] text-purple-300 italic truncate max-w-[170px]" title={row.observaciones_sif}>
+                          📌 {row.observaciones_sif}
+                        </div>
+                      )}
                       {/* Dictamen/Observaciones del Validador */}
                       {row.validador_nombre && (
                         <div className="mt-1 flex items-center gap-1 text-[10px] text-teal-400" title={`Validador: ${row.validador_nombre}${row.comentarios_validacion ? ` — "${row.comentarios_validacion}"` : ''}`}>

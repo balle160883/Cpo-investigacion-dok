@@ -4,7 +4,8 @@ import { fetchInvestigacionDetalle, validarInvestigacion, revalidarInvestigacion
 import { useAuth } from '../context/AuthContext';
 import { 
   Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, 
-  ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, Edit3, MessageSquareText, FileCheck, Sparkles 
+  ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, Edit3, MessageSquareText, FileCheck, Sparkles,
+  Clock, Calendar
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import { formatNombreSucursal, esAval, getEtiquetaSujeto, getEtiquetaSujetoUpper, getBadgeSujetoProps, formatFechaHoraCaptura } from '../utils/formatters';
@@ -368,6 +369,10 @@ export default function DetalleFormatoPage() {
               <span className={clsx('px-3', 'py-1', 'rounded-full', 'bg-rose-500/20', 'text-rose-400', 'border', 'border-rose-500/40', 'text-xs', 'font-bold', 'flex', 'items-center', 'gap-1.5')}>
                 <XCircle className={clsx('w-4', 'h-4')} /> RECHAZADO / CORRECCIÓN SOLICITADA
               </span>
+            ) : inv.estado === 'REAGENDADA' ? (
+              <span className={clsx('px-3', 'py-1', 'rounded-full', 'bg-purple-500/20', 'text-purple-300', 'border', 'border-purple-500/40', 'text-xs', 'font-bold', 'flex', 'items-center', 'gap-1.5')}>
+                <Clock className={clsx('w-4', 'h-4')} /> 🔄 REAGENDADA POR CITA / FOLIO
+              </span>
             ) : (
               <span className={clsx('px-3', 'py-1', 'rounded-full', 'bg-amber-500/20', 'text-amber-400', 'border', 'border-amber-500/40', 'text-xs', 'font-bold', 'flex', 'items-center', 'gap-1.5')}>
                 <AlertTriangle className={clsx('w-4', 'h-4')} /> PENDIENTE DE VALIDACIÓN
@@ -378,7 +383,14 @@ export default function DetalleFormatoPage() {
           {/* Botones VALIDADOR: Aprobar o Rechazar el estudio del investigador */}
           {canValidate && (
             <div className={clsx('flex', 'items-center', 'gap-2', 'flex-wrap')}>
-              {!isPaqueteCompleto ? (
+              {inv.estado === 'REAGENDADA' ? (
+                <div className={clsx('px-3', 'py-1.5', 'rounded-xl', 'bg-purple-500/10', 'border', 'border-purple-500/30', 'text-purple-300', 'text-xs', 'flex', 'items-center', 'gap-1.5')}>
+                  <Clock className={clsx('w-4', 'h-4', 'text-purple-400', 'flex-shrink-0')} />
+                  <span>
+                    Visita con Cita/Folio: En espera de reasignación y visita final por el Asignador. No puede ser validada hasta cumplimentarse.
+                  </span>
+                </div>
+              ) : !isPaqueteCompleto ? (
                 <div className={clsx('px-3', 'py-1.5', 'rounded-xl', 'bg-amber-500/10', 'border', 'border-amber-500/30', 'text-amber-300', 'text-xs', 'flex', 'items-center', 'gap-1.5')}>
                   <AlertTriangle className={clsx('w-4', 'h-4', 'text-amber-400', 'flex-shrink-0')} />
                   <span>
@@ -388,7 +400,7 @@ export default function DetalleFormatoPage() {
               ) : (
                 <button
                   onClick={() => setShowValidarModal(true)}
-                  disabled={validating || ['VALIDADA', 'APROBADA_FINAL'].includes(inv.estado)}
+                  disabled={validating || ['VALIDADA', 'APROBADA_FINAL', 'REAGENDADA'].includes(inv.estado)}
                   className={clsx('px-4', 'py-2', 'rounded-xl', inv.estado === 'DEVUELTA_A_VALIDADOR' ? 'bg-orange-600 hover:bg-orange-500 shadow-orange-600/30' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg')}
                 >
                   <CheckCircle2 className={clsx('w-4', 'h-4')} /> {validating ? 'Procesando...' : inv.estado === 'DEVUELTA_A_VALIDADOR' ? '🔄 Re-Validar tras Corrección' : '✅ Validar con Dictamen'}
@@ -405,6 +417,29 @@ export default function DetalleFormatoPage() {
             </div>
           )}
         </div>
+
+        {/* BANNER INFORMATIVO PARA EL VALIDADOR CUANDO ESTÁ REAGENDADA */}
+        {inv.estado === 'REAGENDADA' && (
+          <div className="p-4 rounded-2xl bg-purple-950/60 border border-purple-500/50 text-purple-200 text-xs space-y-2 shadow-lg">
+            <div className="font-bold flex items-center gap-2 text-purple-300 text-sm">
+              <Calendar className="w-5 h-5 text-purple-400" />
+              <span>ℹ️ Información de Campo para el Validador: Visita con Ticket de Cita / Folio</span>
+            </div>
+            <div className="bg-slate-950/90 p-3 rounded-xl border border-purple-900/60 text-purple-100 text-xs leading-relaxed space-y-1">
+              <div>
+                El investigador de campo acudió a este domicilio y registró una visita preliminar. Dado que no se concretó la entrevista o se acordó fecha posterior, se generó ticket con folio/cita y el caso fue <strong>turnado a la bandeja del Asignador</strong> para su reagenda y reasignación.
+              </div>
+              {inv.observaciones_sif && (
+                <div className="mt-1 text-slate-300 font-mono text-[11px] bg-slate-900 p-2 rounded border border-slate-800">
+                  📌 Detalle registrado: "{inv.observaciones_sif}"
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-purple-300">
+              💡 Puedes revisar abajo las fotos y coordenadas tomadas por el investigador como respaldo de la visita de campo. Esta investigación permanecerá como pendiente hasta que se efectúe la visita definitiva.
+            </p>
+          </div>
+        )}
 
         {/* AVISO DE INCONSISTENCIA REPORTADA POR EL ANALISTA */}
         {inv.estado === 'DEVUELTA_A_VALIDADOR' && (

@@ -300,10 +300,7 @@ DOMICILIO DE VISITA:
 ${direccionVisita}
 --------------------------------
 DICTAMEN: PENDIENTE
-SUPUESTO: ${supuesto || 'N/A'}
---------------------------------
-OBSERVACIONES:
-${observaciones || 'Sin observaciones adicionales.'}${infoCita}
+SUPUESTO: ${supuesto || 'N/A'}${infoCita}
 ================================
   CPO INVESTIGACIONES SOCIOECONÓMICAS
 ================================`;
@@ -401,6 +398,12 @@ ${observaciones || 'Sin observaciones adicionales.'}${infoCita}
         Alert.alert('Modo Offline', res.message || 'Visita guardada localmente. Se sincronizará automáticamente.', [
           { text: 'Entendido', onPress: () => navigation.navigate('Visitas') },
         ]);
+      } else if (res && res.reagendada) {
+        Alert.alert(
+          'Visita con Folio/Cita Registrada',
+          'Se guardaron las evidencias y el ticket de visita. La investigación ha sido turnada a la bandeja del Asignador para su reagenda y reasignación de fecha.',
+          [{ text: 'Entendido', onPress: () => navigation.navigate('Visitas') }]
+        );
       } else {
         Alert.alert('Éxito', 'Estudio socio-económico y evidencias guardados correctamente', [
           { text: 'OK', onPress: () => navigation.navigate('Visitas') },
