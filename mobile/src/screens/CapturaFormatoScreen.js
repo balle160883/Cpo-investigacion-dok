@@ -281,9 +281,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
       const esConCita = supuesto === 'Con cita';
       const tituloHeader = esConCita ? 'TICKET DE PENDIENTE CON CITA' : 'TICKET DE PENDIENTE CON FOLIO';
-      const infoCita = esConCita
-        ? `\n--------------------------------\nINFORMACIÓN:\nComunicate al : 3339421055 para agendar una cita.\nAtentamente Caja Popular Oblatos.`
-        : '';
+      const infoCita = `\n--------------------------------\nINFORMACIÓN:\nComunicate al : 3339421055 para agendar una cita.\nAtentamente Caja Popular Oblatos.`;
 
       const ticketText = 
 `================================
