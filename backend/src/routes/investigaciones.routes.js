@@ -11,8 +11,11 @@ const {
   revalidarInvestigacion,
   guardarComentariosValidador,
   actualizarTelefonoInvestigacion,
+  solventarFolioInvestigacion,
+  subirComprobanteFolio,
 } = require('../controllers/investigaciones.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const upload = require('../middlewares/upload.middleware');
 const { PERMISSIONS } = require('../rbac/roles');
 
 const router = express.Router();
@@ -28,6 +31,8 @@ router.patch('/:id/telefono', authenticate, actualizarTelefonoInvestigacion);
 router.post('/:id/validar', authenticate, authorize(PERMISSIONS.VALIDAR_INVESTIGACION), validarInvestigacion);
 router.post('/:id/revalidar', authenticate, authorize(PERMISSIONS.REVALIDAR_INVESTIGACION), revalidarInvestigacion);
 router.post('/:id/comentarios-validador', authenticate, authorize(PERMISSIONS.VALIDAR_INVESTIGACION), guardarComentariosValidador);
+router.post('/:id/solventar-folio', authenticate, authorize(PERMISSIONS.VALIDAR_INVESTIGACION), solventarFolioInvestigacion);
+router.post('/:id/comprobante-folio', authenticate, authorize(PERMISSIONS.VALIDAR_INVESTIGACION), upload.single('comprobante'), subirComprobanteFolio);
 
 module.exports = router;
 

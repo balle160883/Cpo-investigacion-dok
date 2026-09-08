@@ -134,6 +134,30 @@ export async function guardarComentariosValidador(investigacionId, { comentarios
   return handleResponse(res, 'Error al guardar comentarios del validador');
 }
 
+export async function solventarFolioInvestigacion(investigacionId, payload) {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/${investigacionId}/solventar-folio`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res, 'Error al solventar folio y actualizar formato');
+}
+
+export async function subirComprobanteFolio(investigacionId, file) {
+  const token = localStorage.getItem('cpo_token') || localStorage.getItem('token');
+  const formData = new FormData();
+  formData.append('comprobante', file);
+
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/${investigacionId}/comprobante-folio`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+  return handleResponse(res, 'Error al subir comprobante de folio');
+}
+
 export async function fetchChecklistDocumental(solicitudId, tipoCredito = 'GENERAL') {
   const res = await fetch(`${getApiBaseUrl()}/documentos/checklist/${solicitudId}?tipoCredito=${tipoCredito}`, {
     headers: getAuthHeaders(),

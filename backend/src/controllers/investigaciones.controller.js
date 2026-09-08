@@ -1132,6 +1132,251 @@ async function actualizarTelefonoInvestigacion(req, res, next) {
   }
 }
 
+// Solventar Folio y Editar Formato por el Validador de Crédito
+async function solventarFolioInvestigacion(req, res, next) {
+  try {
+    const id = req.params.id;
+    const {
+      estudio_socioeconomico,
+      dictamen = 'DOMICILIO CONFIRMADO',
+      notas_investigador,
+      justificacion_folio,
+      comprobante_url,
+      validar_inmediato = false,
+      comentarios_validacion,
+    } = req.body;
+
+    const validadorId = req.user?.id || null;
+    const validadorNombre = req.user?.nombre || req.user?.email || 'Validador de Crédito';
+
+    if (!justificacion_folio || !justificacion_folio.trim()) {
+      return res.status(400).json({ error: 'La justificación de solventación del folio es obligatoria.' });
+    }
+
+    // 1. Verificar existencia de la investigación
+    const { rows: invRows } = await db.query(
+      `SELECT * FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      [id]
+    );
+
+    if (invRows.length === 0) {
+      return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+
+    const investigacion = invRows[0];
+
+    // Asegurar columnas auxiliares
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS folio_solventado BOOLEAN DEFAULT FALSE;`);
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`);
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS solventado_por_usuario_id INT;`);
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS solventado_en TIMESTAMP WITH TIME ZONE;`);
+
+    // 2. Obtener evidencia previa para auditoría e inmutabilidad estricta de imágenes de campo
+    const { rows: evRows } = await db.query(
+      `SELECT * FROM evidencias_visita WHERE CAST(investigacion_id_sif AS TEXT) = CAST($1 AS TEXT) ORDER BY id DESC LIMIT 1`,
+      [id]
+    );
+
+    const prevEvidencia = evRows[0] || {};
+    // CRÍTICO: Las fotografías de campo son INMUTABLES (no se pueden alterar ni borrar)
+    const fotosOriginales = prevEvidencia.fotos_urls || [];
+    const firmaOriginal = prevEvidencia.firma_url || '';
+    const firmaInvOriginal = prevEvidencia.firma_investigador_url || '';
+
+    // Consolidar estudio socioeconómico editado
+    const estudioFinal = {
+      ...(typeof prevEvidencia.estudio_socioeconomico === 'object' ? prevEvidencia.estudio_socioeconomico : {}),
+      ...(typeof estudio_socioeconomico === 'object' ? estudio_socioeconomico : {}),
+      dictamen: dictamen,
+      supuesto: dictamen === 'DOMICILIO CONFIRMADO' ? 'FOLIO_SOLVENTADO' : (estudio_socioeconomico?.supuesto || 'Con Folio'),
+      folio_solventado: true,
+      solventado_por: validadorNombre,
+      justificacion_folio: justificacion_folio.trim(),
+      comprobante_url: comprobante_url || prevEvidencia.comprobante_folio_url || null,
+      fecha_solventado: new Date().toISOString(),
+    };
+
+    // 3. Actualizar evidencias_visita preservando fotos y firmas de campo intactas
+    if (evRows.length > 0) {
+      await db.query(`
+        UPDATE evidencias_visita
+        SET estudio_socioeconomico = $1,
+            notas_investigador = COALESCE($2, notas_investigador),
+            justificacion_folio = $3,
+            comprobante_folio_url = COALESCE($4, comprobante_folio_url),
+            solventado_por_usuario_id = $5,
+            solventado_en = NOW()
+        WHERE id = $6;
+      `, [
+        JSON.stringify(estudioFinal),
+        notas_investigador || prevEvidencia.notas_investigador,
+        justificacion_folio.trim(),
+        comprobante_url || null,
+        validadorId,
+        prevEvidencia.id
+      ]);
+    } else {
+      await db.query(`
+        INSERT INTO evidencias_visita (
+          investigacion_id_sif,
+          estudio_socioeconomico,
+          fotos_urls,
+          notas_investigador,
+          justificacion_folio,
+          comprobante_folio_url,
+          solventado_por_usuario_id,
+          solventado_en
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW());
+      `, [
+        id,
+        JSON.stringify(estudioFinal),
+        JSON.stringify([]),
+        notas_investigador || '',
+        justificacion_folio.trim(),
+        comprobante_url || null,
+        validadorId
+      ]);
+    }
+
+    // 4. Actualizar estado de la investigación
+    let nuevoEstado = 'COMPLETADA';
+    let nuevoEstadoValidacion = investigacion.estado_validacion;
+    let fechaValidacion = investigacion.fecha_validacion;
+    let comValidacion = investigacion.comentarios_validacion;
+
+    if (validar_inmediato) {
+      nuevoEstado = 'VALIDADA';
+      nuevoEstadoValidacion = 'VALIDADA';
+      fechaValidacion = new Date();
+      comValidacion = comentarios_validacion || `Validado tras solventación de folio: ${justificacion_folio.trim()}`;
+    }
+
+    const obsSif = `[FOLIO SOLVENTADO POR VALIDADOR]: ${justificacion_folio.trim()}`;
+
+    await db.query(`
+      UPDATE investigaciones
+      SET estado = $1,
+          estado_validacion = $2,
+          validador_id = COALESCE($3, validador_id),
+          fecha_validacion = COALESCE($4, fecha_validacion),
+          fecha_cumplimiento = COALESCE(fecha_cumplimiento, NOW()),
+          observaciones_sif = $5,
+          justificacion_folio = $6,
+          comprobante_folio_url = COALESCE($7, comprobante_folio_url),
+          folio_solventado = TRUE,
+          comentarios_validacion = COALESCE($8, comentarios_validacion),
+          updated_at = NOW()
+      WHERE CAST(id_sif_research AS TEXT) = CAST($9 AS TEXT);
+    `, [
+      nuevoEstado,
+      nuevoEstadoValidacion,
+      validadorId,
+      fechaValidacion,
+      obsSif,
+      justificacion_folio.trim(),
+      comprobante_url || null,
+      comValidacion,
+      id
+    ]);
+
+    // 5. Registrar en Bitácora de Auditoría
+    await registrarAuditoria(req, {
+      accion: 'SOLVENTAR_FOLIO_VALIDADOR',
+      entidad: 'investigaciones',
+      entidad_id: id,
+      datos_anteriores: {
+        estado: investigacion.estado,
+        estudio_socioeconomico: prevEvidencia.estudio_socioeconomico,
+        notas_investigador: prevEvidencia.notas_investigador,
+      },
+      datos_nuevos: {
+        estado: nuevoEstado,
+        dictamen: dictamen,
+        justificacion_folio: justificacion_folio.trim(),
+        comprobante_url: comprobante_url || null,
+        validado_inmediato: Boolean(validar_inmediato),
+      },
+    });
+
+    // 6. Notificar por correo a Analistas si se validó de inmediato
+    if (validar_inmediato) {
+      try {
+        const { rows: trRows } = await db.query("SELECT valor FROM configuracion_sistema WHERE clave = 'email_triggers';");
+        const triggers = trRows.length > 0 ? trRows[0].valor : {};
+        if (triggers.notificar_analista_al_validar) {
+          const { sendCreditoValidadoEmail } = require('../utils/mailer.service');
+          const { rows: infoRows } = await db.query(`
+            SELECT i.id_sif_research, i.solicitud_id_sif, i.solicitud_folio, i.sujeto_nombre, i.tipo_sujeto,
+                   i.monto_solicitado, i.sucursal_nombre, u.nombre as validador_nombre
+            FROM investigaciones i
+            LEFT JOIN usuarios u ON u.id = i.validador_id
+            WHERE CAST(i.id_sif_research AS TEXT) = CAST($1 AS TEXT);
+          `, [id]);
+          if (infoRows.length > 0) {
+            sendCreditoValidadoEmail(infoRows[0], comValidacion).catch(err => {
+              console.error('Error enviando notificación email tras solventar y validar:', err.message);
+            });
+          }
+        }
+      } catch (errEmail) {
+        console.error('Error procesando triggers de email:', errEmail.message);
+      }
+    }
+
+    // 7. Notificar por WebSocket a clientes conectados
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('investigaciones_actualizadas', {
+        tipo: 'FOLIO_SOLVENTADO',
+        investigacion_id: id,
+        nuevo_estado: nuevoEstado,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: validar_inmediato
+        ? 'Folio solventado y validado exitosamente. Turnado a bandeja de Analista.'
+        : 'Formato actualizado y folio solventado. La investigación está lista para validación formal.',
+      estado: nuevoEstado,
+      estudio_socioeconomico: estudioFinal,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Subir Comprobante de Solventación de Folio (PDF o Imagen)
+async function subirComprobanteFolio(req, res, next) {
+  try {
+    const id = req.params.id;
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    }
+
+    const archivoUrl = `/uploads/${req.file.filename}`;
+
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
+    await db.query(`
+      UPDATE investigaciones
+      SET comprobante_folio_url = $1,
+          updated_at = NOW()
+      WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
+    `, [archivoUrl, id]);
+
+    res.json({
+      success: true,
+      archivo_url: archivoUrl,
+      nombre_archivo: req.file.originalname,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
@@ -1144,5 +1389,7 @@ module.exports = {
   revalidarInvestigacion,
   guardarComentariosValidador,
   actualizarTelefonoInvestigacion,
+  solventarFolioInvestigacion,
+  subirComprobanteFolio,
 };
 

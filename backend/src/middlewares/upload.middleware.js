@@ -20,10 +20,10 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
+  if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
     cb(null, true);
   } else {
-    cb(new Error('Formato de archivo no soportado. Solo se permiten imágenes.'), false);
+    cb(new Error('Formato de archivo no soportado. Solo se permiten imágenes y archivos PDF.'), false);
   }
 };
 
