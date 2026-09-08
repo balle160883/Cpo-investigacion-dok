@@ -289,15 +289,16 @@ export default function DetalleFormatoPage() {
   const supuestoCampo = (est.supuesto || ev.supuesto || (ev.estudio_socioeconomico && ev.estudio_socioeconomico.supuesto) || '').toUpperCase();
   const obsTexto = (inv.observaciones_sif || '').toUpperCase();
   const notasTexto = (ev.notas_investigador || '').toUpperCase();
+  const yaSolventado = Boolean(inv.folio_solventado || est.folio_solventado);
   const esConFolio = (
     supuestoCampo.includes('FOLIO') || 
     obsTexto.includes('FOLIO') || 
     notasTexto.includes('FOLIO') || 
     dictamenCampo.includes('PENDIENTE') ||
     inv.estado === 'REAGENDADA' || 
-    Boolean(inv.folio_solventado || est.folio_solventado)
+    yaSolventado
   );
-  const puedeSolventarFolio = canValidate && (esConFolio || inv.estado === 'REAGENDADA' || Boolean(inv.folio_solventado || est.folio_solventado));
+  const puedeSolventarFolio = canValidate && (esConFolio || inv.estado === 'REAGENDADA' || yaSolventado);
 
   function handleActualizarReferencia(index, campo, valor) {
     setFormSolventar(prev => {
