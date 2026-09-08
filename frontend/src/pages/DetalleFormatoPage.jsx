@@ -47,9 +47,11 @@ export default function DetalleFormatoPage() {
 
   // Estado para Solventar Folio y Editar Formato por el Validador
   const [showSolventarModal, setShowSolventarModal] = useState(false);
+  const [activeSolventarTab, setActiveSolventarTab] = useState('atencion');
   const [solventando, setSolventando] = useState(false);
   const [comprobanteFile, setComprobanteFile] = useState(null);
   const [formSolventar, setFormSolventar] = useState({
+    // 1. Atención e Identificación
     quien_atendio: 'titular',
     nombre_atendio: '',
     parentesco_atendio: '',
@@ -58,10 +60,19 @@ export default function DetalleFormatoPage() {
     tipo_identificacion: 'INE',
     folio_identificacion: '',
     ocupacion: '',
+    ocupacion_conyuge: '',
     telefono_visitado: '',
     casa_color: '',
     puerta_cancel_color: '',
     numero_niveles: '1',
+
+    // 2. Dirección confirmada en campo
+    tiene_direccion_diferente: false,
+    calle_real: '',
+    colonia_real: '',
+    referencias_domicilio: '',
+
+    // 3. Estatus Socioeconómico y Vivienda
     estado_civil: 'soltero',
     situacion_vivienda: 'propia',
     monto_pago_mensual: 0,
@@ -80,6 +91,11 @@ export default function DetalleFormatoPage() {
     tiene_vehiculo: false,
     valor_estimado_automovil: 0,
     detalles_vehiculo: '',
+
+    // 4. Referencias y Avales
+    referencias_avales: [],
+
+    // 5. Dictamen y Observaciones
     dictamen: 'DOMICILIO CONFIRMADO',
     notas_investigador: '',
     justificacion_folio: '',
@@ -270,12 +286,72 @@ export default function DetalleFormatoPage() {
   }
 
   const dictamenCampo = (est.dictamen || ev.notas_investigador || '').toUpperCase();
-  const supuestoCampo = est.supuesto || ev.supuesto || (ev.estudio_socioeconomico && ev.estudio_socioeconomico.supuesto) || '';
-  const esConFolio = (supuestoCampo && /folio/i.test(supuestoCampo)) || /folio/i.test(inv.observaciones_sif || '');
-  const yaSolventado = Boolean(inv.folio_solventado || est.folio_solventado);
-  const puedeSolventarFolio = canValidate && (esConFolio || inv.estado === 'REAGENDADA' || yaSolventado);
+  const supuestoCampo = (est.supuesto || ev.supuesto || (ev.estudio_socioeconomico && ev.estudio_socioeconomico.supuesto) || '').toUpperCase();
+  const obsTexto = (inv.observaciones_sif || '').toUpperCase();
+  const notasTexto = (ev.notas_investigador || '').toUpperCase();
+  const esConFolio = (
+    supuestoCampo.includes('FOLIO') || 
+    obsTexto.includes('FOLIO') || 
+    notasTexto.includes('FOLIO') || 
+    dictamenCampo.includes('PENDIENTE') ||
+    inv.estado === 'REAGENDADA' || 
+    Boolean(inv.folio_solventado || est.folio_solventado)
+  );
+  const puedeSolventarFolio = canValidate && (esConFolio || inv.estado === 'REAGENDADA' || Boolean(inv.folio_solventado || est.folio_solventado));
+
+  function handleActualizarReferencia(index, campo, valor) {
+    setFormSolventar(prev => {
+      const refs = [...(prev.referencias_avales || [])];
+      refs[index] = { ...refs[index], [campo]: valor };
+      return { ...prev, referencias_avales: refs };
+    });
+  }
+
+  function handleAgregarReferencia() {
+    setFormSolventar(prev => ({
+      ...prev,
+      referencias_avales: [
+        ...(prev.referencias_avales || []),
+        { nombre: '', domicilio: '', parentesco: '', tiempo_conocerlo: '', confirmo: true }
+      ]
+    }));
+  }
+
+  function handleEliminarReferencia(index) {
+    setFormSolventar(prev => ({
+      ...prev,
+      referencias_avales: (prev.referencias_avales || []).filter((_, i) => i !== index)
+    }));
+  }
 
   function abrirModalSolventar() {
+    let initialReferencias = [];
+    if (Array.isArray(est.referencias_avales) && est.referencias_avales.length > 0) {
+      initialReferencias = est.referencias_avales.map(r => ({
+        nombre: r.nombre || '',
+        domicilio: r.domicilio || '',
+        parentesco: r.parentesco || '',
+        tiempo_conocerlo: r.tiempo_conocerlo || '',
+        confirmo: r.confirmo !== false,
+      }));
+    } else if (Array.isArray(data?.avales) && data.avales.length > 0) {
+      initialReferencias = data.avales.map(av => ({
+        nombre: av.nombre_completo || '',
+        domicilio: `${av.calle || ''} ${av.codigo_postal ? `CP ${av.codigo_postal}` : ''}`.trim(),
+        parentesco: av.parentesco || 'Familiar / Aval',
+        tiempo_conocerlo: av.tiempo_conocerlo || '5 años',
+        confirmo: true,
+      }));
+    } else {
+      initialReferencias = [{
+        nombre: inv.sujeto_nombre || 'Referencia Personal',
+        domicilio: inv.calle || '',
+        parentesco: 'Conocido',
+        tiempo_conocerlo: '3 años',
+        confirmo: true,
+      }];
+    }
+
     setFormSolventar({
       quien_atendio: est.quien_atendio || 'titular',
       nombre_atendio: est.nombre_atendio || '',
@@ -285,10 +361,17 @@ export default function DetalleFormatoPage() {
       tipo_identificacion: est.tipo_identificacion || 'INE',
       folio_identificacion: est.folio_identificacion || '',
       ocupacion: est.ocupacion || '',
+      ocupacion_conyuge: est.ocupacion_conyuge || '',
       telefono_visitado: est.telefono_visitado || inv.telefono_principal || inv.telefono || '',
       casa_color: est.casa_color || '',
       puerta_cancel_color: est.puerta_cancel_color || '',
       numero_niveles: est.numero_niveles || '1',
+
+      tiene_direccion_diferente: Boolean(est.tiene_direccion_diferente),
+      calle_real: est.calle_real || '',
+      colonia_real: est.colonia_real || '',
+      referencias_domicilio: est.referencias_domicilio || '',
+
       estado_civil: est.estado_civil || 'soltero',
       situacion_vivienda: est.situacion_vivienda || 'propia',
       monto_pago_mensual: est.monto_pago_mensual || 0,
@@ -307,18 +390,23 @@ export default function DetalleFormatoPage() {
       tiene_vehiculo: Boolean(est.tiene_vehiculo),
       valor_estimado_automovil: est.valor_estimado_automovil || 0,
       detalles_vehiculo: est.detalles_vehiculo || '',
+
+      referencias_avales: initialReferencias,
+
       dictamen: 'DOMICILIO CONFIRMADO',
       notas_investigador: ev.notas_investigador || inv.observaciones_sif || '',
       justificacion_folio: inv.justificacion_folio || est.justificacion_folio || '',
       comprobante_url: inv.comprobante_folio_url || est.comprobante_url || '',
     });
     setComprobanteFile(null);
+    setActiveSolventarTab('atencion');
     setShowSolventarModal(true);
   }
 
   async function handleEjecutarSolventacion(validarInmediato = false) {
     if (!formSolventar.justificacion_folio.trim()) {
       setToast({ message: 'La justificación de solventación de folio es obligatoria', type: 'warning' });
+      setActiveSolventarTab('dictamen');
       return;
     }
 
@@ -344,10 +432,17 @@ export default function DetalleFormatoPage() {
           tipo_identificacion: formSolventar.tipo_identificacion,
           folio_identificacion: formSolventar.folio_identificacion,
           ocupacion: formSolventar.ocupacion,
+          ocupacion_conyuge: formSolventar.ocupacion_conyuge,
           telefono_visitado: formSolventar.telefono_visitado,
           casa_color: formSolventar.casa_color,
           puerta_cancel_color: formSolventar.puerta_cancel_color,
           numero_niveles: formSolventar.numero_niveles,
+
+          tiene_direccion_diferente: formSolventar.tiene_direccion_diferente,
+          calle_real: formSolventar.calle_real,
+          colonia_real: formSolventar.colonia_real,
+          referencias_domicilio: formSolventar.referencias_domicilio,
+
           estado_civil: formSolventar.estado_civil,
           situacion_vivienda: formSolventar.situacion_vivienda,
           monto_pago_mensual: parseFloat(formSolventar.monto_pago_mensual || 0),
@@ -366,7 +461,8 @@ export default function DetalleFormatoPage() {
           tiene_vehiculo: formSolventar.tiene_vehiculo,
           valor_estimado_automovil: parseFloat(formSolventar.valor_estimado_automovil || 0),
           detalles_vehiculo: formSolventar.detalles_vehiculo,
-          referencias_avales: est.referencias_avales || [],
+
+          referencias_avales: formSolventar.referencias_avales || [],
         },
         dictamen: formSolventar.dictamen,
         notas_investigador: formSolventar.notas_investigador,
@@ -818,27 +914,27 @@ export default function DetalleFormatoPage() {
         )}
       </div>
 
-      {/* MODAL PARA SOLVENTAR FOLIO Y EDITAR FORMATO SOCIOECONÓMICO */}
+      {/* MODAL PARA SOLVENTAR FOLIO Y EDITAR TODOS LOS CAMPOS DEL FORMATO SOCIOECONÓMICO */}
       {showSolventarModal && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-purple-500/40 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 md:p-6">
+          <div className="bg-slate-900 border border-purple-500/40 rounded-2xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
             
             {/* Header */}
-            <div className="p-5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between shrink-0">
-              <div className="space-y-1">
+            <div className="p-4 md:p-5 border-b border-slate-800 bg-slate-950/80 flex items-center justify-between shrink-0">
+              <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <span className="p-1.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40">
                     <Edit3 className="w-5 h-5" />
                   </span>
-                  <h3 className="text-lg font-bold text-white">
-                    Solventar Folio y Editar Formato Socioeconómico
+                  <h3 className="text-base md:text-lg font-bold text-white">
+                    Editar Formato Socioeconómico y Solventar Folio
                   </h3>
                   <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-semibold">
                     SIF #{inv.id_sif_research}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">
-                  Edita la información del formato subsanada en sucursal o vía telefónica. Las imágenes de campo permanecen 100% inalteradas.
+                <p className="text-[11px] md:text-xs text-slate-400">
+                  Edición integral de todos los campos del formato subsanados en sucursal o gabinete. Las fotografías de campo permanecen inmutables.
                 </p>
               </div>
               <button
@@ -849,350 +945,767 @@ export default function DetalleFormatoPage() {
               </button>
             </div>
 
-            {/* Body scrollable */}
-            <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-200">
+            {/* Barra de pestañas de navegación rápida */}
+            <div className="flex border-b border-slate-800 bg-slate-950/50 px-4 pt-2 gap-1.5 overflow-x-auto shrink-0 scrollbar-thin">
+              {[
+                { id: 'atencion', label: '1. Atención e Identificación', icon: '📋' },
+                { id: 'direccion', label: '2. Dirección Real', icon: '📍' },
+                { id: 'socioeconomico', label: '3. Socioeconómico y Bienes', icon: '🏠' },
+                { id: 'referencias', label: `4. Referencias (${(formSolventar.referencias_avales || []).length})`, icon: '👥' },
+                { id: 'dictamen', label: '5. Dictamen y Folio', icon: '⚖️' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveSolventarTab(tab.id)}
+                  className={clsx(
+                    'px-3.5 py-2 text-xs font-bold border-b-2 transition whitespace-nowrap flex items-center gap-1.5',
+                    activeSolventarTab === tab.id
+                      ? 'border-purple-500 text-purple-300 bg-purple-500/10 rounded-t-lg'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  )}
+                >
+                  <span>{tab.icon}</span> {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Contenido de pestañas scrollable */}
+            <div className="p-5 md:p-6 overflow-y-auto space-y-5 text-xs text-slate-200 flex-1">
               
-              {/* Tarjeta 1: Justificación Obligatoria y Dictamen de Cierre */}
-              <div className="p-4 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-4">
-                <div className="flex items-center justify-between border-b border-purple-900/60 pb-2">
-                  <span className="font-bold text-sm text-purple-200 flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-purple-400" /> Dictamen de Cierre y Justificación del Folio
-                  </span>
-                  <span className="text-[11px] text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded font-semibold">
-                    Campo Obligatorio
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-slate-300 font-semibold mb-1">
-                      Nuevo Dictamen de la Investigación:
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFormSolventar(prev => ({ ...prev, dictamen: 'DOMICILIO CONFIRMADO' }))}
-                        className={clsx(
-                          'px-3 py-2 rounded-xl text-xs font-bold transition flex-1 border',
-                          formSolventar.dictamen === 'DOMICILIO CONFIRMADO'
-                            ? 'bg-emerald-600 text-white border-emerald-400 shadow-lg shadow-emerald-600/30'
-                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
-                        )}
-                      >
-                        ✓ DOMICILIO CONFIRMADO (Solventado)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormSolventar(prev => ({ ...prev, dictamen: 'PENDIENTE' }))}
-                        className={clsx(
-                          'px-3 py-2 rounded-xl text-xs font-bold transition flex-1 border',
-                          formSolventar.dictamen === 'PENDIENTE'
-                            ? 'bg-amber-600 text-white border-amber-400 shadow-lg shadow-amber-600/30'
-                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
-                        )}
-                      >
-                        ⏳ PENDIENTE (Mantener Folio)
-                      </button>
-                    </div>
+              {/* PESTAÑA 1: ATENCIÓN E IDENTIFICACIÓN */}
+              {activeSolventarTab === 'atencion' && (
+                <div className="space-y-4">
+                  <div className="border-b border-slate-800 pb-2">
+                    <h4 className="text-sm font-bold text-sky-400 flex items-center gap-2">
+                      <span>📋</span> 1. ATENCIÓN Y VERIFICACIÓN EN DOMICILIO
+                    </h4>
+                    <p className="text-[11px] text-slate-400">Datos de la persona que atendió la entrevista y cotejo de identidad.</p>
                   </div>
 
-                  <div>
-                    <label className="block text-slate-300 font-semibold mb-1">
-                      Comprobante de respaldo (Opcional - PDF o Imagen):
-                    </label>
-                    <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Quién Atendió:</label>
+                      <select
+                        value={formSolventar.quien_atendio}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, quien_atendio: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      >
+                        <option value="titular">Titular / Solicitante</option>
+                        <option value="familiar">Familiar</option>
+                        <option value="tercero">Tercero / Vecino</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Nombre de quien atendió:</label>
                       <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        id="input-comprobante-folio"
-                        className="hidden"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            setComprobanteFile(e.target.files[0]);
-                          }
-                        }}
+                        type="text"
+                        value={formSolventar.nombre_atendio}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, nombre_atendio: e.target.value }))}
+                        placeholder="Nombre completo..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
                       />
-                      <label
-                        htmlFor="input-comprobante-folio"
-                        className="cursor-pointer px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 flex items-center gap-2 text-xs font-semibold"
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Parentesco:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.parentesco_atendio}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, parentesco_atendio: e.target.value }))}
+                        placeholder="Ej. Esposa, Madre, Hermano..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">¿Vive con el solicitante?:</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, vive_con_solicitante: true }))}
+                          className={clsx('flex-1 py-2 rounded-xl font-bold border transition text-xs', formSolventar.vive_con_solicitante ? 'bg-sky-600 text-white border-sky-400' : 'bg-slate-950 text-slate-400 border-slate-800')}
+                        >
+                          SÍ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, vive_con_solicitante: false }))}
+                          className={clsx('flex-1 py-2 rounded-xl font-bold border transition text-xs', !formSolventar.vive_con_solicitante ? 'bg-rose-600 text-white border-rose-400' : 'bg-slate-950 text-slate-400 border-slate-800')}
+                        >
+                          NO
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">¿Presentó Identificación?:</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, presento_identificacion: true }))}
+                          className={clsx('flex-1 py-2 rounded-xl font-bold border transition text-xs', formSolventar.presento_identificacion ? 'bg-sky-600 text-white border-sky-400' : 'bg-slate-950 text-slate-400 border-slate-800')}
+                        >
+                          SÍ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, presento_identificacion: false }))}
+                          className={clsx('flex-1 py-2 rounded-xl font-bold border transition text-xs', !formSolventar.presento_identificacion ? 'bg-rose-600 text-white border-rose-400' : 'bg-slate-950 text-slate-400 border-slate-800')}
+                        >
+                          NO
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Tipo de Identificación:</label>
+                      <select
+                        value={formSolventar.tipo_identificacion}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, tipo_identificacion: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
                       >
-                        <Upload className="w-4 h-4 text-purple-400" />
-                        {comprobanteFile ? comprobanteFile.name : 'Seleccionar Archivo...'}
-                      </label>
-                      {(formSolventar.comprobante_url || comprobanteFile) && (
-                        <span className="text-[11px] text-emerald-400 font-mono truncate max-w-[160px]">
-                          {comprobanteFile ? 'Archivo listo para subir' : 'Archivo existente'}
-                        </span>
-                      )}
+                        <option value="INE">INE / Credencial de Elector</option>
+                        <option value="PASAPORTE">Pasaporte</option>
+                        <option value="CEDULA">Cédula Profesional</option>
+                        <option value="LICENCIA">Licencia de Conducir</option>
+                        <option value="CARTILLA">Cartilla Militar</option>
+                        <option value="OTRA">Otra</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Folio / Clave Identificación:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.folio_identificacion}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, folio_identificacion: e.target.value }))}
+                        placeholder="Ej. IDMEX1234567890..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Ocupación Titular/Aval:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.ocupacion}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, ocupacion: e.target.value }))}
+                        placeholder="Ej. Empleado, Comerciante..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Ocupación del Cónyuge:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.ocupacion_conyuge}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, ocupacion_conyuge: e.target.value }))}
+                        placeholder="Ej. Hogar, Independiente..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Teléfono Verificado en Visita:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.telefono_visitado}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, telefono_visitado: e.target.value }))}
+                        placeholder="10 dígitos..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Color de Fachada / Casa:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.casa_color}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, casa_color: e.target.value }))}
+                        placeholder="Ej. Blanca, Azul, Cantera..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Color Puerta / Cancel:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.puerta_cancel_color}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, puerta_cancel_color: e.target.value }))}
+                        placeholder="Ej. Herrería café, Portón blanco..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Número de Niveles / Pisos:</label>
+                      <select
+                        value={formSolventar.numero_niveles}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, numero_niveles: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      >
+                        <option value="1">1 nivel</option>
+                        <option value="2">2 niveles</option>
+                        <option value="3">3 niveles</option>
+                        <option value="4+">4 o más niveles</option>
+                      </select>
                     </div>
                   </div>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">
-                    Justificación de la Solventación: <span className="text-rose-400">*</span>
-                  </label>
-                  <textarea
-                    value={formSolventar.justificacion_folio}
-                    onChange={(e) => setFormSolventar(prev => ({ ...prev, justificacion_folio: e.target.value }))}
-                    placeholder="Ej. El socio acudió a la sucursal con el folio #X a presentar su comprobante de domicilio e identificación oficial vigente. Se cotejó la información satisfactoriamente..."
-                    rows={3}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500"
-                  />
+              {/* PESTAÑA 2: DIRECCIÓN REAL EN CAMPO */}
+              {activeSolventarTab === 'direccion' && (
+                <div className="space-y-4">
+                  <div className="border-b border-slate-800 pb-2">
+                    <h4 className="text-sm font-bold text-sky-400 flex items-center gap-2">
+                      <span>📍</span> 2. DIRECCIÓN REAL CONFIRMADA EN CAMPO
+                    </h4>
+                    <p className="text-[11px] text-slate-400">Si el domicilio físico difiere del registrado en el sistema SIF.</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
+                    <div className="text-slate-400 font-bold uppercase text-[10px]">Dirección Registrada en SIF:</div>
+                    <div className="text-slate-200">
+                      {inv.calle ? `${inv.calle} #${inv.numero_exterior || ''} Int ${inv.numero_interior || 'S/N'}, Col. ${inv.colonia || ''}, CP ${inv.codigo_postal || ''}` : 'Sin dirección SIF registrada'}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-200">¿El domicilio real es diferente al de la solicitud?</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, tiene_direccion_diferente: true }))}
+                          className={clsx('px-4 py-1.5 rounded-lg text-xs font-bold border transition', formSolventar.tiene_direccion_diferente ? 'bg-purple-600 text-white border-purple-400' : 'bg-slate-900 text-slate-400 border-slate-700')}
+                        >
+                          SÍ ES DIFERENTE
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, tiene_direccion_diferente: false }))}
+                          className={clsx('px-4 py-1.5 rounded-lg text-xs font-bold border transition', !formSolventar.tiene_direccion_diferente ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-900 text-slate-400 border-slate-700')}
+                        >
+                          NO (ES IGUAL)
+                        </button>
+                      </div>
+                    </div>
+
+                    {formSolventar.tiene_direccion_diferente && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Calle y Número Real:</label>
+                          <input
+                            type="text"
+                            value={formSolventar.calle_real}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, calle_real: e.target.value }))}
+                            placeholder="Ej. Av. Hidalgo #123 Int 4..."
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Colonia Real:</label>
+                          <input
+                            type="text"
+                            value={formSolventar.colonia_real}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, colonia_real: e.target.value }))}
+                            placeholder="Ej. Moderna, Oblatos..."
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-slate-300 font-medium mb-1">Entre Calles y Referencias de Ubicación:</label>
+                          <input
+                            type="text"
+                            value={formSolventar.referencias_domicilio}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, referencias_domicilio: e.target.value }))}
+                            placeholder="Ej. Entre calle 5 de Mayo y Benito Juárez, frente a tienda de abarrotes..."
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Sección 1: Datos de Atención e Identificación */}
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-                <div className="font-bold text-sky-400 border-b border-slate-800 pb-1.5 flex items-center justify-between">
-                  <span>1. ATENCIÓN Y VERIFICACIÓN EN DOMICILIO</span>
+              {/* PESTAÑA 3: SOCIOECONÓMICO Y BIENES */}
+              {activeSolventarTab === 'socioeconomico' && (
+                <div className="space-y-4">
+                  <div className="border-b border-slate-800 pb-2">
+                    <h4 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                      <span>🏠</span> 3. STATUS SOCIO-ECONÓMICO, INTEGRANTES Y BIENES
+                    </h4>
+                    <p className="text-[11px] text-slate-400">Régimen de vivienda, composición familiar y valores estimados de bienes.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Estado Civil:</label>
+                      <select
+                        value={formSolventar.estado_civil}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, estado_civil: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      >
+                        <option value="soltero">Soltero(a)</option>
+                        <option value="casado">Casado(a)</option>
+                        <option value="union_libre">Unión Libre</option>
+                        <option value="separado">Separado(a)</option>
+                        <option value="divorciado">Divorciado(a)</option>
+                        <option value="viudo">Viudo(a)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Tipo de Vivienda:</label>
+                      <select
+                        value={formSolventar.situacion_vivienda}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, situacion_vivienda: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      >
+                        <option value="propia">Propia</option>
+                        <option value="padres">De sus padres</option>
+                        <option value="prestada">Prestada</option>
+                        <option value="pagandola">Pagándola (Hipoteca)</option>
+                        <option value="rentada">Rentada</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Pago Mensual (Renta / Hipoteca $):</label>
+                      <input
+                        type="number"
+                        value={formSolventar.monto_pago_mensual}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, monto_pago_mensual: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    {formSolventar.situacion_vivienda === 'prestada' && (
+                      <>
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Quién Presta la Vivienda:</label>
+                          <input
+                            type="text"
+                            value={formSolventar.nombre_quien_presta}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, nombre_quien_presta: e.target.value }))}
+                            placeholder="Nombre..."
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Parentesco de quien presta:</label>
+                          <input
+                            type="text"
+                            value={formSolventar.parentesco_quien_presta}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, parentesco_quien_presta: e.target.value }))}
+                            placeholder="Ej. Tío, Suegro..."
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Tiempo de Residencia en el Domicilio:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.tiempo_residencia}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, tiempo_residencia: e.target.value }))}
+                        placeholder="Ej. 5 años, 8 meses..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Mayores de 18 años en el hogar:</label>
+                      <input
+                        type="number"
+                        value={formSolventar.personas_mayores_18}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, personas_mayores_18: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Menores de 18 años:</label>
+                      <input
+                        type="number"
+                        value={formSolventar.personas_menores_18}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, personas_menores_18: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Personas que generan ingresos:</label>
+                      <input
+                        type="number"
+                        value={formSolventar.personas_generan_ingresos}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, personas_generan_ingresos: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Personas que estudian:</label>
+                      <input
+                        type="number"
+                        value={formSolventar.personas_estudian}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, personas_estudian: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    {/* Pensión */}
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">¿Recibe Pensión alguien en el hogar?:</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, recibe_pension: true }))}
+                          className={clsx('flex-1 py-2 rounded-xl font-bold border transition text-xs', formSolventar.recibe_pension ? 'bg-amber-600 text-white border-amber-400' : 'bg-slate-950 text-slate-400 border-slate-800')}
+                        >
+                          SÍ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, recibe_pension: false }))}
+                          className={clsx('flex-1 py-2 rounded-xl font-bold border transition text-xs', !formSolventar.recibe_pension ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-950 text-slate-400 border-slate-800')}
+                        >
+                          NO
+                        </button>
+                      </div>
+                    </div>
+
+                    {formSolventar.recibe_pension && (
+                      <>
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Personas Pensionadas:</label>
+                          <input
+                            type="number"
+                            value={formSolventar.personas_reciben_pension}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, personas_reciben_pension: e.target.value }))}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Tipo de Pensión:</label>
+                          <input
+                            type="text"
+                            value={formSolventar.tipo_pension}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, tipo_pension: e.target.value }))}
+                            placeholder="Ej. IMSS, Bienestar, Jubilación..."
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Valores de bienes */}
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Valor Estimado Casa ($):</label>
+                      <input
+                        type="number"
+                        value={formSolventar.valor_estimado_casa}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, valor_estimado_casa: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Valor Estimado Muebles ($):</label>
+                      <input
+                        type="number"
+                        value={formSolventar.valor_estimado_muebles}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, valor_estimado_muebles: e.target.value }))}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">¿Cuenta con Vehículo / Automóvil?:</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, tiene_vehiculo: true }))}
+                          className={clsx('flex-1 py-2 rounded-xl font-bold border transition text-xs', formSolventar.tiene_vehiculo ? 'bg-amber-600 text-white border-amber-400' : 'bg-slate-950 text-slate-400 border-slate-800')}
+                        >
+                          SÍ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormSolventar(prev => ({ ...prev, tiene_vehiculo: false }))}
+                          className={clsx('flex-1 py-2 rounded-xl font-bold border transition text-xs', !formSolventar.tiene_vehiculo ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-950 text-slate-400 border-slate-800')}
+                        >
+                          NO
+                        </button>
+                      </div>
+                    </div>
+
+                    {formSolventar.tiene_vehiculo && (
+                      <>
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Valor Estimado Automóvil ($):</label>
+                          <input
+                            type="number"
+                            value={formSolventar.valor_estimado_automovil}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, valor_estimado_automovil: e.target.value }))}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-300 font-medium mb-1">Detalles del Vehículo:</label>
+                          <input
+                            type="text"
+                            value={formSolventar.detalles_vehiculo}
+                            onChange={(e) => setFormSolventar(prev => ({ ...prev, detalles_vehiculo: e.target.value }))}
+                            placeholder="Ej. Nissan Versa 2018..."
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
+              )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Quién Atendió:</label>
-                    <select
-                      value={formSolventar.quien_atendio}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, quien_atendio: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+              {/* PESTAÑA 4: REFERENCIAS Y AVALES */}
+              {activeSolventarTab === 'referencias' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-teal-400 flex items-center gap-2">
+                        <span>👥</span> 4. INFORMACIÓN DE REFERENCIAS PERSONALES / AVALES
+                      </h4>
+                      <p className="text-[11px] text-slate-400">Verifica o edita las referencias vecinales y personales registradas.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAgregarReferencia}
+                      className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center gap-1 shadow"
                     >
-                      <option value="titular">Titular / Solicitante</option>
-                      <option value="familiar">Familiar</option>
-                      <option value="tercero">Tercero / Vecino</option>
-                    </select>
+                      + Agregar Referencia
+                    </button>
                   </div>
 
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Nombre de quien atendió:</label>
-                    <input
-                      type="text"
-                      value={formSolventar.nombre_atendio}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, nombre_atendio: e.target.value }))}
-                      placeholder="Nombre completo..."
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
+                  <div className="space-y-3">
+                    {(!formSolventar.referencias_avales || formSolventar.referencias_avales.length === 0) ? (
+                      <div className="p-6 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                        No hay referencias capturadas. Presiona "+ Agregar Referencia" para añadir una.
+                      </div>
+                    ) : (
+                      formSolventar.referencias_avales.map((ref, idx) => (
+                        <div key={idx} className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                          <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
+                            <span className="font-bold text-xs text-slate-300">Referencia #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarReferencia(idx)}
+                              className="text-rose-400 hover:text-rose-300 text-[11px] font-semibold flex items-center gap-1"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
 
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Parentesco:</label>
-                    <input
-                      type="text"
-                      value={formSolventar.parentesco_atendio}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, parentesco_atendio: e.target.value }))}
-                      placeholder="Ej. Esposa, Hijo, Hermano..."
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                            <div className="lg:col-span-2">
+                              <label className="block text-[10px] text-slate-400 mb-0.5">Nombre Completo:</label>
+                              <input
+                                type="text"
+                                value={ref.nombre || ''}
+                                onChange={(e) => handleActualizarReferencia(idx, 'nombre', e.target.value)}
+                                placeholder="Nombre de la referencia..."
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                              />
+                            </div>
 
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Tipo Identificación:</label>
-                    <select
-                      value={formSolventar.tipo_identificacion}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, tipo_identificacion: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    >
-                      <option value="INE">INE / Credencial de Elector</option>
-                      <option value="PASAPORTE">Pasaporte</option>
-                      <option value="CEDULA">Cédula Profesional</option>
-                      <option value="LICENCIA">Licencia de Conducir</option>
-                      <option value="OTRA">Otra</option>
-                    </select>
-                  </div>
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-0.5">Parentesco / Vínculo:</label>
+                              <input
+                                type="text"
+                                value={ref.parentesco || ''}
+                                onChange={(e) => handleActualizarReferencia(idx, 'parentesco', e.target.value)}
+                                placeholder="Ej. Vecino, Aval, Amigo..."
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                              />
+                            </div>
 
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Folio Identificación:</label>
-                    <input
-                      type="text"
-                      value={formSolventar.folio_identificacion}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, folio_identificacion: e.target.value }))}
-                      placeholder="Ej. IDMEX123456789..."
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-0.5">Tiempo de Conocerlo:</label>
+                              <input
+                                type="text"
+                                value={ref.tiempo_conocerlo || ''}
+                                onChange={(e) => handleActualizarReferencia(idx, 'tiempo_conocerlo', e.target.value)}
+                                placeholder="Ej. 5 años..."
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                              />
+                            </div>
 
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Ocupación:</label>
-                    <input
-                      type="text"
-                      value={formSolventar.ocupacion}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, ocupacion: e.target.value }))}
-                      placeholder="Ej. Comerciante, Empleado..."
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
+                            <div>
+                              <label className="block text-[10px] text-slate-400 mb-0.5">¿Confirmó Información?:</label>
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleActualizarReferencia(idx, 'confirmo', true)}
+                                  className={clsx('flex-1 py-1.5 rounded-lg text-xs font-bold border transition', ref.confirmo !== false ? 'bg-teal-600 text-white border-teal-400' : 'bg-slate-900 text-slate-400 border-slate-700')}
+                                >
+                                  SÍ
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleActualizarReferencia(idx, 'confirmo', false)}
+                                  className={clsx('flex-1 py-1.5 rounded-lg text-xs font-bold border transition', ref.confirmo === false ? 'bg-rose-600 text-white border-rose-400' : 'bg-slate-900 text-slate-400 border-slate-700')}
+                                >
+                                  NO
+                                </button>
+                              </div>
+                            </div>
 
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Teléfono Verificado:</label>
-                    <input
-                      type="text"
-                      value={formSolventar.telefono_visitado}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, telefono_visitado: e.target.value }))}
-                      placeholder="10 dígitos..."
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Color de Casa:</label>
-                    <input
-                      type="text"
-                      value={formSolventar.casa_color}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, casa_color: e.target.value }))}
-                      placeholder="Ej. Blanca, Azul..."
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Puerta / Cancel:</label>
-                    <input
-                      type="text"
-                      value={formSolventar.puerta_cancel_color}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, puerta_cancel_color: e.target.value }))}
-                      placeholder="Ej. Negro, Herrería café..."
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
+                            <div className="lg:col-span-5">
+                              <label className="block text-[10px] text-slate-400 mb-0.5">Domicilio de la Referencia:</label>
+                              <input
+                                type="text"
+                                value={ref.domicilio || ''}
+                                onChange={(e) => handleActualizarReferencia(idx, 'domicilio', e.target.value)}
+                                placeholder="Calle, número, colonia..."
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Sección 2: Situación Socioeconómica y Vivienda */}
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-                <div className="font-bold text-amber-400 border-b border-slate-800 pb-1.5 flex items-center justify-between">
-                  <span>2. SITUACIÓN SOCIOECONÓMICA Y VIVIENDA</span>
+              {/* PESTAÑA 5: DICTAMEN, OBSERVACIONES Y JUSTIFICACIÓN */}
+              {activeSolventarTab === 'dictamen' && (
+                <div className="space-y-4">
+                  <div className="border-b border-slate-800 pb-2">
+                    <h4 className="text-sm font-bold text-purple-400 flex items-center gap-2">
+                      <span>⚖️</span> 5. OBSERVACIONES, DICTAMEN DE CIERRE Y JUSTIFICACIÓN
+                    </h4>
+                    <p className="text-[11px] text-slate-400">Emite el dictamen corregido y describe el motivo de solventación del folio.</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-slate-200 font-bold mb-1">
+                          Dictamen Oficial de la Investigación:
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFormSolventar(prev => ({ ...prev, dictamen: 'DOMICILIO CONFIRMADO' }))}
+                            className={clsx(
+                              'px-3 py-2.5 rounded-xl text-xs font-bold transition border text-center',
+                              formSolventar.dictamen === 'DOMICILIO CONFIRMADO'
+                                ? 'bg-emerald-600 text-white border-emerald-400 shadow-lg shadow-emerald-600/30'
+                                : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
+                            )}
+                          >
+                            ✓ CONFIRMADO (Solventado)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormSolventar(prev => ({ ...prev, dictamen: 'PENDIENTE' }))}
+                            className={clsx(
+                              'px-3 py-2.5 rounded-xl text-xs font-bold transition border text-center',
+                              formSolventar.dictamen === 'PENDIENTE'
+                                ? 'bg-amber-600 text-white border-amber-400 shadow-lg shadow-amber-600/30'
+                                : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
+                            )}
+                          >
+                            ⏳ PENDIENTE (Mantener Folio)
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-200 font-bold mb-1">
+                          Comprobante de Respaldo (PDF o Imagen):
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            id="input-comprobante-folio"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setComprobanteFile(e.target.files[0]);
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor="input-comprobante-folio"
+                            className="cursor-pointer px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center gap-2 text-xs font-semibold"
+                          >
+                            <Upload className="w-4 h-4 text-purple-400" />
+                            {comprobanteFile ? comprobanteFile.name : 'Adjuntar Documento o Foto...'}
+                          </label>
+                          {(formSolventar.comprobante_url || comprobanteFile) && (
+                            <span className="text-[11px] text-emerald-400 font-mono truncate max-w-[180px]">
+                              {comprobanteFile ? '✓ Archivo nuevo' : '✓ Archivo guardado'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-200 font-bold mb-1">
+                        Justificación de la Solventación: <span className="text-rose-400">* (Obligatorio)</span>
+                      </label>
+                      <textarea
+                        value={formSolventar.justificacion_folio}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, justificacion_folio: e.target.value }))}
+                        placeholder="Ej. El socio acudió a sucursal con el folio #X a presentar su comprobante de domicilio e identificación vigente. Se cotejaron ingresos y arraigo satisfactoriamente..."
+                        rows={3}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Observaciones complementarias */}
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                    <label className="block text-slate-200 font-bold text-xs">
+                      Observaciones Complementarias del Estudio de Campo:
+                    </label>
+                    <textarea
+                      value={formSolventar.notas_investigador}
+                      onChange={(e) => setFormSolventar(prev => ({ ...prev, notas_investigador: e.target.value }))}
+                      rows={3}
+                      placeholder="Observaciones de campo complementadas o corregidas..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  {/* Aviso de Fotografías */}
+                  <div className="p-3.5 rounded-xl bg-sky-950/40 border border-sky-500/30 text-sky-200 text-xs flex items-center gap-3">
+                    <Camera className="w-5 h-5 text-sky-400 shrink-0" />
+                    <span>
+                      <strong>Fotografías de campo inmutables:</strong> Las {fotosList.length} fotografía(s) capturadas originalmente por el investigador en el predio permanecen archivadas como evidencia legal y pericial inalterable.
+                    </span>
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Estado Civil:</label>
-                    <select
-                      value={formSolventar.estado_civil}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, estado_civil: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    >
-                      <option value="soltero">Soltero(a)</option>
-                      <option value="casado">Casado(a)</option>
-                      <option value="union_libre">Unión Libre</option>
-                      <option value="separado">Separado(a)</option>
-                      <option value="divorciado">Divorciado(a)</option>
-                      <option value="viudo">Viudo(a)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Tipo de Vivienda:</label>
-                    <select
-                      value={formSolventar.situacion_vivienda}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, situacion_vivienda: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    >
-                      <option value="propia">Propia</option>
-                      <option value="padres">De sus padres</option>
-                      <option value="prestada">Prestada</option>
-                      <option value="pagandola">Pagándola (Hipoteca)</option>
-                      <option value="rentada">Rentada</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Pago Mensual (Renta/Hipoteca $):</label>
-                    <input
-                      type="number"
-                      value={formSolventar.monto_pago_mensual}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, monto_pago_mensual: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Tiempo de Residencia:</label>
-                    <input
-                      type="text"
-                      value={formSolventar.tiempo_residencia}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, tiempo_residencia: e.target.value }))}
-                      placeholder="Ej. 5 años, 8 meses..."
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Mayores 18 años:</label>
-                    <input
-                      type="number"
-                      value={formSolventar.personas_mayores_18}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, personas_mayores_18: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Menores 18 años:</label>
-                    <input
-                      type="number"
-                      value={formSolventar.personas_menores_18}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, personas_menores_18: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Personas que aportan ingresos:</label>
-                    <input
-                      type="number"
-                      value={formSolventar.personas_generan_ingresos}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, personas_generan_ingresos: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Valor Estimado Casa ($):</label>
-                    <input
-                      type="number"
-                      value={formSolventar.valor_estimado_casa}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, valor_estimado_casa: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 text-[11px] mb-1">Valor Estimado Muebles ($):</label>
-                    <input
-                      type="number"
-                      value={formSolventar.valor_estimado_muebles}
-                      onChange={(e) => setFormSolventar(prev => ({ ...prev, valor_estimado_muebles: e.target.value }))}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Sección 3: Observaciones Complementarias */}
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
-                <div className="font-bold text-slate-300 border-b border-slate-800 pb-1 flex items-center justify-between">
-                  <span>3. OBSERVACIONES COMPLEMENTARIAS DEL ESTUDIO</span>
-                </div>
-                <textarea
-                  value={formSolventar.notas_investigador}
-                  onChange={(e) => setFormSolventar(prev => ({ ...prev, notas_investigador: e.target.value }))}
-                  rows={2}
-                  placeholder="Observaciones adicionales sobre el socio, predio o entorno..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
-                />
-              </div>
-
-              {/* Aviso de Inmutabilidad de Fotos */}
-              <div className="p-3.5 rounded-xl bg-sky-950/40 border border-sky-500/30 text-sky-200 text-xs flex items-center gap-3">
-                <Camera className="w-5 h-5 text-sky-400 shrink-0" />
-                <span>
-                  <strong>Fotografías de campo inmutables:</strong> Las {fotosList.length} fotografía(s) capturadas originalmente por el investigador de campo permanecen archivadas como evidencia física pericial y no pueden ser alteradas.
-                </span>
-              </div>
+              )}
 
             </div>
 
             {/* Footer buttons */}
-            <div className="p-4 border-t border-slate-800 bg-slate-950/90 flex items-center justify-between gap-3 shrink-0 flex-wrap">
+            <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between gap-3 shrink-0 flex-wrap">
               <button
                 type="button"
                 onClick={() => setShowSolventarModal(false)}

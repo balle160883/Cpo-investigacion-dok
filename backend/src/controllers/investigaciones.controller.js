@@ -343,6 +343,9 @@ async function getInvestigacionDetalle(req, res, next) {
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS analista_id INTEGER;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_revalidacion TIMESTAMP;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_revalidacion TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS folio_solventado BOOLEAN DEFAULT FALSE;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
 
     // 1. Investigacion principal
     const invRes = await db.query(`
@@ -356,6 +359,9 @@ async function getInvestigacionDetalle(req, res, next) {
         inv.fecha_cumplimiento,
         COALESCE(inv.estado, 'PENDIENTE') as estado,
         inv.observaciones_sif,
+        inv.folio_solventado,
+        inv.justificacion_folio,
+        inv.comprobante_folio_url,
         p.nombre_completo as sujeto_nombre,
         p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido,
         p.genero, p.es_aval,
