@@ -35,6 +35,8 @@ export default function InvestigacionesPage() {
   })();
   const isNormaBermejo = userName.includes('norma') || userName.includes('bermejo') || userEmail.includes('norma') || userEmail.includes('bermejo');
   const isAnalista = userRole === 'analista' && !isNormaBermejo;
+  // Solo administradores y asignadores pueden asignar. Norma Bermejo y los analistas NO pueden asignar.
+  const canAssign = ['superadmin', 'admin', 'asignador'].some(r => userRole.includes(r)) && !isNormaBermejo && userRole !== 'analista';
 
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -554,10 +556,10 @@ export default function InvestigacionesPage() {
             </button>
           )}
 
-          {selectedIds.length > 0 && <div className="h-6 w-px bg-slate-700" />}
+          {canAssign && selectedIds.length > 0 && <div className="h-6 w-px bg-slate-700" />}
 
           {/* Botón Asignar Seleccionadas */}
-          {selectedIds.length > 0 && (
+          {canAssign && selectedIds.length > 0 && (
             <button
               onClick={openLoteModal}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-lg shadow-sky-600/30 transition"
@@ -567,7 +569,7 @@ export default function InvestigacionesPage() {
             </button>
           )}
 
-          {selectedIds.length > 0 && (
+          {canAssign && selectedIds.length > 0 && (
             <button
               onClick={() => setSelectedIds([])}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold border border-slate-700 transition"
@@ -585,8 +587,8 @@ export default function InvestigacionesPage() {
           <table className="w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-950/60 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-800">
               <tr>
-                {/* Columna Checkbox — solo para no-analistas */}
-                {!isAnalista && (
+                {/* Columna Checkbox — solo para quienes pueden asignar */}
+                {canAssign && (
                   <th className="px-4 py-3.5 w-10">
                     <button
                       onClick={toggleSeleccionarTodos}
@@ -615,13 +617,13 @@ export default function InvestigacionesPage() {
             <tbody className="divide-y divide-slate-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan={isAnalista ? 8 : 9} className="text-center py-12 text-slate-500">
+                  <td colSpan={canAssign ? 9 : 8} className="text-center py-12 text-slate-500">
                     Cargando catálogo de investigaciones...
                   </td>
                 </tr>
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={isAnalista ? 8 : 9} className="text-center py-12 text-slate-500">
+                  <td colSpan={canAssign ? 9 : 8} className="text-center py-12 text-slate-500">
                     {coloniaSeleccionada
                       ? `No se encontraron investigaciones en la colonia "${coloniaSeleccionada}".`
                       : 'No se encontraron registros de investigación.'}
@@ -634,7 +636,7 @@ export default function InvestigacionesPage() {
                   return (
                     <tr key={row.id_sif_research} className={`hover:bg-slate-800/30 transition ${isChecked ? 'bg-sky-500/5 border-l-2 border-sky-500' : ''}`}>
                       {/* Checkbox */}
-                      {!isAnalista && (
+                      {canAssign && (
                         <td className="px-4 py-4">
                           <button
                             onClick={() => toggleSelectId(row.id_sif_research)}
@@ -795,7 +797,7 @@ export default function InvestigacionesPage() {
                     </td>
 
                     <td className="px-5 py-4 text-right space-x-2">
-                      {!isAnalista && (
+                      {canAssign && (
                         <button
                           onClick={() => openAssignModal(row)}
                           className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-sky-600 text-sky-400 hover:text-white text-xs font-semibold transition"
@@ -921,7 +923,7 @@ export default function InvestigacionesPage() {
       )}
 
       {/* Assignment Modal */}
-      {selectedInv && (
+      {canAssign && selectedInv && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <h3 className="text-lg font-bold text-white">Asignar Investigador en Campo</h3>
@@ -1000,7 +1002,7 @@ export default function InvestigacionesPage() {
       )}
 
       {/* ── Barra de Acción Masiva Fija (cuando hay selección) ───────── */}
-      {!isAnalista && selectedIds.length > 0 && (
+      {canAssign && selectedIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4
                         bg-slate-900/95 backdrop-blur-md border border-sky-500/40 rounded-2xl
                         px-6 py-3 shadow-2xl shadow-sky-900/40 ring-1 ring-sky-500/20">
@@ -1026,7 +1028,7 @@ export default function InvestigacionesPage() {
       )}
 
       {/* ── Modal Asignar Lote ─────────────────────────────────────────── */}
-      {loteModalOpen && (
+      {canAssign && loteModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl ring-1 ring-sky-500/20">
             {/* Header */}

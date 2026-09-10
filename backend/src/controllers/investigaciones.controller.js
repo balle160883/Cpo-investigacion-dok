@@ -598,6 +598,15 @@ async function getInvestigacionDetalle(req, res, next) {
 
 async function asignarInvestigador(req, res, next) {
   try {
+    const userName = req.user ? (req.user.nombre || '').toLowerCase() : '';
+    const userEmail = req.user ? (req.user.email || '').toLowerCase() : '';
+    const isNormaBermejo = userName.includes('norma') || userName.includes('bermejo') || userEmail.includes('norma') || userEmail.includes('bermejo');
+    const userRol = req.user ? (req.user.rol || '').toLowerCase() : '';
+
+    if (isNormaBermejo || userRol === 'analista') {
+      return res.status(403).json({ error: 'Acceso denegado: El usuario no tiene permisos para asignar investigaciones.' });
+    }
+
     const id = req.params.id;
     const { investigador_id } = req.body;
 
@@ -640,6 +649,15 @@ async function asignarInvestigador(req, res, next) {
 
 async function asignarInvestigadorLote(req, res, next) {
   try {
+    const userName = req.user ? (req.user.nombre || '').toLowerCase() : '';
+    const userEmail = req.user ? (req.user.email || '').toLowerCase() : '';
+    const isNormaBermejo = userName.includes('norma') || userName.includes('bermejo') || userEmail.includes('norma') || userEmail.includes('bermejo');
+    const userRol = req.user ? (req.user.rol || '').toLowerCase() : '';
+
+    if (isNormaBermejo || userRol === 'analista') {
+      return res.status(403).json({ error: 'Acceso denegado: El usuario no tiene permisos para asignar investigaciones.' });
+    }
+
     const { investigacion_ids, investigador_id } = req.body;
 
     if (!Array.isArray(investigacion_ids) || investigacion_ids.length === 0) {
