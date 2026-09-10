@@ -38,9 +38,16 @@ async function getContactoDetalle(req, res, next) {
       }
     }
 
-    // 3. Obtener dirección vinculada
+    // 3. Obtener dirección vinculada (priorizando la principal y activa)
     let { rows: direcciones } = await db.query(
-      `SELECT * FROM direcciones WHERE CAST(persona_id_sif AS TEXT) = $1 LIMIT 1`,
+      `SELECT * FROM direcciones 
+       WHERE CAST(persona_id_sif AS TEXT) = $1 
+       ORDER BY 
+         COALESCE(es_principal, FALSE) DESC, 
+         COALESCE(activa, TRUE) DESC, 
+         COALESCE(updated_at, '1970-01-01'::timestamp) DESC, 
+         id_sif DESC 
+       LIMIT 1`,
       [targetPersonaId]
     );
 
@@ -123,7 +130,7 @@ async function prevalidarDomicilio(req, res, next) {
       usuarioRol: req.user?.rol || 'operador',
       accion: 'PREVALIDAR_DOMICILIO_SUCURSAL',
       recurso: 'direcciones',
-      recursoId: String(rows[0].id),
+      recursoId: String(rows[0].id_sif || personaIdSif),
       descripcion: `Domicilio prevalidado por sucursal vía ${metodoValidacion} para la persona ${personaIdSif}`,
       datosNuevos: rows[0],
     });

@@ -179,13 +179,26 @@ async function getInvestigaciones(req, res, next) {
     }
 
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+    const necesitaDireccionEnCount = Boolean(colonia || buscar);
 
     const countQuery = `
       SELECT count(*)
       FROM investigaciones inv
       LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
       LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
-      LEFT JOIN direcciones d ON p.id_sif = d.persona_id_sif
+      ${necesitaDireccionEnCount ? `
+      LEFT JOIN LATERAL (
+        SELECT d.colonia
+        FROM direcciones d
+        WHERE d.persona_id_sif = p.id_sif
+        ORDER BY 
+          CASE WHEN s.direccion_id_sif IS NOT NULL AND d.id_sif = s.direccion_id_sif THEN 1 ELSE 0 END DESC,
+          COALESCE(d.es_principal, FALSE) DESC,
+          COALESCE(d.activa, TRUE) DESC,
+          COALESCE(d.updated_at, '1970-01-01'::timestamp) DESC,
+          d.id_sif DESC
+        LIMIT 1
+      ) d ON TRUE` : ''}
       ${whereSql};
     `;
 
@@ -254,6 +267,8 @@ async function getInvestigaciones(req, res, next) {
           d.colonia,
           d.municipio,
           d.estado_provincia,
+          d.latitud,
+          d.longitud,
           d.domicilio_validado_sucursal,
           inv_usr.nombre as investigador_nombre,
           val_usr.nombre as validador_nombre,
@@ -261,7 +276,27 @@ async function getInvestigaciones(req, res, next) {
         FROM investigaciones inv
         LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
         LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
-        LEFT JOIN direcciones d ON p.id_sif = d.persona_id_sif
+        LEFT JOIN LATERAL (
+          SELECT 
+            d.calle,
+            d.numero_exterior,
+            d.codigo_postal,
+            d.colonia,
+            d.municipio,
+            d.estado_provincia,
+            d.latitud,
+            d.longitud,
+            d.domicilio_validado_sucursal
+          FROM direcciones d
+          WHERE d.persona_id_sif = p.id_sif
+          ORDER BY 
+            CASE WHEN s.direccion_id_sif IS NOT NULL AND d.id_sif = s.direccion_id_sif THEN 1 ELSE 0 END DESC,
+            COALESCE(d.es_principal, FALSE) DESC,
+            COALESCE(d.activa, TRUE) DESC,
+            COALESCE(d.updated_at, '1970-01-01'::timestamp) DESC,
+            d.id_sif DESC
+          LIMIT 1
+        ) d ON TRUE
         LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
         LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
         LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
@@ -394,7 +429,20 @@ async function getInvestigacionDetalle(req, res, next) {
       FROM investigaciones inv
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
-      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
+      LEFT JOIN LATERAL (
+        SELECT 
+          d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.colonia, d.municipio, d.estado_provincia, d.referencias, d.latitud, d.longitud,
+          d.domicilio_validado_sucursal
+        FROM direcciones d
+        WHERE d.persona_id_sif = p.id_sif
+        ORDER BY 
+          CASE WHEN s.direccion_id_sif IS NOT NULL AND d.id_sif = s.direccion_id_sif THEN 1 ELSE 0 END DESC,
+          COALESCE(d.es_principal, FALSE) DESC,
+          COALESCE(d.activa, TRUE) DESC,
+          COALESCE(d.updated_at, '1970-01-01'::timestamp) DESC,
+          d.id_sif DESC
+        LIMIT 1
+      ) d ON TRUE
       LEFT JOIN investigadores inv_usr ON inv.investigador_id = inv_usr.id
       LEFT JOIN investigadores val_usr ON inv.validador_id = val_usr.id
       LEFT JOIN investigadores an_usr ON inv.analista_id = an_usr.id
@@ -420,7 +468,17 @@ async function getInvestigacionDetalle(req, res, next) {
         SELECT sa.aval_id_sif, p.nombre_completo, d.calle, d.numero_exterior, d.codigo_postal
         FROM solicitud_avales sa
         JOIN personas p ON CAST(sa.aval_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
-        LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
+        LEFT JOIN LATERAL (
+          SELECT d.calle, d.numero_exterior, d.codigo_postal
+          FROM direcciones d
+          WHERE d.persona_id_sif = p.id_sif
+          ORDER BY 
+            COALESCE(d.es_principal, FALSE) DESC,
+            COALESCE(d.activa, TRUE) DESC,
+            COALESCE(d.updated_at, '1970-01-01'::timestamp) DESC,
+            d.id_sif DESC
+          LIMIT 1
+        ) d ON TRUE
         WHERE CAST(sa.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT);
       `, [investigacion.solicitud_id_sif]);
       avales = avalesRes.rows;
@@ -992,7 +1050,19 @@ async function getColoniasActivas(req, res, next) {
         COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'REAGENDADA') AS sin_asignar
       FROM investigaciones inv
       JOIN personas p ON inv.persona_id_sif = p.id_sif
-      JOIN direcciones d ON p.id_sif = d.persona_id_sif
+      LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+      LEFT JOIN LATERAL (
+        SELECT d.colonia
+        FROM direcciones d
+        WHERE d.persona_id_sif = p.id_sif
+        ORDER BY 
+          CASE WHEN s.direccion_id_sif IS NOT NULL AND d.id_sif = s.direccion_id_sif THEN 1 ELSE 0 END DESC,
+          COALESCE(d.es_principal, FALSE) DESC,
+          COALESCE(d.activa, TRUE) DESC,
+          COALESCE(d.updated_at, '1970-01-01'::timestamp) DESC,
+          d.id_sif DESC
+        LIMIT 1
+      ) d ON TRUE
       WHERE d.colonia IS NOT NULL
         AND d.colonia != ''
         AND (inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'RECHAZADA'))

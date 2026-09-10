@@ -64,7 +64,18 @@ async function getAgenda(req, res, next) {
       LEFT JOIN investigaciones inv ON CAST(a.investigacion_id_sif AS TEXT) = CAST(inv.id_sif_research AS TEXT)
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
-      LEFT JOIN direcciones d ON CAST(p.id_sif AS TEXT) = CAST(d.persona_id_sif AS TEXT)
+      LEFT JOIN LATERAL (
+        SELECT d.calle, d.numero_exterior, d.colonia, d.municipio
+        FROM direcciones d
+        WHERE d.persona_id_sif = p.id_sif
+        ORDER BY 
+          CASE WHEN s.direccion_id_sif IS NOT NULL AND d.id_sif = s.direccion_id_sif THEN 1 ELSE 0 END DESC,
+          COALESCE(d.es_principal, FALSE) DESC,
+          COALESCE(d.activa, TRUE) DESC,
+          COALESCE(d.updated_at, '1970-01-01'::timestamp) DESC,
+          d.id_sif DESC
+        LIMIT 1
+      ) d ON TRUE
       LEFT JOIN investigadores inv_usr ON a.investigador_id = inv_usr.id
       ${whereSql}
       ORDER BY a.prioridad DESC, a.fecha_programada ASC;
