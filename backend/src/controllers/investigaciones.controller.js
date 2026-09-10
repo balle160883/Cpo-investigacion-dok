@@ -92,14 +92,23 @@ async function getInvestigaciones(req, res, next) {
     }
 
     // Filtros de Rol por Usuario autenticado
+    const userName = req.user ? (req.user.nombre || '').toLowerCase() : '';
+    const userEmail = req.user ? (req.user.email || '').toLowerCase() : '';
+    const isNormaBermejo =
+      userName.includes('norma') ||
+      userName.includes('bermejo') ||
+      userEmail.includes('norma') ||
+      userEmail.includes('bermejo');
+
     if (req.user) {
       const userRol = (req.user.rol || '').toLowerCase();
       const rolesArray = userRol.split(',').map((r) => r.trim());
-      const esAdminOAsignador = rolesArray.some((r) =>
-        ['admin', 'superadmin', 'asignador', 'supervisor', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'].includes(r)
-      );
+      const esAdminOAsignador =
+        rolesArray.some((r) =>
+          ['admin', 'superadmin', 'asignador', 'supervisor', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'].includes(r)
+        ) || isNormaBermejo;
       const esSoloValidador = rolesArray.includes('validador') && !esAdminOAsignador;
-      const esSoloAnalista = rolesArray.includes('analista') && !esAdminOAsignador;
+      const esSoloAnalista = rolesArray.includes('analista') && !esAdminOAsignador && !isNormaBermejo;
       const esInvestigadorCampo =
         rolesArray.some((r) => ['investigador', 'investigador_campo'].includes(r)) &&
         !esAdminOAsignador &&
@@ -122,7 +131,7 @@ async function getInvestigaciones(req, res, next) {
         )`);
       }
 
-      // ANALISTA PURO: solo puede ver investigaciones con estado_validacion = 'VALIDADA'
+      // ANALISTA PURO (excepto Norma Bermejo): solo puede ver investigaciones con estado_validacion = 'VALIDADA'
       if (esSoloAnalista) {
         whereClauses.push(`inv.estado_validacion = 'VALIDADA'`);
       }
@@ -145,7 +154,10 @@ async function getInvestigaciones(req, res, next) {
     } else {
       // Por defecto (sin filtro explícito), ocultar investigaciones ya validadas o aprobadas final
       // para que al dar el visto bueno desaparezcan de la cola de trabajo activa.
-      whereClauses.push(`(inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL'))`);
+      // Excepción: Si es Norma Bermejo, no ocultar nada por defecto para que vea todas.
+      if (!isNormaBermejo) {
+        whereClauses.push(`(inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL'))`);
+      }
     }
 
     if (targetInvestigadorId) {

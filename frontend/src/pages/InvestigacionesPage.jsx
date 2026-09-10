@@ -25,13 +25,22 @@ export default function InvestigacionesPage() {
     if (auth?.user?.rol) return auth.user.rol.toLowerCase();
     try { return (JSON.parse(localStorage.getItem('cpo_user') || '{}').rol || '').toLowerCase(); } catch { return ''; }
   })();
-  const isAnalista = userRole === 'analista';
+  const userName = (() => {
+    if (auth?.user?.nombre) return auth.user.nombre.toLowerCase();
+    try { return (JSON.parse(localStorage.getItem('cpo_user') || '{}').nombre || '').toLowerCase(); } catch { return ''; }
+  })();
+  const userEmail = (() => {
+    if (auth?.user?.email) return auth.user.email.toLowerCase();
+    try { return (JSON.parse(localStorage.getItem('cpo_user') || '{}').email || '').toLowerCase(); } catch { return ''; }
+  })();
+  const isNormaBermejo = userName.includes('norma') || userName.includes('bermejo') || userEmail.includes('norma') || userEmail.includes('bermejo');
+  const isAnalista = userRole === 'analista' && !isNormaBermejo;
 
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [buscar, setBuscar] = useState('');
-  const [estado, setEstado] = useState('');
+  const [estado, setEstado] = useState(isNormaBermejo ? 'TODAS' : '');
   const [loading, setLoading] = useState(true);
 
   // Filtro por colonia
@@ -286,16 +295,22 @@ export default function InvestigacionesPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">
-            {isAnalista ? '📊 Investigaciones Validadas — Revisión' : 'Investigaciones Domiciliarias'}
+            {isNormaBermejo
+              ? 'Todas las Investigaciones Domiciliarias'
+              : isAnalista
+                ? '📊 Investigaciones Validadas — Revisión'
+                : 'Investigaciones Domiciliarias'}
           </h2>
           <p className="text-slate-400 text-sm">
-            {isAnalista
-              ? 'Vista de solo lectura. Aquí aparecen únicamente las investigaciones que ya fueron aprobadas por el Validador.'
-              : 'Administración, asignación y exportación de estudios a Solicitantes y Avales.'}
+            {isNormaBermejo
+              ? 'Vista global de todas las investigaciones sin restricción de estado para Norma Lizette Bermejo Palos.'
+              : isAnalista
+                ? 'Vista de solo lectura. Aquí aparecen únicamente las investigaciones que ya fueron aprobadas por el Validador.'
+                : 'Administración, asignación y exportación de estudios a Solicitantes y Avales.'}
           </p>
         </div>
 
-        {/* Search & Filter Bar — ocultar botones de acción para Analista */}
+        {/* Search & Filter Bar */}
         <div className="flex flex-wrap items-center gap-2">
           <form onSubmit={handleSearch} className="flex items-center gap-2">
             <div className="relative">
@@ -309,8 +324,8 @@ export default function InvestigacionesPage() {
               />
             </div>
 
-            {/* El Analista solo ve sus investigaciones VALIDADAS — no tiene filtro de estado */}
-            {!isAnalista && (
+            {/* Selector de estado: Norma y no-analistas pueden filtrar cualquier estado libremente */}
+            {(!isAnalista || isNormaBermejo) && (
               <select
                 value={estado}
                 onChange={(e) => {
@@ -319,18 +334,18 @@ export default function InvestigacionesPage() {
                 }}
                 className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-300 focus:outline-none focus:border-sky-500"
               >
+                <option value="TODAS">Ver Todas (Histórico Completo)</option>
                 <option value="">Activas (Cola de trabajo)</option>
                 <option value="PENDIENTE">Pendientes</option>
                 <option value="EN_PROCESO">En Proceso</option>
                 <option value="COMPLETADA">Completadas en Campo</option>
                 <option value="VALIDADA">Validadas / Visto Bueno ✅</option>
                 <option value="RECHAZADA">Rechazadas ❌</option>
-                <option value="TODAS">Ver Todas (Histórico Completo)</option>
               </select>
             )}
           </form>
 
-          {!isAnalista && (
+          {(!isAnalista || isNormaBermejo) && (
             <button
               onClick={exportarAExcel}
               className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5"
@@ -342,8 +357,18 @@ export default function InvestigacionesPage() {
         </div>
       </div>
 
+      {/* Banner informativo para Norma Bermejo */}
+      {isNormaBermejo && (
+        <div className="flex items-center gap-3 bg-sky-950/40 border border-sky-700/60 rounded-xl px-4 py-3 text-sky-300 text-sm">
+          <ShieldCheck className="w-5 h-5 flex-shrink-0 text-sky-400" />
+          <span>
+            <strong>Acceso Global Habilitado (Norma Lizette Bermejo Palos):</strong> Cuentas con visibilidad total de todas las investigaciones del sistema en cualquier estado (Pendiente, En Proceso, Completada, Validada o Rechazada).
+          </span>
+        </div>
+      )}
+
       {/* Banner informativo para Analista */}
-      {isAnalista && (
+      {isAnalista && !isNormaBermejo && (
         <div className="flex items-center gap-3 bg-teal-900/40 border border-teal-700/60 rounded-xl px-4 py-3 text-teal-300 text-sm">
           <ShieldCheck className="w-5 h-5 flex-shrink-0" />
           <span>
