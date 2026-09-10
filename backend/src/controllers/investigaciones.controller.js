@@ -12,6 +12,7 @@ function evaluarInconsistenciasPersona(row) {
   // 1. Teléfonos / Contacto
   const tieneTel = Boolean(
     (row.telefono_principal && String(row.telefono_principal).trim()) ||
+    (row.celular && String(row.celular).trim()) ||
     (row.telefono_secundario && String(row.telefono_secundario).trim()) ||
     (row.telefono && String(row.telefono).trim())
   );
@@ -250,7 +251,8 @@ async function getInvestigaciones(req, res, next) {
           p.nombre_completo as sujeto_nombre,
           p.es_aval,
           p.estado_contacto_semaforo,
-          COALESCE(p.telefono_principal, p.telefono) as telefono_principal,
+          COALESCE(p.telefono_principal, p.celular, p.telefono) as telefono_principal,
+          p.celular,
           p.telefono,
           p.telefono_secundario,
           p.curp,
@@ -401,7 +403,8 @@ async function getInvestigacionDetalle(req, res, next) {
         p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido,
         p.genero, p.es_aval,
         p.estado_contacto_semaforo,
-        COALESCE(p.telefono_principal, p.telefono) as telefono_principal,
+        COALESCE(p.telefono_principal, p.celular, p.telefono) as telefono_principal,
+        p.celular,
         p.telefono,
         p.telefono_secundario,
         p.curp,
@@ -465,7 +468,13 @@ async function getInvestigacionDetalle(req, res, next) {
     let paqueteInvestigaciones = [];
     if (investigacion.solicitud_id_sif) {
       const avalesRes = await db.query(`
-        SELECT sa.aval_id_sif, p.nombre_completo, d.calle, d.numero_exterior, d.codigo_postal
+        SELECT 
+          sa.aval_id_sif, 
+          p.nombre_completo, 
+          COALESCE(p.telefono_principal, p.celular, p.telefono) as telefono,
+          p.celular,
+          p.telefono as telefono_fijo,
+          d.calle, d.numero_exterior, d.codigo_postal
         FROM solicitud_avales sa
         JOIN personas p ON CAST(sa.aval_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
         LEFT JOIN LATERAL (

@@ -64,7 +64,7 @@ async function getContactoDetalle(req, res, next) {
     const direccion = direcciones[0] || {};
 
     let semaforoContacto = persona.estado_contacto_semaforo || 'AMARILLO';
-    if (!persona.telefono_principal && !persona.telefono_secundario && !persona.telefono) {
+    if (!persona.telefono_principal && !persona.telefono_secundario && !persona.telefono && !persona.celular) {
       semaforoContacto = 'ROJO';
     }
 
@@ -72,7 +72,7 @@ async function getContactoDetalle(req, res, next) {
       persona_id_sif: persona.id_sif,
       nombre_completo: persona.nombre_completo,
       domicilio: {
-        direccion_id: direccion.id,
+        direccion_id: direccion.id_sif || direccion.id,
         calle: direccion.calle || 'Por verificar',
         numero_exterior: direccion.numero_exterior || 'S/N',
         numero_interior: direccion.numero_interior || '',
@@ -90,8 +90,10 @@ async function getContactoDetalle(req, res, next) {
         observaciones_domicilio: direccion.observaciones_domicilio,
       },
       contacto: {
-        telefono_principal: persona.telefono_principal || persona.telefono || '',
-        telefono_secundario: persona.telefono_secundario || '',
+        telefono_principal: persona.celular || persona.telefono_principal || persona.telefono || '',
+        telefono_secundario: persona.telefono_secundario || (persona.celular && persona.telefono && persona.celular !== persona.telefono ? persona.telefono : ''),
+        celular: persona.celular || '',
+        telefono_fijo: persona.telefono || '',
         email_validado: persona.email_validado || persona.email || '',
         fuente_datos_contacto: persona.fuente_datos_contacto || 'SUCURSAL',
         estado_contacto_semaforo: semaforoContacto,
