@@ -323,6 +323,8 @@ async function getInvestigaciones(req, res, next) {
         -- PROGRESO DEL PAQUETE DEL CRÉDITO (Solicitante + Avales)
         COALESCE(paq.paquete_total, 1) as paquete_total,
         COALESCE(paq.paquete_completadas, 0) as paquete_completadas,
+        COALESCE(paq.paquete_validadas, 0) as paquete_validadas,
+        COALESCE(paq.paquete_todo_validado, false) as paquete_todo_validado,
         (COALESCE(paq.paquete_total, 1) = COALESCE(paq.paquete_completadas, 0)) as paquete_completo,
         -- VIGENCIA 90 DÍAS
         vigencia.visita_previa_id,
@@ -333,7 +335,9 @@ async function getInvestigaciones(req, res, next) {
       LEFT JOIN LATERAL (
         SELECT 
           COUNT(*) as paquete_total,
-          COUNT(*) FILTER (WHERE inv_p.estado = 'COMPLETADA') as paquete_completadas
+          COUNT(*) FILTER (WHERE inv_p.estado = 'COMPLETADA') as paquete_completadas,
+          COUNT(*) FILTER (WHERE inv_p.estado_validacion = 'VALIDADA') as paquete_validadas,
+          (COUNT(*) > 0 AND COUNT(*) = COUNT(*) FILTER (WHERE inv_p.estado_validacion = 'VALIDADA')) as paquete_todo_validado
         FROM investigaciones inv_p
         WHERE inv_p.solicitud_id_sif = pag.solicitud_id_sif
       ) paq ON TRUE
@@ -1492,6 +1496,128 @@ async function subirComprobanteFolio(req, res, next) {
   }
 }
 
+async function asignarAnalista(req, res, next) {
+  try {
+    const { solicitud_id_sif, investigacion_id, analista_id } = req.body;
+
+    if (!analista_id) {
+      return res.status(400).json({ error: 'Debes seleccionar un analista.' });
+    }
+
+    if (!solicitud_id_sif && !investigacion_id) {
+      return res.status(400).json({ error: 'Se requiere solicitud_id_sif o investigacion_id.' });
+    }
+
+    // Resolver solicitud_id_sif si solo se envió investigacion_id
+    let targetSolicitudId = solicitud_id_sif;
+    if (!targetSolicitudId && investigacion_id) {
+      const invRow = await db.query(
+        `SELECT solicitud_id_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
+        [investigacion_id]
+      );
+      if (invRow.rows.length > 0) {
+        targetSolicitudId = invRow.rows[0].solicitud_id_sif;
+      }
+    }
+
+    if (!targetSolicitudId) {
+      return res.status(400).json({ error: 'No se encontró la solicitud de crédito correspondiente.' });
+    }
+
+    // 1. Obtener todas las investigaciones asociadas a este crédito
+    const { rows: invsCredito } = await db.query(
+      `SELECT inv.id_sif_research, inv.persona_id_sif, inv.tipo_sujeto, inv.estado, inv.estado_validacion, inv.analista_id,
+              p.nombre_completo as sujeto_nombre
+       FROM investigaciones inv
+       LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
+       WHERE inv.solicitud_id_sif = $1;`,
+      [targetSolicitudId]
+    );
+
+    if (invsCredito.length === 0) {
+      return res.status(404).json({ error: 'No se encontraron investigaciones para esta solicitud de crédito.' });
+    }
+
+    // 2. REGLA DE NEGOCIO CRÍTICA:
+    // Solo se puede asignar analista si el 100% de las investigaciones ya fueron validadas por el Validador
+    const noValidadas = invsCredito.filter(
+      (inv) => !inv.estado_validacion || inv.estado_validacion.toUpperCase() !== 'VALIDADA'
+    );
+
+    if (noValidadas.length > 0) {
+      return res.status(400).json({
+        error: `No se puede asignar analista: aún hay ${noValidadas.length} de ${invsCredito.length} investigación(es) del crédito sin visto bueno del Validador.`,
+        total: invsCredito.length,
+        validadas: invsCredito.length - noValidadas.length,
+        pendientes: noValidadas.map((i) => ({
+          id_sif_research: i.id_sif_research,
+          sujeto: i.sujeto_nombre || i.tipo_sujeto,
+          tipo_sujeto: i.tipo_sujeto,
+          estado: i.estado,
+          estado_validacion: i.estado_validacion || 'PENDIENTE',
+        })),
+      });
+    }
+
+    // 3. Obtener el analista para asegurar que existe y está activo
+    const analistaRes = await db.query(
+      `SELECT id, nombre, email, rol FROM investigadores WHERE id = $1 AND activo = TRUE;`,
+      [analista_id]
+    );
+
+    if (analistaRes.rows.length === 0) {
+      return res.status(404).json({ error: 'El analista seleccionado no existe o está inactivo.' });
+    }
+    const analista = analistaRes.rows[0];
+
+    // Asegurar columna fecha_asignacion_analista
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_asignacion_analista TIMESTAMP;`);
+
+    // 4. Asignar el analista a todas las investigaciones de la solicitud
+    await db.query(
+      `UPDATE investigaciones
+       SET analista_id = $1,
+           fecha_asignacion_analista = NOW(),
+           updated_at = NOW()
+       WHERE solicitud_id_sif = $2;`,
+      [analista_id, targetSolicitudId]
+    );
+
+    // 5. Registrar en bitácora de auditoría
+    registrarAuditoria({
+      usuario_id: req.user?.id || null,
+      usuario_nombre: req.user?.nombre || req.user?.email || 'Sistema',
+      usuario_rol: req.user?.rol || 'coordinacion_analistas',
+      accion: 'ASIGNAR_ANALISTA_PRESTAMO',
+      recurso: 'solicitudes_credito',
+      recurso_id: String(targetSolicitudId),
+      descripcion: `Asignación del analista ${analista.nombre} (ID: ${analista.id}) a la solicitud de crédito ${targetSolicitudId} (${invsCredito.length} investigaciones validadas).`,
+      ip_origen: req.ip || req.headers['x-forwarded-for'],
+      user_agent: req.headers['user-agent'],
+      datos_anteriores: {
+        investigaciones_count: invsCredito.length,
+        analistas_previos: invsCredito.map((i) => i.analista_id),
+      },
+      datos_nuevos: {
+        analista_id: analista.id,
+        analista_nombre: analista.nombre,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: `Analista ${analista.nombre} asignado correctamente a las ${invsCredito.length} investigaciones de este crédito.`,
+      analista: {
+        id: analista.id,
+        nombre: analista.nombre,
+      },
+      solicitud_id_sif: targetSolicitudId,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
@@ -1499,6 +1625,7 @@ module.exports = {
   getSucursalesActivas,
   asignarInvestigador,
   asignarInvestigadorLote,
+  asignarAnalista,
   guardarEvidencia,
   validarInvestigacion,
   revalidarInvestigacion,

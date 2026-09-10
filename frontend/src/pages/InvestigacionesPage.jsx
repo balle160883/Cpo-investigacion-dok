@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
-import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
+import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2, AlertTriangle, CheckCircle2, UserCheck, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -35,8 +35,10 @@ export default function InvestigacionesPage() {
   })();
   const isNormaBermejo = userName.includes('norma') || userName.includes('bermejo') || userEmail.includes('norma') || userEmail.includes('bermejo');
   const isAnalista = userRole === 'analista' && !isNormaBermejo;
-  // Solo administradores y asignadores pueden asignar. Norma Bermejo y los analistas NO pueden asignar.
+  // Solo administradores y asignadores pueden asignar investigadores de campo. Norma Bermejo y analistas NO asignan visitas.
   const canAssign = ['superadmin', 'admin', 'asignador'].some(r => userRole.includes(r)) && !isNormaBermejo && userRole !== 'analista';
+  // Norma Lizette Bermejo y coordinadores/administradores pueden asignar analistas a los préstamos validados
+  const canAssignAnalista = isNormaBermejo || ['superadmin', 'admin', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'].some(r => userRole.includes(r));
 
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -44,6 +46,12 @@ export default function InvestigacionesPage() {
   const [buscar, setBuscar] = useState('');
   const [estado, setEstado] = useState(isNormaBermejo ? 'TODAS' : '');
   const [loading, setLoading] = useState(true);
+
+  // Modal Asignar Analista a Crédito (cuando todas las investigaciones están validadas)
+  const [analistaModalCredito, setAnalistaModalCredito] = useState(null);
+  const [analistasDisponibles, setAnalistasDisponibles] = useState([]);
+  const [selectedAnalistaId, setSelectedAnalistaId] = useState('');
+  const [assigningAnalista, setAssigningAnalista] = useState(false);
 
   // Filtro por colonia
   const [colonias, setColonias] = useState([]);
@@ -155,6 +163,50 @@ export default function InvestigacionesPage() {
       }
     } catch (err) {
       console.error('Error cargando investigadores:', err);
+    }
+  }
+
+  async function openAsignarAnalistaModal(row) {
+    setAnalistaModalCredito(row);
+    setSelectedAnalistaId(row.analista_id ? String(row.analista_id) : '');
+    try {
+      const todos = await fetchInvestigadores();
+      // Filtrar analistas activos o administradores
+      const soloAnalistas = (todos || []).filter(u => 
+        (u.rol || '').toLowerCase().includes('analista') ||
+        (u.rol || '').toLowerCase().includes('admin')
+      );
+      setAnalistasDisponibles(soloAnalistas);
+      if (!row.analista_id && soloAnalistas.length > 0) {
+        setSelectedAnalistaId(String(soloAnalistas[0].id));
+      }
+    } catch (e) {
+      console.error('Error cargando lista de analistas:', e);
+    }
+  }
+
+  async function handleConfirmAsignarAnalista() {
+    if (!analistaModalCredito || !selectedAnalistaId) return;
+    setAssigningAnalista(true);
+    try {
+      const res = await asignarAnalistaCredito({
+        solicitud_id_sif: analistaModalCredito.solicitud_id_sif,
+        investigacion_id: analistaModalCredito.id_sif_research,
+        analista_id: selectedAnalistaId,
+      });
+      setToast({
+        message: res.message || 'Analista asignado con éxito al préstamo',
+        type: 'success',
+      });
+      setAnalistaModalCredito(null);
+      await loadInvestigaciones();
+    } catch (err) {
+      setToast({
+        message: err.message || 'Error al asignar analista',
+        type: 'error',
+      });
+    } finally {
+      setAssigningAnalista(false);
     }
   }
 
@@ -730,6 +782,17 @@ export default function InvestigacionesPage() {
                       ) : (
                         <span className="text-slate-500 italic">Sin Asignar</span>
                       )}
+                      {/* Analista Asignado */}
+                      <div className="mt-1 flex items-center gap-1">
+                        <span className="text-[10px] text-slate-400 font-medium">Analista:</span>
+                        {row.analista_nombre ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold" title={`Analista Asignado al Crédito: ${row.analista_nombre}`}>
+                            👨‍💼 {row.analista_nombre}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 italic">Sin analista</span>
+                        )}
+                      </div>
                     </td>
 
                     {/* COLUMNA VIGENCIA 90 DÍAS */}
@@ -797,15 +860,39 @@ export default function InvestigacionesPage() {
                     </td>
 
                     <td className="px-5 py-4 text-right space-x-2">
+                      {/* Botón Asignar Investigador de campo (solo perfiles autorizados) */}
                       {canAssign && (
                         <button
                           onClick={() => openAssignModal(row)}
                           className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-sky-600 text-sky-400 hover:text-white text-xs font-semibold transition"
-                          title="Asignar Investigador"
+                          title="Asignar Investigador en campo"
                         >
                           <UserPlus className="w-3.5 h-3.5 inline mr-1" />
                           Asignar
                         </button>
+                      )}
+
+                      {/* Botón Asignar Analista: solo si el 100% de las investigaciones del préstamo están validadas por el Validador */}
+                      {canAssignAnalista && (
+                        row.paquete_todo_validado ? (
+                          <button
+                            onClick={() => openAsignarAnalistaModal(row)}
+                            className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition inline-flex items-center gap-1 shadow-md shadow-indigo-600/20"
+                            title={row.analista_nombre ? `Reasignar Analista (Actual: ${row.analista_nombre})` : 'Asignar Analista a este préstamo (Todas las investigaciones validadas)'}
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            {row.analista_nombre ? 'Cambiar Analista' : 'Asignar Analista'}
+                          </button>
+                        ) : (
+                          <button
+                            disabled
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-800/80 text-slate-500 border border-slate-700/50 text-xs font-medium cursor-not-allowed inline-flex items-center gap-1 opacity-70"
+                            title={`No se puede asignar analista: aún faltan investigaciones por validar por el Validador (${row.paquete_validadas || 0}/${row.paquete_total || 1} validadas)`}
+                          >
+                            <Lock className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Analista ({row.paquete_validadas || 0}/{row.paquete_total || 1})</span>
+                          </button>
+                        )
                       )}
 
                       <button
@@ -920,6 +1007,111 @@ export default function InvestigacionesPage() {
           investigacionId={agendaModalInvId}
           onClose={() => setAgendaModalInvId(null)}
         />
+      )}
+
+      {/* ── Modal Asignar Analista al Préstamo (Solo cuando todo está validado) ── */}
+      {canAssignAnalista && analistaModalCredito && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/50 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl ring-1 ring-indigo-500/30">
+            {/* Header del Modal */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                  <UserCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Asignar Analista al Crédito</h3>
+                  <p className="text-xs text-slate-400">
+                    Préstamo Folio: <strong className="text-white">#{analistaModalCredito.solicitud_folio || analistaModalCredito.solicitud_id_sif}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAnalistaModalCredito(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Resumen del crédito y paquete */}
+            <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2.5 text-xs text-slate-300">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Socio Titular:</span>
+                <strong className="text-white text-sm">{analistaModalCredito.sujeto_nombre}</strong>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Monto Solicitado:</span>
+                <span className="text-emerald-400 font-semibold font-mono">
+                  ${Number(analistaModalCredito.monto_solicitado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Sucursal de Captación:</span>
+                <span className="text-slate-200">{formatNombreSucursal(analistaModalCredito.sucursal_id, analistaModalCredito.sucursal_nombre)}</span>
+              </div>
+              {analistaModalCredito.analista_nombre && (
+                <div className="flex justify-between items-center pt-1">
+                  <span className="text-slate-400">Analista Actual:</span>
+                  <span className="text-indigo-300 font-medium">👨‍💼 {analistaModalCredito.analista_nombre}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2.5 border-t border-slate-800/80">
+                <span className="text-slate-400 font-medium">Condición de Validador:</span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  100% de Investigaciones Validadas ({analistaModalCredito.paquete_validadas}/{analistaModalCredito.paquete_total})
+                </span>
+              </div>
+            </div>
+
+            {/* Formulario de Selección */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span>Seleccionar Analista</span>
+                <span className="text-[11px] text-indigo-400 font-normal">{analistasDisponibles.length} analistas activos</span>
+              </label>
+              <select
+                value={selectedAnalistaId}
+                onChange={(e) => setSelectedAnalistaId(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+              >
+                {analistasDisponibles.length === 0 ? (
+                  <option value="">Cargando analistas...</option>
+                ) : (
+                  analistasDisponibles.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre} ({a.email})
+                    </option>
+                  ))
+                )}
+              </select>
+              <p className="text-[11px] text-slate-400">
+                Al asignar, este analista asumirá la responsabilidad de la revisión final del paquete y dictamen de este crédito.
+              </p>
+            </div>
+
+            {/* Footer con botones */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setAnalistaModalCredito(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={assigningAnalista || !selectedAnalistaId}
+                onClick={handleConfirmAsignarAnalista}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/50 disabled:text-indigo-400/50 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 flex items-center gap-2"
+              >
+                <UserCheck className="w-4 h-4" />
+                {assigningAnalista ? 'Asignando Analista...' : 'Confirmar Asignación'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Assignment Modal */}
