@@ -778,19 +778,41 @@ export default function InvestigacionesPage() {
                     </td>
                     <td className="px-5 py-4 text-xs">
                       {row.investigador_nombre ? (
-                        <span className="text-slate-200 font-medium">{row.investigador_nombre}</span>
+                        <div>
+                          <span className="text-slate-200 font-medium">{row.investigador_nombre}</span>
+                          {row.fecha_asignacion && (
+                            <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1" title="Fecha y hora de asignación al investigador">
+                              <span className="text-sky-400 font-semibold">📅 Asig:</span>
+                              <span className="font-mono text-slate-300">{formatFechaHoraCaptura(row.fecha_asignacion, row.sucursal_id)}</span>
+                            </div>
+                          )}
+                          {row.fecha_cumplimiento && (
+                            <div className="text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1" title="Fecha y hora en que el investigador terminó la investigación">
+                              <span className="font-semibold">🏁 Fin campo:</span>
+                              <span className="font-mono text-emerald-300">{formatFechaHoraCaptura(row.fecha_cumplimiento, row.sucursal_id)}</span>
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-slate-500 italic">Sin Asignar</span>
                       )}
                       {/* Analista Asignado */}
-                      <div className="mt-1 flex items-center gap-1">
-                        <span className="text-[10px] text-slate-400 font-medium">Analista:</span>
-                        {row.analista_nombre ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold" title={`Analista Asignado al Crédito: ${row.analista_nombre}`}>
-                            👨‍💼 {row.analista_nombre}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-500 italic">Sin analista</span>
+                      <div className="mt-2 pt-1.5 border-t border-slate-800/80">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400 font-medium">Analista:</span>
+                          {row.analista_nombre ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold" title={`Analista Asignado al Crédito: ${row.analista_nombre}`}>
+                              👨‍💼 {row.analista_nombre}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 italic">Sin analista</span>
+                          )}
+                        </div>
+                        {row.fecha_asignacion_analista && (
+                          <div className="text-[10px] text-indigo-300/80 mt-0.5 flex items-center gap-1" title="Fecha y hora en que se turnó al analista">
+                            <span className="font-semibold">🕒 Turnado:</span>
+                            <span className="font-mono">{formatFechaHoraCaptura(row.fecha_asignacion_analista, row.sucursal_id)}</span>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -850,6 +872,12 @@ export default function InvestigacionesPage() {
                         <div className="mt-1 flex items-center gap-1 text-[10px] text-teal-400" title={`Validador: ${row.validador_nombre}${row.comentarios_validacion ? ` — "${row.comentarios_validacion}"` : ''}`}>
                           <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
                           <span className="truncate max-w-[130px]">Val: {row.validador_nombre}</span>
+                        </div>
+                      )}
+                      {row.fecha_validacion && (
+                        <div className="mt-0.5 text-[10px] text-teal-300/90 flex items-center gap-1" title="Fecha y hora de validación por el validador de crédito">
+                          <span className="font-semibold">🕒 Validado:</span>
+                          <span className="font-mono">{formatFechaHoraCaptura(row.fecha_validacion, row.sucursal_id)}</span>
                         </div>
                       )}
                       {row.comentarios_validacion && (

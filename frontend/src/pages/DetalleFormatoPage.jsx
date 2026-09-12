@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, 
   ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, Edit3, MessageSquareText, FileCheck, Sparkles,
-  Clock, Calendar, FileText, Upload, Paperclip, MapPin, Navigation, ExternalLink
+  Clock, Calendar, FileText, Upload, Paperclip, MapPin, Navigation, ExternalLink, Building2, UserCheck
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import { formatNombreSucursal, esAval, getEtiquetaSujeto, getEtiquetaSujetoUpper, getBadgeSujetoProps, formatFechaHoraCaptura } from '../utils/formatters';
@@ -617,6 +617,204 @@ export default function DetalleFormatoPage() {
           </div>
         </div>
       )}
+
+      {/* LÍNEA DE TIEMPO Y TRAZABILIDAD DEL FLUJO DE INVESTIGACIÓN (Oculto en impresión) */}
+      <div className={clsx('no-print', 'bg-slate-900', 'border', 'border-slate-800', 'p-5', 'rounded-2xl', 'space-y-4', 'shadow-xl')}>
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30">
+              <Clock className="w-4 h-4" />
+            </span>
+            <div>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                Trazabilidad y Cronología del Flujo
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Fechas y horas exactas registradas en cada etapa del ciclo de vida
+              </p>
+            </div>
+          </div>
+          {inv.estado === 'APROBADA_FINAL' && inv.fecha_revalidacion && (
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" /> Aprobado Final: {formatFechaHoraCaptura(inv.fecha_revalidacion, inv.sucursal_id)}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* 1. Captura en Sucursal */}
+          <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80 flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-sky-500"></div>
+            <div>
+              <div className="flex items-center justify-between gap-1 mb-1.5">
+                <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1">
+                  <Building2 className="w-3 h-3" /> 1. Sucursal
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-sky-500/20 text-sky-300">
+                  ✓ Captura
+                </span>
+              </div>
+              <div className="text-xs font-bold text-white truncate" title={formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre)}>
+                Suc. {formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre)}
+              </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-800/80 text-[11px] font-mono text-slate-300">
+              <div className="text-[9px] text-slate-500 font-sans font-medium uppercase">Fecha y Hora:</div>
+              <div className="text-sky-300 font-semibold">{formatFechaHoraCaptura(inv.created_at || inv.fecha_asignacion, inv.sucursal_id)}</div>
+            </div>
+          </div>
+
+          {/* 2. Asignación a Investigador */}
+          <div className={`p-3.5 rounded-xl border flex flex-col justify-between relative overflow-hidden ${
+            inv.fecha_asignacion || inv.investigador_nombre
+              ? 'bg-slate-950/80 border-slate-800/80'
+              : 'bg-slate-950/40 border-slate-800/40 opacity-70'
+          }`}>
+            <div className={`absolute top-0 left-0 right-0 h-1 ${inv.fecha_asignacion ? 'bg-indigo-500' : 'bg-slate-700'}`}></div>
+            <div>
+              <div className="flex items-center justify-between gap-1 mb-1.5">
+                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                  <UserCheck className="w-3 h-3" /> 2. Asignación
+                </span>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                  inv.fecha_asignacion ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-400'
+                }`}>
+                  {inv.fecha_asignacion ? '✓ Asignado' : '⏳ Pendiente'}
+                </span>
+              </div>
+              <div className="text-xs font-bold text-white truncate" title={inv.investigador_nombre || 'Sin Asignar'}>
+                {inv.investigador_nombre || 'Sin Investigador'}
+              </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-800/80 text-[11px] font-mono text-slate-300">
+              <div className="text-[9px] text-slate-500 font-sans font-medium uppercase">Fecha y Hora:</div>
+              {inv.fecha_asignacion ? (
+                <div className="text-indigo-300 font-semibold">{formatFechaHoraCaptura(inv.fecha_asignacion, inv.sucursal_id)}</div>
+              ) : (
+                <div className="text-slate-500 italic">No asignado</div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Término de Visita en Campo */}
+          {(() => {
+            const fechaFinCampo = inv.fecha_cumplimiento || ev.fecha_checkin;
+            const esFinCampo = Boolean(fechaFinCampo || ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(inv.estado));
+            return (
+              <div className={`p-3.5 rounded-xl border flex flex-col justify-between relative overflow-hidden ${
+                esFinCampo
+                  ? 'bg-slate-950/80 border-slate-800/80'
+                  : 'bg-slate-950/40 border-slate-800/40 opacity-70'
+              }`}>
+                <div className={`absolute top-0 left-0 right-0 h-1 ${esFinCampo ? 'bg-emerald-500' : 'bg-slate-700'}`}></div>
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                      <MapPin className="w-3 h-3" /> 3. Visita Campo
+                    </span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                      esFinCampo ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {esFinCampo ? '✓ Concluida' : '⏳ En Proceso'}
+                    </span>
+                  </div>
+                  <div className="text-xs font-bold text-white truncate" title={inv.investigador_nombre || 'Investigador en campo'}>
+                    {inv.investigador_nombre ? `Por: ${inv.investigador_nombre}` : 'En investigación'}
+                  </div>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-800/80 text-[11px] font-mono text-slate-300">
+                  <div className="text-[9px] text-slate-500 font-sans font-medium uppercase">Fecha y Hora:</div>
+                  {fechaFinCampo ? (
+                    <div className="text-emerald-300 font-semibold">{formatFechaHoraCaptura(fechaFinCampo, inv.sucursal_id)}</div>
+                  ) : esFinCampo ? (
+                    <div className="text-emerald-300 font-semibold">Completada</div>
+                  ) : (
+                    <div className="text-slate-500 italic">Pendiente de visita</div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 4. Validación de Crédito */}
+          {(() => {
+            const esValidada = Boolean(inv.fecha_validacion || ['VALIDADA', 'APROBADA_FINAL'].includes(inv.estado));
+            return (
+              <div className={`p-3.5 rounded-xl border flex flex-col justify-between relative overflow-hidden ${
+                esValidada
+                  ? 'bg-slate-950/80 border-slate-800/80'
+                  : 'bg-slate-950/40 border-slate-800/40 opacity-70'
+              }`}>
+                <div className={`absolute top-0 left-0 right-0 h-1 ${esValidada ? 'bg-teal-500' : 'bg-slate-700'}`}></div>
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1">
+                      <FileCheck className="w-3 h-3" /> 4. Validación
+                    </span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                      esValidada ? 'bg-teal-500/20 text-teal-300' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {esValidada ? '✓ Validada' : '⏳ Pendiente'}
+                    </span>
+                  </div>
+                  <div className="text-xs font-bold text-white truncate" title={inv.validador_nombre || 'Validador de Crédito'}>
+                    {inv.validador_nombre || (esValidada ? 'Validador Autorizado' : 'Sin Validar')}
+                  </div>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-800/80 text-[11px] font-mono text-slate-300">
+                  <div className="text-[9px] text-slate-500 font-sans font-medium uppercase">Fecha y Hora:</div>
+                  {inv.fecha_validacion ? (
+                    <div className="text-teal-300 font-semibold">{formatFechaHoraCaptura(inv.fecha_validacion, inv.sucursal_id)}</div>
+                  ) : esValidada ? (
+                    <div className="text-teal-300 font-semibold">Validado</div>
+                  ) : (
+                    <div className="text-slate-500 italic">Pendiente de dictamen</div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 5. Asignación / Turnado a Analista */}
+          {(() => {
+            const esTurnado = Boolean(inv.fecha_asignacion_analista || inv.analista_id);
+            return (
+              <div className={`p-3.5 rounded-xl border flex flex-col justify-between relative overflow-hidden ${
+                esTurnado
+                  ? 'bg-slate-950/80 border-slate-800/80'
+                  : 'bg-slate-950/40 border-slate-800/40 opacity-70'
+              }`}>
+                <div className={`absolute top-0 left-0 right-0 h-1 ${esTurnado ? 'bg-purple-500' : 'bg-slate-700'}`}></div>
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" /> 5. Turno Analista
+                    </span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                      esTurnado ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {esTurnado ? '✓ Turnado' : '⏳ Pendiente'}
+                    </span>
+                  </div>
+                  <div className="text-xs font-bold text-white truncate" title={inv.analista_nombre || 'Sin Analista'}>
+                    {inv.analista_nombre || 'Sin Analista'}
+                  </div>
+                </div>
+                <div className="mt-3 pt-2 border-t border-slate-800/80 text-[11px] font-mono text-slate-300">
+                  <div className="text-[9px] text-slate-500 font-sans font-medium uppercase">Fecha y Hora:</div>
+                  {inv.fecha_asignacion_analista ? (
+                    <div className="text-purple-300 font-semibold">{formatFechaHoraCaptura(inv.fecha_asignacion_analista, inv.sucursal_id)}</div>
+                  ) : esTurnado ? (
+                    <div className="text-purple-300 font-semibold">Turnado</div>
+                  ) : (
+                    <div className="text-slate-500 italic">Pendiente de turno</div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
 
       {/* PANEL DE VALIDACIÓN Y DICTAMEN DE ANÁLISIS DE CRÉDITO (Oculto en impresión) */}
       <div className={clsx('no-print', 'bg-slate-900', 'border', 'border-slate-800', 'p-5', 'rounded-2xl', 'space-y-4', 'shadow-xl')}>
@@ -2047,6 +2245,26 @@ export default function DetalleFormatoPage() {
             </span>
           </div>
 
+          {/* Trazabilidad Oficial de Fechas y Horas */}
+          <div className="col-span-4 grid grid-cols-4 gap-2 pt-2 mt-1 border-t border-slate-300 text-[11px]">
+            <div>
+              <span className="font-bold block text-slate-600">Asig. Investigador:</span>
+              <span className="font-semibold text-slate-800">{inv.fecha_asignacion ? formatFechaHoraCaptura(inv.fecha_asignacion, inv.sucursal_id) : '—'}</span>
+            </div>
+            <div>
+              <span className="font-bold block text-slate-600">Término de Visita:</span>
+              <span className="font-semibold text-slate-800">{(inv.fecha_cumplimiento || ev.fecha_checkin) ? formatFechaHoraCaptura(inv.fecha_cumplimiento || ev.fecha_checkin, inv.sucursal_id) : '—'}</span>
+            </div>
+            <div>
+              <span className="font-bold block text-slate-600">Fecha Validación:</span>
+              <span className="font-semibold text-slate-800">{inv.fecha_validacion ? formatFechaHoraCaptura(inv.fecha_validacion, inv.sucursal_id) : '—'}</span>
+            </div>
+            <div>
+              <span className="font-bold block text-slate-600">Turnado a Analista:</span>
+              <span className="font-semibold text-slate-800">{inv.fecha_asignacion_analista ? formatFechaHoraCaptura(inv.fecha_asignacion_analista, inv.sucursal_id) : '—'}</span>
+            </div>
+          </div>
+
           <div className={clsx('col-span-2', 'flex', 'items-center', 'gap-1.5')}>
             <span className={`font-bold px-2 py-0.5 rounded text-[11px] uppercase tracking-wider ${isAval ? 'bg-purple-200 text-purple-950 font-black' : 'bg-sky-200 text-sky-950 font-black'
               }`}>
@@ -2500,7 +2718,11 @@ export default function DetalleFormatoPage() {
               <span className={clsx('font-extrabold', 'text-slate-900', 'text-sm', 'tracking-wide', 'text-center')}>
                 {inv.investigador_nombre ? inv.investigador_nombre.toUpperCase() : 'DEPARTAMENTO DE INVESTIGACIONES'}
               </span>
-              <span className={clsx('text-[10px]', 'text-sky-700', 'font-semibold', 'mt-1')}>✓ Registro de Campo Confirmado</span>
+              <span className={clsx('text-[10px]', 'text-sky-700', 'font-semibold', 'mt-1')}>
+                {inv.fecha_cumplimiento || ev.fecha_checkin
+                  ? `✓ Visita concluida el ${formatFechaHoraCaptura(inv.fecha_cumplimiento || ev.fecha_checkin, inv.sucursal_id)}`
+                  : '✓ Registro de Campo Confirmado'}
+              </span>
             </div>
             <div className={clsx('border-b', 'border-slate-800', 'w-full', 'mb-1')}></div>
             <div className={clsx('font-bold', 'text-slate-900')}>Nombre del Investigador de Campo</div>
@@ -2520,7 +2742,7 @@ export default function DetalleFormatoPage() {
                   </span>
                   <span className={clsx('text-[10px]', 'text-emerald-700', 'font-semibold', 'mt-1')}>
                     {inv.fecha_validacion
-                      ? `Validado el ${new Date(inv.fecha_validacion).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}`
+                      ? `Validado el ${formatFechaHoraCaptura(inv.fecha_validacion, inv.sucursal_id)}`
                       : '✓ Firma y Validación Confirmada'}
                   </span>
                 </div>

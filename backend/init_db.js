@@ -123,6 +123,7 @@ async function initDb() {
     try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;`); } catch (e) {}
     try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS asignacion_manual BOOLEAN DEFAULT FALSE;`); } catch (e) {}
     try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS origen_asignacion VARCHAR(50);`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_asignacion_analista TIMESTAMP;`); } catch (e) {}
 
     // Trigger de protección de asignaciones manuales realizadas desde la plataforma CPO
     try {

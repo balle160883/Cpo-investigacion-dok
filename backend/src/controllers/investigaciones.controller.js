@@ -258,6 +258,7 @@ async function getInvestigaciones(req, res, next) {
           inv.fecha_validacion,
           inv.comentarios_validacion,
           inv.analista_id,
+          inv.fecha_asignacion_analista,
           inv.fecha_revalidacion,
           inv.comentarios_revalidacion,
           p.nombre_completo as sujeto_nombre,
@@ -399,6 +400,7 @@ async function getInvestigacionDetalle(req, res, next) {
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS folio_solventado BOOLEAN DEFAULT FALSE;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_asignacion_analista TIMESTAMP;`);
 
     // 1. Investigacion principal
     const invRes = await db.query(`
@@ -410,6 +412,7 @@ async function getInvestigacionDetalle(req, res, next) {
         inv.investigador_id,
         inv.fecha_asignacion,
         inv.fecha_cumplimiento,
+        inv.created_at,
         COALESCE(inv.estado, 'PENDIENTE') as estado,
         inv.observaciones_sif,
         inv.folio_solventado,
@@ -442,6 +445,7 @@ async function getInvestigacionDetalle(req, res, next) {
         inv.comentarios_validacion,
         val_usr.nombre as validador_nombre,
         inv.analista_id,
+        inv.fecha_asignacion_analista,
         an_usr.nombre as analista_nombre,
         inv.fecha_revalidacion,
         inv.comentarios_revalidacion
