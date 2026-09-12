@@ -411,7 +411,10 @@ export default function DetalleFormatoPage() {
 
   async function handleEjecutarSolventacion(validarInmediato = false) {
     if (!formSolventar.justificacion_folio.trim()) {
-      setToast({ message: 'La justificación de solventación de folio es obligatoria', type: 'warning' });
+      setToast({ 
+        message: 'Por favor ingresa la "Justificación de la Solventación" en la pestaña 5 (Dictamen y Folio).', 
+        type: 'warning' 
+      });
       setActiveSolventarTab('dictamen');
       return;
     }
@@ -1156,7 +1159,12 @@ export default function DetalleFormatoPage() {
                 { id: 'direccion', label: '2. Dirección Real', icon: '📍' },
                 { id: 'socioeconomico', label: '3. Socioeconómico y Bienes', icon: '🏠' },
                 { id: 'referencias', label: `4. Referencias (${(formSolventar.referencias_avales || []).length})`, icon: '👥' },
-                { id: 'dictamen', label: '5. Dictamen y Folio', icon: '⚖️' },
+                { 
+                  id: 'dictamen', 
+                  label: '5. Dictamen y Folio', 
+                  icon: '⚖️',
+                  badge: !formSolventar.justificacion_folio?.trim() ? 'Requerido' : null
+                },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -1170,6 +1178,11 @@ export default function DetalleFormatoPage() {
                   )}
                 >
                   <span>{tab.icon}</span> {tab.label}
+                  {tab.badge && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-semibold uppercase">
+                      {tab.badge}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1921,7 +1934,7 @@ export default function DetalleFormatoPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  disabled={solventando || !formSolventar.justificacion_folio.trim()}
+                  disabled={solventando}
                   onClick={() => handleEjecutarSolventacion(false)}
                   className="px-4 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-purple-700/30"
                 >
@@ -1930,7 +1943,7 @@ export default function DetalleFormatoPage() {
 
                 <button
                   type="button"
-                  disabled={solventando || !formSolventar.justificacion_folio.trim()}
+                  disabled={solventando}
                   onClick={() => handleEjecutarSolventacion(true)}
                   className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-extrabold transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30"
                 >
