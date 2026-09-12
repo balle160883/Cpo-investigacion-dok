@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput, Alert, Linking } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { getAssignedInvestigaciones, enviarUbicacionGPS, getPendingOfflineSurveys, syncPendingSurveys, logout } from '../api/apiClient';
@@ -110,6 +111,18 @@ export default function VisitasScreen({ navigation, route }) {
       clearInterval(autoSyncInterval);
     };
   }, []);
+
+  // RECARGA AUTOMÁTICA AL REGRESAR A LA PANTALLA (Foco de navegación)
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUser?.id) {
+        loadData(currentUser.id);
+      } else {
+        initUserAndData();
+      }
+      checkPendingSurveys();
+    }, [currentUser?.id])
+  );
 
   async function checkPendingSurveys() {
     try {
@@ -223,12 +236,17 @@ export default function VisitasScreen({ navigation, route }) {
     return { ...item, distanciaKm: dist };
   });
 
+  const totalPendientes = visitas.filter((item) => !['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(item.estado)).length;
+  const totalCompletadas = visitas.filter((item) => ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(item.estado)).length;
+
   const visitasFiltradas = listConDistancia.filter((item) => {
+    const esTerminada = ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(item.estado);
+
     if (filtroEstado !== 'TODOS') {
       if (filtroEstado === 'PENDIENTE') {
-        if (item.estado === 'COMPLETADA') return false;
+        if (esTerminada) return false;
       } else if (filtroEstado === 'COMPLETADA') {
-        if (item.estado !== 'COMPLETADA') return false;
+        if (!esTerminada) return false;
       }
     }
 
@@ -313,7 +331,7 @@ export default function VisitasScreen({ navigation, route }) {
           onPress={() => setFiltroEstado('PENDIENTE')}
         >
           <Text style={[styles.filterChipText, filtroEstado === 'PENDIENTE' && styles.filterChipTextActive]}>
-            Pendientes
+            Pendientes ({totalPendientes})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -321,7 +339,7 @@ export default function VisitasScreen({ navigation, route }) {
           onPress={() => setFiltroEstado('COMPLETADA')}
         >
           <Text style={[styles.filterChipText, filtroEstado === 'COMPLETADA' && styles.filterChipTextActive]}>
-            Completadas
+            Completadas ({totalCompletadas})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -410,9 +428,11 @@ export default function VisitasScreen({ navigation, route }) {
                     <Text style={styles.sucursalText}>🏢 Suc. {sucNombre}</Text>
                   </View>
                   {item.paquete_total > 1 && (
-                    <View style={[styles.paqueteBadge, item.paquete_completo ? styles.paqueteComp : styles.paquetePend]}>
-                      <Text style={[styles.paqueteText, item.paquete_completo ? styles.paqueteTextComp : styles.paqueteTextPend]}>
-                        {item.paquete_completo ? '🟢' : '⏳'} Paquete {item.paquete_completadas || 0}/{item.paquete_total}
+                    <View style={[styles.paqueteBadge, (item.estado === 'COMPLETADA' || item.estado === 'VALIDADA') ? styles.paqueteComp : (item.paquete_completo ? styles.paqueteComp : styles.paquetePend)]}>
+                      <Text style={[styles.paqueteText, (item.estado === 'COMPLETADA' || item.estado === 'VALIDADA') ? styles.paqueteTextComp : (item.paquete_completo ? styles.paqueteTextComp : styles.paqueteTextPend)]}>
+                        {(item.estado === 'COMPLETADA' || item.estado === 'VALIDADA')
+                          ? '✓ Visita Hecha'
+                          : (item.paquete_completo ? '🟢 Paquete Listo' : `⏳ Paquete ${item.paquete_completadas || 0}/${item.paquete_total}`)}
                       </Text>
                     </View>
                   )}
