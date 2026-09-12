@@ -36,12 +36,22 @@ export function getBase64SizeKB(base64String) {
 
 /**
  * Sanitiza un lote de fotos en base64 asegurando validez y métricas de peso.
- * @param {Array<string>} fotosArray 
- * @returns {Array<string>} Arreglo de imágenes procesadas
+ * Soporta tanto strings simples como objetos con geolocalización { url, latitud, longitud, timestamp }.
+ * @param {Array<string|object>} fotosArray 
+ * @returns {Array<string|object>} Arreglo de imágenes procesadas
  */
 export function optimizePhotosBatch(fotosArray) {
   if (!Array.isArray(fotosArray)) return [];
   return fotosArray
-    .map((img) => formatBase64Image(img))
+    .map((item) => {
+      if (typeof item === 'string') {
+        return formatBase64Image(item);
+      }
+      if (typeof item === 'object' && item !== null && item.url) {
+        const cleanedUrl = formatBase64Image(item.url);
+        return cleanedUrl ? { ...item, url: cleanedUrl } : null;
+      }
+      return null;
+    })
     .filter((img) => img !== null);
 }

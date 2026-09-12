@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, 
   ChevronRight, X, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, Edit3, MessageSquareText, FileCheck, Sparkles,
-  Clock, Calendar, FileText, Upload, Paperclip
+  Clock, Calendar, FileText, Upload, Paperclip, MapPin, Navigation, ExternalLink
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import { formatNombreSucursal, esAval, getEtiquetaSujeto, getEtiquetaSujetoUpper, getBadgeSujetoProps, formatFechaHoraCaptura } from '../utils/formatters';
@@ -219,6 +219,11 @@ export default function DetalleFormatoPage() {
 
   const firmaCaptured = ev.firma_url || '';
   const firmaInvestigadorCaptured = ev.firma_investigador_url || '';
+  const latCheckin = ev.latitud_checkin !== undefined && ev.latitud_checkin !== null ? Number(ev.latitud_checkin) : null;
+  const lngCheckin = ev.longitud_checkin !== undefined && ev.longitud_checkin !== null ? Number(ev.longitud_checkin) : null;
+  const esFakeGps = latCheckin !== null && lngCheckin !== null && Math.abs(latCheckin - 20.6597) < 0.0001 && Math.abs(lngCheckin - (-103.3496)) < 0.0001;
+  const tieneGpsValido = latCheckin !== null && lngCheckin !== null && latCheckin !== 0 && lngCheckin !== 0 && !esFakeGps;
+
   const isAval = esAval(inv);
   const badgeProps = getBadgeSujetoProps(inv);
 
@@ -2337,6 +2342,62 @@ export default function DetalleFormatoPage() {
         </div>
 
 
+        {/* Section: GEOLOCALIZACIÓN Y CHECK-IN EN CAMPO (GPS) */}
+        <div className={clsx('border', 'border-slate-800', 'rounded-lg', 'overflow-hidden', 'bg-white')}>
+          <div className={clsx('bg-slate-800', 'text-white', 'px-3', 'py-1', 'text-xs', 'font-bold', 'tracking-wider', 'uppercase', 'flex', 'items-center', 'justify-between')}>
+            <span className={clsx('flex', 'items-center', 'gap-1.5')}>
+              <MapPin className={clsx('w-3.5', 'h-3.5', 'text-sky-400')} /> GEOLOCALIZACIÓN Y CHECK-IN EN CAMPO (GPS)
+            </span>
+            <span className={clsx('text-[10px]', 'font-normal', 'text-slate-300')}>
+              {tieneGpsValido ? '🛰️ Señal Satelital de Precisión' : (esFakeGps ? '⚠️ Coordenada Genérica' : 'Sin GPS registrado')}
+            </span>
+          </div>
+          <div className={clsx('p-3', 'bg-slate-50', 'flex', 'flex-col', 'sm:flex-row', 'items-start', 'sm:items-center', 'justify-between', 'gap-3', 'text-xs')}>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-slate-800">Punto de Cierre:</span>
+                {tieneGpsValido ? (
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono font-bold text-[11px] border border-emerald-300">
+                    Lat: {latCheckin.toFixed(6)}, Lng: {lngCheckin.toFixed(6)}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[11px] border border-amber-300">
+                    {esFakeGps ? '⚠️ Ubicación genérica por defecto (Sin lectura satelital en predio)' : 'No se capturaron coordenadas GPS'}
+                  </span>
+                )}
+                {ev.fecha_checkin && (
+                  <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-400" />
+                    {formatFechaHoraCaptura(ev.fecha_checkin)}
+                  </span>
+                )}
+              </div>
+              {est.tiene_direccion_diferente && est.calle_real && (
+                <div className="text-[11px] text-indigo-900 bg-indigo-50 border border-indigo-200 rounded p-1.5 mt-1">
+                  <strong>📍 Domicilio Corregido en Campo:</strong> {est.calle_real}{est.colonia_real ? `, Col. ${est.colonia_real}` : ''}
+                </div>
+              )}
+            </div>
+
+            {tieneGpsValido && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${latCheckin},${lngCheckin}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={clsx(
+                  'inline-flex', 'items-center', 'gap-1.5', 'px-3', 'py-1.5',
+                  'bg-sky-600', 'hover:bg-sky-700', 'text-white', 'rounded-md',
+                  'font-bold', 'text-xs', 'shadow-sm', 'transition', 'shrink-0'
+                )}
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                Abrir en Google Maps
+                <ExternalLink className="w-3 h-3 opacity-80" />
+              </a>
+            )}
+          </div>
+        </div>
+
         {/* Section 5: EVIDENCIA FOTOGRÁFICA REGISTRADA DESDE LA APP MÓVIL */}
         <div className={clsx('border', 'border-slate-800', 'rounded-lg', 'overflow-hidden')}>
           <div className={clsx('bg-slate-800', 'text-white', 'px-3', 'py-1', 'text-xs', 'font-bold', 'tracking-wider', 'uppercase', 'flex', 'items-center', 'justify-between')}>
@@ -2350,21 +2411,57 @@ export default function DetalleFormatoPage() {
           <div className={clsx('p-4', 'bg-slate-50')}>
             {fotosList.length > 0 ? (
               <div className={clsx('grid', 'grid-cols-2', 'sm:grid-cols-3', 'gap-4')}>
-                {fotosList.map((fotoUri, idx) => (
-                  <div key={idx} className={clsx('border', 'border-slate-300', 'rounded-lg', 'bg-white', 'p-2', 'shadow-sm', 'flex', 'flex-col', 'items-center')}>
-                    <img
-                      src={fotoUri}
-                      alt={`Evidencia Fotográfica ${idx + 1}`}
-                      className={clsx('w-full', 'h-36', 'object-cover', 'rounded', 'border', 'border-slate-200', 'cursor-pointer', 'hover:opacity-90', 'transition')}
-                      onClick={() => {
-                        setSelectedFotoIndex(idx);
-                        setZoomScale(1);
-                        setRotation(0);
-                      }}
-                    />
-                    <span className={clsx('text-[10px]', 'font-bold', 'text-slate-600', 'mt-1.5')}>Evidencia Foto #{idx + 1}</span>
-                  </div>
-                ))}
+                {fotosList.map((fotoItem, idx) => {
+                  const fotoUri = typeof fotoItem === 'string' ? fotoItem : (fotoItem?.url || '');
+                  const fotoLat = typeof fotoItem === 'object' && fotoItem?.latitud ? Number(fotoItem.latitud) : null;
+                  const fotoLng = typeof fotoItem === 'object' && fotoItem?.longitud ? Number(fotoItem.longitud) : null;
+                  const hasFotoGps = fotoLat !== null && fotoLng !== null && fotoLat !== 0 && fotoLng !== 0;
+                  const fotoTimestamp = typeof fotoItem === 'object' && fotoItem?.timestamp ? fotoItem.timestamp : null;
+
+                  return (
+                    <div key={idx} className={clsx('border', 'border-slate-300', 'rounded-lg', 'bg-white', 'p-2', 'shadow-sm', 'flex', 'flex-col', 'items-center', 'justify-between', 'gap-1')}>
+                      <div className="relative w-full">
+                        <img
+                          src={fotoUri}
+                          alt={`Evidencia Fotográfica ${idx + 1}`}
+                          className={clsx('w-full', 'h-36', 'object-cover', 'rounded', 'border', 'border-slate-200', 'cursor-pointer', 'hover:opacity-90', 'transition')}
+                          onClick={() => {
+                            setSelectedFotoIndex(idx);
+                            setZoomScale(1);
+                            setRotation(0);
+                          }}
+                        />
+                        {hasFotoGps && (
+                          <span className="absolute top-1.5 left-1.5 bg-slate-900/85 backdrop-blur-xs text-emerald-400 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1 border border-emerald-500/40">
+                            <MapPin className="w-2.5 h-2.5 text-emerald-400" /> GPS
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-full flex items-center justify-between pt-1 text-[10px]">
+                        <span className="font-bold text-slate-700">Foto #{idx + 1}</span>
+                        {hasFotoGps ? (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${fotoLat},${fotoLng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sky-600 hover:text-sky-800 font-bold flex items-center gap-0.5 hover:underline"
+                            title={`Lat: ${fotoLat.toFixed(5)}, Lng: ${fotoLng.toFixed(5)}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Navigation className="w-2.5 h-2.5" /> Ver GPS
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 italic text-[9px]">Sin GPS</span>
+                        )}
+                      </div>
+                      {fotoTimestamp && (
+                        <span className="text-[9px] text-slate-500 w-full text-left font-mono">
+                          {formatFechaHoraCaptura(fotoTimestamp)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className={clsx('text-center', 'py-4', 'text-slate-400', 'italic', 'text-xs')}>
@@ -2438,119 +2535,159 @@ export default function DetalleFormatoPage() {
       </div>
 
       {/* Lightbox HD Modal para evidencias fotográficas */}
-      {selectedFotoIndex !== null && fotosList[selectedFotoIndex] && (
-        <div
-          className={clsx('fixed', 'inset-0', 'z-50', 'bg-slate-950/90', 'backdrop-blur-md', 'flex', 'flex-col', 'items-center', 'justify-between', 'p-4', 'no-print', 'select-none')}
-          onClick={() => setSelectedFotoIndex(null)}
-        >
-          {/* Header Bar */}
-          <div className={clsx('w-full', 'max-w-4xl', 'flex', 'items-center', 'justify-between', 'text-white', 'z-10', 'p-2')} onClick={(e) => e.stopPropagation()}>
-            <div className={clsx('text-xs', 'font-semibold', 'tracking-wide', 'flex', 'items-center', 'gap-2')}>
-              <Camera className={clsx('w-4', 'h-4', 'text-sky-400')} />
-              <span>Evidencia Fotográfica #{selectedFotoIndex + 1} de {fotosList.length}</span>
-            </div>
+      {selectedFotoIndex !== null && fotosList[selectedFotoIndex] && (() => {
+        const selectedItem = fotosList[selectedFotoIndex];
+        const selectedUri = typeof selectedItem === 'string' ? selectedItem : (selectedItem?.url || '');
+        const selectedLat = typeof selectedItem === 'object' && selectedItem?.latitud ? Number(selectedItem.latitud) : null;
+        const selectedLng = typeof selectedItem === 'object' && selectedItem?.longitud ? Number(selectedItem.longitud) : null;
+        const hasSelectedGps = selectedLat !== null && selectedLng !== null && selectedLat !== 0 && selectedLng !== 0;
+        const selectedTimestamp = typeof selectedItem === 'object' && selectedItem?.timestamp ? selectedItem.timestamp : null;
 
-            {/* Controles de Transformación */}
-            <div className={clsx('flex', 'items-center', 'gap-2', 'bg-slate-900', 'border', 'border-slate-700/60', 'p-1.5', 'rounded-xl')}>
-              <button
-                onClick={() => setZoomScale((z) => Math.max(0.8, z - 0.25))}
-                className={clsx('p-1.5', 'hover:bg-slate-800', 'rounded-lg', 'text-slate-300', 'hover:text-white', 'transition')}
-                title="Alejar Zoom"
-              >
-                <ZoomOut className={clsx('w-4', 'h-4')} />
-              </button>
-              <span className={clsx('text-[11px]', 'font-mono', 'w-10', 'text-center', 'font-bold', 'text-sky-400')}>
-                {Math.round(zoomScale * 100)}%
-              </span>
-              <button
-                onClick={() => setZoomScale((z) => Math.min(3, z + 0.25))}
-                className={clsx('p-1.5', 'hover:bg-slate-800', 'rounded-lg', 'text-slate-300', 'hover:text-white', 'transition')}
-                title="Acercar Zoom"
-              >
-                <ZoomIn className={clsx('w-4', 'h-4')} />
-              </button>
-              <div className={clsx('w-px', 'h-4', 'bg-slate-700', 'mx-1')}></div>
-              <button
-                onClick={() => setRotation((r) => (r + 90) % 360)}
-                className={clsx('p-1.5', 'hover:bg-slate-800', 'rounded-lg', 'text-slate-300', 'hover:text-white', 'transition')}
-                title="Rotar 90°"
-              >
-                <RotateCw className={clsx('w-4', 'h-4')} />
-              </button>
-              <div className={clsx('w-px', 'h-4', 'bg-slate-700', 'mx-1')}></div>
-              <a
-                href={fotosList[selectedFotoIndex]}
-                download={`evidencia_investigacion_${inv.id_sif_research}_${selectedFotoIndex + 1}.jpg`}
-                className={clsx('p-1.5', 'hover:bg-slate-800', 'rounded-lg', 'text-slate-300', 'hover:text-white', 'transition', 'flex', 'items-center', 'gap-1')}
-                title="Descargar imagen"
-              >
-                <Download className={clsx('w-4', 'h-4', 'text-emerald-400')} />
-              </a>
-            </div>
-
-            <button
-              onClick={() => setSelectedFotoIndex(null)}
-              className={clsx('p-2', 'bg-rose-600/80', 'hover:bg-rose-500', 'text-white', 'rounded-xl', 'transition')}
-              title="Cerrar (Esc)"
-            >
-              <X className={clsx('w-5', 'h-5')} />
-            </button>
-          </div>
-
-          {/* Main Image Container */}
+        return (
           <div
-            className={clsx('flex-1', 'flex', 'items-center', 'justify-center', 'relative', 'w-full', 'max-w-5xl', 'overflow-hidden', 'my-2')}
-            onClick={(e) => e.stopPropagation()}
+            className={clsx('fixed', 'inset-0', 'z-50', 'bg-slate-950/90', 'backdrop-blur-md', 'flex', 'flex-col', 'items-center', 'justify-between', 'p-4', 'no-print', 'select-none')}
+            onClick={() => setSelectedFotoIndex(null)}
           >
-            {/* Previous Button */}
-            {selectedFotoIndex > 0 && (
-              <button
-                onClick={() => {
-                  setSelectedFotoIndex((i) => i - 1);
-                  setZoomScale(1);
-                  setRotation(0);
-                }}
-                className={clsx('absolute', 'left-4', 'z-20', 'p-3', 'bg-slate-900/80', 'border', 'border-slate-700', 'hover:bg-sky-600', 'text-white', 'rounded-2xl', 'transition', 'shadow-xl')}
-                title="Fotografía Anterior"
-              >
-                <ChevronLeft className={clsx('w-6', 'h-6')} />
-              </button>
-            )}
+            {/* Header Bar */}
+            <div className={clsx('w-full', 'max-w-4xl', 'flex', 'items-center', 'justify-between', 'text-white', 'z-10', 'p-2')} onClick={(e) => e.stopPropagation()}>
+              <div className={clsx('text-xs', 'font-semibold', 'tracking-wide', 'flex', 'items-center', 'gap-2')}>
+                <Camera className={clsx('w-4', 'h-4', 'text-sky-400')} />
+                <span>Evidencia Fotográfica #{selectedFotoIndex + 1} de {fotosList.length}</span>
+              </div>
 
-            {/* Image Canvas with Scale & Rotate */}
-            <div className={clsx('overflow-auto', 'max-h-full', 'max-w-full', 'flex', 'items-center', 'justify-center', 'p-4')}>
-              <img
-                src={fotosList[selectedFotoIndex]}
-                alt={`Evidencia ${selectedFotoIndex + 1}`}
-                style={{
-                  transform: `scale(${zoomScale}) rotate(${rotation}deg)`,
-                  transition: 'transform 0.2s ease-out',
-                }}
-                className={clsx('max-h-[75vh]', 'max-w-[85vw]', 'object-contain', 'rounded-xl', 'shadow-2xl', 'border', 'border-slate-800')}
-              />
+              {/* Controles de Transformación */}
+              <div className={clsx('flex', 'items-center', 'gap-2', 'bg-slate-900', 'border', 'border-slate-700/60', 'p-1.5', 'rounded-xl')}>
+                <button
+                  onClick={() => setZoomScale((z) => Math.max(0.8, z - 0.25))}
+                  className={clsx('p-1.5', 'hover:bg-slate-800', 'rounded-lg', 'text-slate-300', 'hover:text-white', 'transition')}
+                  title="Alejar Zoom"
+                >
+                  <ZoomOut className={clsx('w-4', 'h-4')} />
+                </button>
+                <span className={clsx('text-[11px]', 'font-mono', 'w-10', 'text-center', 'font-bold', 'text-sky-400')}>
+                  {Math.round(zoomScale * 100)}%
+                </span>
+                <button
+                  onClick={() => setZoomScale((z) => Math.min(3, z + 0.25))}
+                  className={clsx('p-1.5', 'hover:bg-slate-800', 'rounded-lg', 'text-slate-300', 'hover:text-white', 'transition')}
+                  title="Acercar Zoom"
+                >
+                  <ZoomIn className={clsx('w-4', 'h-4')} />
+                </button>
+                <div className={clsx('w-px', 'h-4', 'bg-slate-700', 'mx-1')}></div>
+                <button
+                  onClick={() => setRotation((r) => (r + 90) % 360)}
+                  className={clsx('p-1.5', 'hover:bg-slate-800', 'rounded-lg', 'text-slate-300', 'hover:text-white', 'transition')}
+                  title="Rotar 90°"
+                >
+                  <RotateCw className={clsx('w-4', 'h-4')} />
+                </button>
+                <div className={clsx('w-px', 'h-4', 'bg-slate-700', 'mx-1')}></div>
+                <a
+                  href={selectedUri}
+                  download={`evidencia_investigacion_${inv.id_sif_research}_${selectedFotoIndex + 1}.jpg`}
+                  className={clsx('p-1.5', 'hover:bg-slate-800', 'rounded-lg', 'text-slate-300', 'hover:text-white', 'transition', 'flex', 'items-center', 'gap-1')}
+                  title="Descargar imagen"
+                >
+                  <Download className={clsx('w-4', 'h-4', 'text-emerald-400')} />
+                </a>
+              </div>
+
+              <button
+                onClick={() => setSelectedFotoIndex(null)}
+                className={clsx('p-2', 'bg-rose-600/80', 'hover:bg-rose-500', 'text-white', 'rounded-xl', 'transition')}
+                title="Cerrar (Esc)"
+              >
+                <X className={clsx('w-5', 'h-5')} />
+              </button>
             </div>
 
-            {/* Next Button */}
-            {selectedFotoIndex < fotosList.length - 1 && (
-              <button
-                onClick={() => {
-                  setSelectedFotoIndex((i) => i + 1);
-                  setZoomScale(1);
-                  setRotation(0);
-                }}
-                className={clsx('absolute', 'right-4', 'z-20', 'p-3', 'bg-slate-900/80', 'border', 'border-slate-700', 'hover:bg-sky-600', 'text-white', 'rounded-2xl', 'transition', 'shadow-xl')}
-                title="Fotografía Siguiente"
-              >
-                <ChevronRight className={clsx('w-6', 'h-6')} />
-              </button>
-            )}
-          </div>
+            {/* Main Image Container */}
+            <div
+              className={clsx('flex-1', 'flex', 'items-center', 'justify-center', 'relative', 'w-full', 'max-w-5xl', 'overflow-hidden', 'my-2')}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Previous Button */}
+              {selectedFotoIndex > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedFotoIndex((i) => i - 1);
+                    setZoomScale(1);
+                    setRotation(0);
+                  }}
+                  className={clsx('absolute', 'left-4', 'z-20', 'p-3', 'bg-slate-900/80', 'border', 'border-slate-700', 'hover:bg-sky-600', 'text-white', 'rounded-2xl', 'transition', 'shadow-xl')}
+                  title="Fotografía Anterior"
+                >
+                  <ChevronLeft className={clsx('w-6', 'h-6')} />
+                </button>
+              )}
 
-          <div className={clsx('text-[11px]', 'text-slate-400', 'pb-2')}>
-            Tip: Usa los controles superiores para ajustar el zoom o rotar la fotografía
+              {/* Image Canvas with Scale & Rotate */}
+              <div className={clsx('overflow-auto', 'max-h-full', 'max-w-full', 'flex', 'items-center', 'justify-center', 'p-4')}>
+                <img
+                  src={selectedUri}
+                  alt={`Evidencia ${selectedFotoIndex + 1}`}
+                  style={{
+                    transform: `scale(${zoomScale}) rotate(${rotation}deg)`,
+                    transition: 'transform 0.2s ease-out',
+                  }}
+                  className={clsx('max-h-[75vh]', 'max-w-[85vw]', 'object-contain', 'rounded-xl', 'shadow-2xl', 'border', 'border-slate-800')}
+                />
+              </div>
+
+              {/* Next Button */}
+              {selectedFotoIndex < fotosList.length - 1 && (
+                <button
+                  onClick={() => {
+                    setSelectedFotoIndex((i) => i + 1);
+                    setZoomScale(1);
+                    setRotation(0);
+                  }}
+                  className={clsx('absolute', 'right-4', 'z-20', 'p-3', 'bg-slate-900/80', 'border', 'border-slate-700', 'hover:bg-sky-600', 'text-white', 'rounded-2xl', 'transition', 'shadow-xl')}
+                  title="Fotografía Siguiente"
+                >
+                  <ChevronRight className={clsx('w-6', 'h-6')} />
+                </button>
+              )}
+            </div>
+
+            {/* Footer Bar with GPS Info */}
+            <div className={clsx('w-full', 'max-w-4xl', 'flex', 'items-center', 'justify-between', 'text-xs', 'text-slate-300', 'px-4', 'py-2', 'bg-slate-900/80', 'rounded-xl', 'border', 'border-slate-800')} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3">
+                {hasSelectedGps ? (
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-mono font-bold text-[11px] border border-emerald-800 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-emerald-400" />
+                      Lat: {selectedLat.toFixed(6)}, Lng: {selectedLng.toFixed(6)}
+                    </span>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${selectedLat},${selectedLng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold text-[11px] transition shadow"
+                    >
+                      <Navigation className="w-3 h-3" />
+                      Ver en Google Maps
+                      <ExternalLink className="w-2.5 h-2.5 opacity-80" />
+                    </a>
+                  </div>
+                ) : (
+                  <span className="text-slate-400 italic text-[11px]">Foto sin coordenadas GPS asociadas</span>
+                )}
+                {selectedTimestamp && (
+                  <span className="text-slate-400 text-[11px] font-mono">
+                    • Captura: {formatFechaHoraCaptura(selectedTimestamp)}
+                  </span>
+                )}
+              </div>
+
+              <div className="text-[11px] text-slate-400 hidden sm:block">
+                Usa los controles superiores para zoom y rotación
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

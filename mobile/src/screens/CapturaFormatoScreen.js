@@ -218,6 +218,16 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       Alert.alert('Permiso denegado', 'Se requiere acceso a la cámara para tomar fotografías.');
       return;
     }
+
+    // Obtener coordenadas satelitales en el instante exacto de la captura
+    let fotoCoords = location;
+    try {
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      if (loc && loc.coords) {
+        fotoCoords = loc.coords;
+      }
+    } catch (e) {}
+
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -229,7 +239,13 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       const asset = result.assets[0];
       const base64Image = formatBase64Image(asset.base64);
       if (base64Image) {
-        setFotos((prev) => [...prev, base64Image]);
+        const nuevaFoto = {
+          url: base64Image,
+          latitud: fotoCoords ? Number(fotoCoords.latitude) : null,
+          longitud: fotoCoords ? Number(fotoCoords.longitude) : null,
+          timestamp: new Date().toISOString(),
+        };
+        setFotos((prev) => [...prev, nuevaFoto]);
       }
     }
   }
@@ -251,7 +267,13 @@ export default function CapturaFormatoScreen({ route, navigation }) {
       const asset = result.assets[0];
       const base64Image = formatBase64Image(asset.base64);
       if (base64Image) {
-        setFotos((prev) => [...prev, base64Image]);
+        const nuevaFoto = {
+          url: base64Image,
+          latitud: location ? Number(location.latitude) : null,
+          longitud: location ? Number(location.longitude) : null,
+          timestamp: new Date().toISOString(),
+        };
+        setFotos((prev) => [...prev, nuevaFoto]);
       }
     }
   }
@@ -328,10 +350,47 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
           const freshLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
           if (freshLoc && freshLoc.coords) {
             currentCoords = freshLoc.coords;
+            setLocation(freshLoc.coords);
           }
+        } else {
+          Alert.alert(
+            'Permiso de Ubicación',
+            'Se requiere acceso a la ubicación para registrar la geolocalización real de la visita.'
+          );
         }
       } catch (e) {
         console.log('Error obteniendo GPS en tiempo real al guardar:', e);
+      }
+
+      // Si no se obtuvo lectura fresca, intentar última posición conocida
+      if (!currentCoords) {
+        try {
+          const lastLoc = await Location.getLastKnownPositionAsync();
+          if (lastLoc && lastLoc.coords) {
+            currentCoords = lastLoc.coords;
+            setLocation(lastLoc.coords);
+          }
+        } catch (e) {}
+      }
+
+      // Si aún no hay coordenadas, alertar al investigador y evitar coordenadas ficticias
+      if (!currentCoords) {
+        const procederSinGps = await new Promise((resolve) => {
+          Alert.alert(
+            '⚠️ Señal GPS no detectada',
+            'No se pudo capturar la geolocalización satelital en tiempo real. Verifica que la ubicación/GPS esté encendida en tu teléfono.\n\n¿Deseas guardar de todos modos como contingencia sin GPS verificado?',
+            [
+              { text: 'Cancelar y Encender GPS', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Guardar sin GPS', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+        if (!procederSinGps) {
+          setSaving(false);
+          obtenerUbicacionGPS();
+          return;
+        }
       }
 
       const estudio_socioeconomico = {
@@ -390,8 +449,8 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
         fotos_urls: fotos,
         firma_url: firmaUrl,
         firma_investigador_url: firmaInvestigadorUrl,
-        latitud_checkin: currentCoords ? currentCoords.latitude : 20.6597,
-        longitud_checkin: currentCoords ? currentCoords.longitude : -103.3496,
+        latitud_checkin: currentCoords ? Number(currentCoords.latitude) : null,
+        longitud_checkin: currentCoords ? Number(currentCoords.longitude) : null,
       });
 
       if (res && res.offline) {
@@ -998,14 +1057,23 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
 
         {fotos.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
-            {fotos.map((uri, index) => (
-              <View key={index} style={styles.imageCard}>
-                <Image source={{ uri }} style={styles.previewImage} />
-                <TouchableOpacity style={styles.deleteBadge} onPress={() => eliminarFoto(index)}>
-                  <Text style={styles.deleteBadgeText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
+            {fotos.map((item, index) => {
+              const imageUri = typeof item === 'string' ? item : (item?.url || item?.uri);
+              const hasGps = typeof item === 'object' && item?.latitud && item?.longitud;
+              return (
+                <View key={index} style={styles.imageCard}>
+                  <Image source={{ uri: imageUri }} style={styles.previewImage} />
+                  {hasGps ? (
+                    <View style={styles.geoBadgeFoto}>
+                      <Text style={styles.geoBadgeFotoText}>📍 GPS OK</Text>
+                    </View>
+                  ) : null}
+                  <TouchableOpacity style={styles.deleteBadge} onPress={() => eliminarFoto(index)}>
+                    <Text style={styles.deleteBadgeText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </ScrollView>
         )}
       </View>
@@ -1170,6 +1238,22 @@ const styles = StyleSheet.create({
   galleryScroll: { marginTop: 14, flexDirection: 'row' },
   imageCard: { position: 'relative', marginRight: 12 },
   previewImage: { width: 90, height: 90, borderRadius: 10, borderWidth: 1, borderColor: '#38bdf8' },
+  geoBadgeFoto: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    right: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  geoBadgeFotoText: {
+    color: '#38bdf8',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
   deleteBadge: { position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
   deleteBadgeText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
   printButton: {

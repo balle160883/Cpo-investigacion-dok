@@ -768,6 +768,18 @@ async function guardarEvidencia(req, res, next) {
       }
     }
 
+    const latCheckinNum = (latitud_checkin !== undefined && latitud_checkin !== null && !isNaN(Number(latitud_checkin)))
+      ? Number(latitud_checkin)
+      : null;
+    const lngCheckinNum = (longitud_checkin !== undefined && longitud_checkin !== null && !isNaN(Number(longitud_checkin)))
+      ? Number(longitud_checkin)
+      : null;
+
+    // Detectar si son coordenadas reales válidas (evitando 0,0 y el punto falso histórico 20.6597, -103.3496)
+    const esGpsRealValido = latCheckinNum !== null && lngCheckinNum !== null &&
+      latCheckinNum !== 0 && lngCheckinNum !== 0 &&
+      !(Math.abs(latCheckinNum - 20.6597) < 0.0001 && Math.abs(lngCheckinNum - (-103.3496)) < 0.0001);
+
     await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS firma_investigador_url TEXT;`);
 
     await db.query(`
@@ -786,14 +798,56 @@ async function guardarEvidencia(req, res, next) {
       ) VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8, TRUE, NOW());
     `, [
       id,
-      latitud_checkin || 0,
-      longitud_checkin || 0,
+      latCheckinNum,
+      lngCheckinNum,
       JSON.stringify(estudio_socioeconomico || {}),
       JSON.stringify(fotosFinales),
       firmaFinal,
       firmaInvFinal,
       notas_investigador || dictamenInfo
     ]);
+
+    // Si se capturaron coordenadas reales válidas en campo, sincronizar la georreferenciación del domicilio en direcciones
+    if (esGpsRealValido) {
+      try {
+        const invInfo = await db.query(
+          `SELECT persona_id_sif, solicitud_id_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) OR CAST(id AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
+          [id]
+        );
+        if (invInfo.rows.length > 0 && invInfo.rows[0].persona_id_sif) {
+          const personaId = invInfo.rows[0].persona_id_sif;
+          if (estudio_socioeconomico?.tiene_direccion_diferente && estudio_socioeconomico?.calle_real) {
+            await db.query(`
+              UPDATE direcciones
+              SET calle = COALESCE($1, calle),
+                  colonia = COALESCE($2, colonia),
+                  referencias = COALESCE($3, referencias),
+                  latitud = $4,
+                  longitud = $5,
+                  updated_at = NOW()
+              WHERE CAST(persona_id_sif AS TEXT) = CAST($6 AS TEXT) AND (es_principal = TRUE OR activa = TRUE);
+            `, [
+              estudio_socioeconomico.calle_real,
+              estudio_socioeconomico.colonia_real || null,
+              estudio_socioeconomico.referencias_domicilio || null,
+              latCheckinNum,
+              lngCheckinNum,
+              personaId
+            ]);
+          } else {
+            await db.query(`
+              UPDATE direcciones
+              SET latitud = $1,
+                  longitud = $2,
+                  updated_at = NOW()
+              WHERE CAST(persona_id_sif AS TEXT) = CAST($3 AS TEXT) AND (latitud IS NULL OR latitud = 0 OR es_principal = TRUE);
+            `, [latCheckinNum, lngCheckinNum, personaId]);
+          }
+        }
+      } catch (errDir) {
+        console.error('Aviso: No se pudo actualizar georreferenciación en tabla direcciones:', errDir.message);
+      }
+    }
 
     // Detección de visita con cita o folio
     const esCitaOFolio = 
@@ -830,7 +884,13 @@ async function guardarEvidencia(req, res, next) {
         recurso: 'investigaciones',
         recurso_id: String(id),
         descripcion: `Investigación #${id} turnada a reasignación por visita con ${supuestoValor || 'Cita/Folio'}`,
-        datos_nuevos: { estado: 'REAGENDADA', investigador_id: null, supuesto: supuestoValor },
+        datos_nuevos: {
+          estado: 'REAGENDADA',
+          investigador_id: null,
+          supuesto: supuestoValor,
+          latitud_checkin: latCheckinNum,
+          longitud_checkin: lngCheckinNum,
+        },
       });
 
       // Emitir evento WebSocket para actualizar en tiempo real el panel web
@@ -848,6 +908,34 @@ async function guardarEvidencia(req, res, next) {
         SET estado = 'COMPLETADA', fecha_cumplimiento = NOW(), observaciones_sif = $1, origen_asignacion = 'PLATAFORMA_CPO', asignacion_manual = TRUE, updated_at = NOW()
         WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT);
       `, [notas_investigador ? `${notas_investigador}${supuestoValor ? ` (Supuesto: ${supuestoValor})` : ''}` : (dictamenInfo || 'Completada desde App Móvil'), id]);
+
+      // Registrar auditoría inalterable de finalización con coordenadas de check-in
+      registrarAuditoria({
+        usuario_id: req.user?.id || null,
+        usuario_nombre: req.user?.nombre || req.user?.email || 'Investigador Móvil',
+        usuario_rol: req.user?.rol || 'investigador',
+        accion: 'INVESTIGACION_COMPLETADA_MOVIL',
+        recurso: 'investigaciones',
+        recurso_id: String(id),
+        descripcion: `Investigación #${id} completada en campo con dictamen '${dictamen || 'DOMICILIO CONFIRMADO'}'`,
+        datos_nuevos: {
+          estado: 'COMPLETADA',
+          dictamen: dictamen,
+          latitud_checkin: latCheckinNum,
+          longitud_checkin: lngCheckinNum,
+          gps_valido: esGpsRealValido,
+          fecha_cumplimiento: new Date(),
+        },
+      });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('investigaciones_actualizadas', {
+          tipo: 'INVESTIGACION_COMPLETADA',
+          investigacion_id: id,
+          dictamen: dictamen,
+        });
+      }
     }
 
     // Si se capturó o confirmó un teléfono durante la visita, actualizar la tabla personas
@@ -878,6 +966,8 @@ async function guardarEvidencia(req, res, next) {
     res.json({
       success: true,
       reagendada: esCitaOFolio,
+      latitud_checkin: latCheckinNum,
+      longitud_checkin: lngCheckinNum,
       message: esCitaOFolio
         ? 'Visita con folio/cita registrada correctamente. La investigación ha sido turnada al asignador para su reagenda.'
         : 'Estudio e investigación guardados correctamente',
