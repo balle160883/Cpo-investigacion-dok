@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, Share, Linking } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, Share, Linking, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { guardarEvidenciaInvestigacion, escanearINEConFoto } from '../api/apiClient';
@@ -476,7 +476,17 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.keyboardRoot}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
+        removeClippedSubviews={false}
+      >
       {/* TARJETA DE DISTINCIÓN SOLICITANTE / AVAL */}
       <View style={[styles.headerCard, isAval ? styles.headerCardAval : styles.headerCardSolicitante]}>
         <View style={styles.badgeRow}>
@@ -1155,12 +1165,15 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
       <TouchableOpacity style={styles.saveButton} onPress={handleGuardar} disabled={saving}>
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Guardar Evidencia y Dictamen</Text>}
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a', padding: 16 },
+  keyboardRoot: { flex: 1, backgroundColor: '#0f172a' },
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  scrollContent: { padding: 16, paddingBottom: 60 },
   headerCard: {
     padding: 16,
     borderRadius: 16,
