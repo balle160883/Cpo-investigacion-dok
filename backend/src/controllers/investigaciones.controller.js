@@ -401,6 +401,10 @@ async function getInvestigacionDetalle(req, res, next) {
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
     await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_asignacion_analista TIMESTAMP;`);
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS solventado_en TIMESTAMP WITH TIME ZONE;`);
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS solventado_por_usuario_id INT;`);
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`);
+    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
 
     // 1. Investigacion principal
     const invRes = await db.query(`
