@@ -304,6 +304,7 @@ export default function DetalleFormatoPage() {
     yaSolventado
   );
   const puedeSolventarFolio = canValidate && (esConFolio || inv.estado === 'REAGENDADA' || yaSolventado);
+  const puedeEditarFormato = canValidate && !['APROBADA_FINAL'].includes(inv.estado);
 
   function handleActualizarReferencia(index, campo, valor) {
     setFormSolventar(prev => {
@@ -410,14 +411,8 @@ export default function DetalleFormatoPage() {
   }
 
   async function handleEjecutarSolventacion(validarInmediato = false) {
-    if (!formSolventar.justificacion_folio.trim()) {
-      setToast({ 
-        message: 'Por favor ingresa la "Justificación de la Solventación" en la pestaña 5 (Dictamen y Folio).', 
-        type: 'warning' 
-      });
-      setActiveSolventarTab('dictamen');
-      return;
-    }
+    const justif = (formSolventar.justificacion_folio || '').trim();
+    const justificacionFinal = justif || (esConFolio ? 'Folio solventado en gabinete por revisión documental' : 'Edición y corrección de datos del formato socioeconómico');
 
     setSolventando(true);
     try {
@@ -475,10 +470,10 @@ export default function DetalleFormatoPage() {
         },
         dictamen: formSolventar.dictamen,
         notas_investigador: formSolventar.notas_investigador,
-        justificacion_folio: formSolventar.justificacion_folio.trim(),
+        justificacion_folio: justificacionFinal,
         comprobante_url: comprobanteUrlFinal,
         validar_inmediato: validarInmediato,
-        comentarios_validacion: validarInmediato ? `Validado tras solventación de folio: ${formSolventar.justificacion_folio.trim()}` : '',
+        comentarios_validacion: validarInmediato ? `Validado tras solventación/edición de formato: ${justificacionFinal}` : '',
       };
 
       const res = await solventarFolioInvestigacion(id, payload);
@@ -854,13 +849,14 @@ export default function DetalleFormatoPage() {
           {/* Botones VALIDADOR: Aprobar o Rechazar el estudio del investigador */}
           {canValidate && (
             <div className={clsx('flex', 'items-center', 'gap-2', 'flex-wrap')}>
-              {puedeSolventarFolio && !['VALIDADA', 'APROBADA_FINAL'].includes(inv.estado) && (
+              {puedeEditarFormato && (
                 <button
                   type="button"
                   onClick={abrirModalSolventar}
-                  className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-purple-600', 'hover:bg-purple-500', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-purple-600/30')}
+                  className={clsx('px-4', 'py-2', 'rounded-xl', esConFolio ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/30' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg')}
+                  title="Editar datos del formato socioeconómico"
                 >
-                  <Edit3 className={clsx('w-4', 'h-4')} /> 📝 Solventar Folio y Editar Formato
+                  <Edit3 className={clsx('w-4', 'h-4')} /> {esConFolio ? '📝 Solventar Folio y Editar Formato' : '✏️ Editar Datos del Formato'}
                 </button>
               )}
 
@@ -1134,7 +1130,7 @@ export default function DetalleFormatoPage() {
                     <Edit3 className="w-5 h-5" />
                   </span>
                   <h3 className="text-base md:text-lg font-bold text-white">
-                    Editar Formato Socioeconómico y Solventar Folio
+                    {esConFolio ? 'Editar Formato Socioeconómico y Solventar Folio' : 'Editar Datos del Formato Socioeconómico'}
                   </h3>
                   <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-semibold">
                     SIF #{inv.id_sif_research}
@@ -1161,9 +1157,9 @@ export default function DetalleFormatoPage() {
                 { id: 'referencias', label: `4. Referencias (${(formSolventar.referencias_avales || []).length})`, icon: '👥' },
                 { 
                   id: 'dictamen', 
-                  label: '5. Dictamen y Folio', 
+                  label: esConFolio ? '5. Dictamen y Folio' : '5. Dictamen y Justificación', 
                   icon: '⚖️',
-                  badge: !formSolventar.justificacion_folio?.trim() ? 'Requerido' : null
+                  badge: esConFolio && !formSolventar.justificacion_folio?.trim() ? 'Folio' : null
                 },
               ].map(tab => (
                 <button
@@ -1883,7 +1879,10 @@ export default function DetalleFormatoPage() {
 
                     <div>
                       <label className="block text-slate-200 font-bold mb-1">
-                        Justificación de la Solventación: <span className="text-rose-400">* (Obligatorio)</span>
+                        {esConFolio ? 'Justificación de la Solventación:' : 'Justificación o Motivo del Cambio:'}{' '}
+                        <span className="text-slate-400 font-normal text-[11px]">
+                          {esConFolio ? '(Recomendado para Folio)' : '(Opcional para corrección de datos)'}
+                        </span>
                       </label>
                       <textarea
                         value={formSolventar.justificacion_folio}

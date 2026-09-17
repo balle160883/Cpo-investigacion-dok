@@ -531,7 +531,7 @@ async function getInvestigacionDetalle(req, res, next) {
 
     // 3. Evidencia realizada (con consolidación de fotos y firmas)
     const evRes = await db.query(
-      'SELECT * FROM evidencias_visita WHERE CAST(investigacion_id_sif AS TEXT) = CAST($1 AS TEXT) ORDER BY created_at DESC;',
+      'SELECT * FROM evidencias_visita WHERE CAST(investigacion_id_sif AS TEXT) = CAST($1 AS TEXT) ORDER BY COALESCE(solventado_en, created_at) DESC, id DESC;',
       [id]
     );
 
@@ -554,12 +554,12 @@ async function getInvestigacionDetalle(req, res, next) {
         const conFirmaInv = evRes.rows.find(r => r.firma_investigador_url);
         if (conFirmaInv) evidencia.firma_investigador_url = conFirmaInv.firma_investigador_url;
       }
-      // Consolidar campos del estudio socioeconómico (ocupación, colores, valores, etc.)
+      // Consolidar campos del estudio socioeconómico (preservando los valores más recientes de la edición, incluyendo 0 y strings vacíos)
       let mergedEstudio = typeof evidencia.estudio_socioeconomico === 'object' && evidencia.estudio_socioeconomico ? { ...evidencia.estudio_socioeconomico } : {};
-      for (const row of evRes.rows) {
+      for (const row of evRes.rows.slice(1)) {
         if (row.estudio_socioeconomico && typeof row.estudio_socioeconomico === 'object') {
           for (const [key, val] of Object.entries(row.estudio_socioeconomico)) {
-            if ((mergedEstudio[key] === undefined || mergedEstudio[key] === '' || mergedEstudio[key] === 0 || mergedEstudio[key] === null) && (val !== '' && val !== 0 && val !== null && val !== undefined)) {
+            if ((mergedEstudio[key] === undefined || mergedEstudio[key] === null) && (val !== null && val !== undefined)) {
               mergedEstudio[key] = val;
             }
           }
@@ -1360,11 +1360,12 @@ async function solventarFolioInvestigacion(req, res, next) {
     } = req.body;
 
     const validadorId = req.user?.id || null;
-    const validadorNombre = req.user?.nombre || req.user?.email || 'Validador de Crédito';
+    const validadorNombre = req.user?.nombre || req.user?.email || 'Validador / Asignador';
+    const validadorRol = req.user?.rol || 'validador';
 
-    if (!justificacion_folio || !justificacion_folio.trim()) {
-      return res.status(400).json({ error: 'La justificación de solventación del folio es obligatoria.' });
-    }
+    const justificacionLimpia = (justificacion_folio && justificacion_folio.trim())
+      ? justificacion_folio.trim()
+      : 'Actualización y corrección de datos del formato socioeconómico en gabinete';
 
     // 1. Verificar existencia de la investigación
     const { rows: invRows } = await db.query(
@@ -1407,7 +1408,7 @@ async function solventarFolioInvestigacion(req, res, next) {
       supuesto: dictamen === 'DOMICILIO CONFIRMADO' ? 'FOLIO_SOLVENTADO' : (estudio_socioeconomico?.supuesto || 'Con Folio'),
       folio_solventado: true,
       solventado_por: validadorNombre,
-      justificacion_folio: justificacion_folio.trim(),
+      justificacion_folio: justificacionLimpia,
       comprobante_url: comprobante_url || prevEvidencia.comprobante_folio_url || null,
       fecha_solventado: new Date().toISOString(),
     };
@@ -1426,7 +1427,7 @@ async function solventarFolioInvestigacion(req, res, next) {
       `, [
         JSON.stringify(estudioFinal),
         notas_investigador || prevEvidencia.notas_investigador,
-        justificacion_folio.trim(),
+        justificacionLimpia,
         comprobante_url || null,
         validadorId,
         prevEvidencia.id
@@ -1441,21 +1442,61 @@ async function solventarFolioInvestigacion(req, res, next) {
           justificacion_folio,
           comprobante_folio_url,
           solventado_por_usuario_id,
-          solventado_en
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW());
+          solventado_en,
+          created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW());
       `, [
         id,
         JSON.stringify(estudioFinal),
         JSON.stringify([]),
         notas_investigador || '',
-        justificacion_folio.trim(),
+        justificacionLimpia,
         comprobante_url || null,
         validadorId
       ]);
     }
 
-    // 4. Actualizar estado de la investigación
-    let nuevoEstado = 'COMPLETADA';
+    // 3.1 Sincronizar teléfono si fue modificado en el formulario
+    if (estudio_socioeconomico?.telefono_visitado && String(estudio_socioeconomico.telefono_visitado).trim()) {
+      const telVisitadoLimpio = String(estudio_socioeconomico.telefono_visitado).trim();
+      await db.query(`
+        UPDATE personas
+        SET telefono_principal = COALESCE(NULLIF($1, ''), telefono_principal),
+            telefono = COALESCE(NULLIF($1, ''), telefono)
+        WHERE CAST(id_sif AS TEXT) = (SELECT CAST(persona_id_sif AS TEXT) FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT) LIMIT 1);
+      `, [telVisitadoLimpio, id]);
+    }
+
+    // 3.2 Sincronizar dirección corregida si aplica
+    if (estudio_socioeconomico?.tiene_direccion_diferente && estudio_socioeconomico?.calle_real) {
+      const personaId = investigacion.persona_id_sif;
+      if (personaId) {
+        await db.query(`
+          INSERT INTO direcciones (
+            persona_id_sif,
+            calle,
+            colonia,
+            referencias,
+            es_principal,
+            domicilio_validado_sucursal,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, TRUE, TRUE, NOW(), NOW())
+          ON CONFLICT DO NOTHING;
+        `, [
+          personaId,
+          estudio_socioeconomico.calle_real,
+          estudio_socioeconomico.colonia_real || null,
+          estudio_socioeconomico.referencias_domicilio || null,
+        ]);
+      }
+    }
+
+    // 4. Actualizar estado de la investigación respetando estados avanzados
+    let nuevoEstado = investigacion.estado;
+    if (investigacion.estado === 'REAGENDADA' || investigacion.estado === 'PENDIENTE') {
+      nuevoEstado = 'COMPLETADA';
+    }
     let nuevoEstadoValidacion = investigacion.estado_validacion;
     let fechaValidacion = investigacion.fecha_validacion;
     let comValidacion = investigacion.comentarios_validacion;
@@ -1464,10 +1505,10 @@ async function solventarFolioInvestigacion(req, res, next) {
       nuevoEstado = 'VALIDADA';
       nuevoEstadoValidacion = 'VALIDADA';
       fechaValidacion = new Date();
-      comValidacion = comentarios_validacion || `Validado tras solventación de folio: ${justificacion_folio.trim()}`;
+      comValidacion = comentarios_validacion || `Validado tras solventación/edición de formato: ${justificacionLimpia}`;
     }
 
-    const obsSif = `[FOLIO SOLVENTADO POR VALIDADOR]: ${justificacion_folio.trim()}`;
+    const obsSif = `[DATOS DE FORMATO ACTUALIZADOS]: ${justificacionLimpia}`;
 
     await db.query(`
       UPDATE investigaciones
@@ -1489,17 +1530,21 @@ async function solventarFolioInvestigacion(req, res, next) {
       validadorId,
       fechaValidacion,
       obsSif,
-      justificacion_folio.trim(),
+      justificacionLimpia,
       comprobante_url || null,
       comValidacion,
       id
     ]);
 
     // 5. Registrar en Bitácora de Auditoría
-    await registrarAuditoria(req, {
+    await registrarAuditoria({
+      usuario_id: validadorId,
+      usuario_nombre: validadorNombre,
+      usuario_rol: validadorRol,
       accion: 'SOLVENTAR_FOLIO_VALIDADOR',
-      entidad: 'investigaciones',
-      entidad_id: id,
+      recurso: 'investigaciones',
+      recurso_id: id,
+      descripcion: `Formato socioeconómico actualizado/solventado por ${validadorNombre}`,
       datos_anteriores: {
         estado: investigacion.estado,
         estudio_socioeconomico: prevEvidencia.estudio_socioeconomico,
@@ -1508,7 +1553,7 @@ async function solventarFolioInvestigacion(req, res, next) {
       datos_nuevos: {
         estado: nuevoEstado,
         dictamen: dictamen,
-        justificacion_folio: justificacion_folio.trim(),
+        justificacion_folio: justificacionLimpia,
         comprobante_url: comprobante_url || null,
         validado_inmediato: Boolean(validar_inmediato),
       },
