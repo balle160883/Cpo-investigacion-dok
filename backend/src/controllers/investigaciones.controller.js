@@ -276,6 +276,7 @@ async function getInvestigaciones(req, res, next) {
           s.monto_solicitado,
           s.sucursal_id,
           s.sucursal_nombre,
+          p_sol.nombre_completo as solicitante_nombre,
           d.calle,
           d.numero_exterior,
           d.codigo_postal,
@@ -291,6 +292,7 @@ async function getInvestigaciones(req, res, next) {
         FROM investigaciones inv
         LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
         LEFT JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+        LEFT JOIN personas p_sol ON s.cliente_id_sif = p_sol.id_sif
         LEFT JOIN LATERAL (
           SELECT 
             d.calle,
@@ -440,6 +442,17 @@ async function getInvestigacionDetalle(req, res, next) {
         s.sucursal_id,
         s.sucursal_nombre,
         s.cliente_id_sif,
+        p_sol.nombre_completo as solicitante_nombre,
+        p_sol.curp as solicitante_curp,
+        p_sol.rfc as solicitante_rfc,
+        COALESCE(p_sol.telefono_principal, p_sol.celular, p_sol.telefono) as solicitante_telefono,
+        d_sol.calle as solicitante_calle,
+        d_sol.numero_exterior as solicitante_numero_exterior,
+        d_sol.numero_interior as solicitante_numero_interior,
+        d_sol.codigo_postal as solicitante_codigo_postal,
+        d_sol.colonia as solicitante_colonia,
+        d_sol.municipio as solicitante_municipio,
+        d_sol.estado_provincia as solicitante_estado_provincia,
         d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.colonia, d.municipio, d.estado_provincia, d.referencias, d.latitud, d.longitud,
         d.domicilio_validado_sucursal,
         inv_usr.nombre as investigador_nombre,
@@ -456,6 +469,20 @@ async function getInvestigacionDetalle(req, res, next) {
       FROM investigaciones inv
       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
+      LEFT JOIN personas p_sol ON CAST(s.cliente_id_sif AS TEXT) = CAST(p_sol.id_sif AS TEXT)
+      LEFT JOIN LATERAL (
+        SELECT 
+          d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.colonia, d.municipio, d.estado_provincia
+        FROM direcciones d
+        WHERE d.persona_id_sif = p_sol.id_sif
+        ORDER BY 
+          CASE WHEN s.direccion_id_sif IS NOT NULL AND d.id_sif = s.direccion_id_sif THEN 1 ELSE 0 END DESC,
+          COALESCE(d.es_principal, FALSE) DESC,
+          COALESCE(d.activa, TRUE) DESC,
+          COALESCE(d.updated_at, '1970-01-01'::timestamp) DESC,
+          d.id_sif DESC
+        LIMIT 1
+      ) d_sol ON TRUE
       LEFT JOIN LATERAL (
         SELECT 
           d.calle, d.numero_exterior, d.numero_interior, d.codigo_postal, d.colonia, d.municipio, d.estado_provincia, d.referencias, d.latitud, d.longitud,
@@ -596,8 +623,23 @@ async function getInvestigacionDetalle(req, res, next) {
       }
     }
 
+    const solicitante = {
+      nombre_completo: investigacion.solicitante_nombre || null,
+      curp: investigacion.solicitante_curp || null,
+      rfc: investigacion.solicitante_rfc || null,
+      telefono: investigacion.solicitante_telefono || null,
+      calle: investigacion.solicitante_calle || null,
+      numero_exterior: investigacion.solicitante_numero_exterior || null,
+      numero_interior: investigacion.solicitante_numero_interior || null,
+      codigo_postal: investigacion.solicitante_codigo_postal || null,
+      colonia: investigacion.solicitante_colonia || null,
+      municipio: investigacion.solicitante_municipio || null,
+      estado_provincia: investigacion.solicitante_estado_provincia || null,
+    };
+
     res.json({
       investigacion,
+      solicitante,
       avales,
       paqueteInvestigaciones,
       evidencia,

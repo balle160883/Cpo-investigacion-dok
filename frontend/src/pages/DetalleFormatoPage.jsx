@@ -333,14 +333,25 @@ export default function DetalleFormatoPage() {
 
   function abrirModalSolventar() {
     let initialReferencias = [];
+    const solNombre = inv.solicitante_nombre || data.solicitante?.nombre_completo || '';
+    const solDom = inv.solicitante_calle ? `${inv.solicitante_calle} ${inv.solicitante_numero_exterior || ''} CP ${inv.solicitante_codigo_postal || ''}`.trim() : '';
+
     if (Array.isArray(est.referencias_avales) && est.referencias_avales.length > 0) {
-      initialReferencias = est.referencias_avales.map(r => ({
-        nombre: r.nombre || '',
-        domicilio: r.domicilio || '',
-        parentesco: r.parentesco || '',
-        tiempo_conocerlo: r.tiempo_conocerlo || '',
+      initialReferencias = est.referencias_avales.map((r, idx) => ({
+        nombre: (isAval && idx === 0 && (!r.nombre || r.nombre === inv.sujeto_nombre)) ? (solNombre || r.nombre || '') : (r.nombre || ''),
+        domicilio: r.domicilio || (isAval && idx === 0 ? solDom : ''),
+        parentesco: r.parentesco || (isAval ? 'Amistad' : ''),
+        tiempo_conocerlo: r.tiempo_conocerlo || '5 años',
         confirmo: r.confirmo !== false,
       }));
+    } else if (isAval) {
+      initialReferencias = [{
+        nombre: solNombre || 'Solicitante Titular',
+        domicilio: solDom || (inv.calle || ''),
+        parentesco: 'Amistad / Conocido',
+        tiempo_conocerlo: '5 años',
+        confirmo: true,
+      }];
     } else if (Array.isArray(data?.avales) && data.avales.length > 0) {
       initialReferencias = data.avales.map(av => ({
         nombre: av.nombre_completo || '',
@@ -2277,12 +2288,19 @@ export default function DetalleFormatoPage() {
             </div>
           </div>
 
-          <div className={clsx('col-span-2', 'flex', 'items-center', 'gap-1.5')}>
-            <span className={`font-bold px-2 py-0.5 rounded text-[11px] uppercase tracking-wider ${isAval ? 'bg-purple-200 text-purple-950 font-black' : 'bg-sky-200 text-sky-950 font-black'
-              }`}>
-              {isAval ? '🤝 AVAL:' : '👤 SOLICITANTE:'}
-            </span>
-            <span className={clsx('font-extrabold', 'text-slate-900', 'text-sm')}>{inv.sujeto_nombre}</span>
+          <div className={clsx('col-span-2', 'flex', 'flex-col', 'justify-center')}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`font-bold px-2 py-0.5 rounded text-[11px] uppercase tracking-wider ${isAval ? 'bg-purple-200 text-purple-950 font-black' : 'bg-sky-200 text-sky-950 font-black'
+                }`}>
+                {isAval ? '🤝 AVAL:' : '👤 SOLICITANTE:'}
+              </span>
+              <span className={clsx('font-extrabold', 'text-slate-900', 'text-sm')}>{inv.sujeto_nombre}</span>
+            </div>
+            {isAval && (inv.solicitante_nombre || data.solicitante?.nombre_completo) && (
+              <div className="text-[11px] text-slate-600 font-medium mt-0.5 pl-0.5">
+                Titular del Crédito: <strong className="text-slate-900">{inv.solicitante_nombre || data.solicitante?.nombre_completo}</strong>
+              </div>
+            )}
           </div>
           <div>
             <span className="font-bold">Crédito:</span> {inv.solicitud_folio || 'N/A'}
@@ -2443,62 +2461,166 @@ export default function DetalleFormatoPage() {
           </div>
         </div>
 
-        {/* Section 3: INFORMACIÓN DE REFERENCIAS / AVALES */}
+        {/* Section 3: INFORMACIÓN DE REFERENCIAS / AVALES O SOLICITANTE */}
         <div className={clsx('border', 'border-slate-800', 'rounded-lg', 'overflow-hidden')}>
-          <div className={clsx('bg-slate-800', 'text-white', 'px-3', 'py-1', 'text-xs', 'font-bold', 'tracking-wider', 'uppercase')}>
-            3. INFORMACIÓN DE REFERENCIAS / {isAval ? 'SOLICITANTE' : 'AVALES'}
+          <div className={clsx('bg-slate-800', 'text-white', 'px-3', 'py-1', 'text-xs', 'font-bold', 'tracking-wider', 'uppercase', 'flex', 'items-center', 'justify-between')}>
+            <span>3. INFORMACIÓN DE REFERENCIAS / {isAval ? 'SOLICITANTE' : 'AVALES'}</span>
+            {isAval && (
+              <span className="text-[10px] text-sky-300 font-medium normal-case">
+                Sujeto Titular Avalado
+              </span>
+            )}
           </div>
           <div className={clsx('p-3', 'text-xs', 'space-y-2')}>
-            {data.avales && data.avales.length > 0 ? (
-              data.avales.map((av, idx) => {
-                const refData = (est.referencias_avales && est.referencias_avales[idx]) || {};
-                const parentesco = refData.parentesco || av.parentesco || 'Familiar / Aval';
-                const tiempoConocerlo = refData.tiempo_conocerlo || av.tiempo_conocerlo || '5 años';
+            {isAval ? (
+              // === VISTA PARA FORMATO DE AVAL: Mostrar Solicitante Titular ===
+              (() => {
+                const solNombre = inv.solicitante_nombre || data.solicitante?.nombre_completo || 'Solicitante Titular del Crédito';
+                const solDomicilio = inv.solicitante_calle
+                  ? `${inv.solicitante_calle} ${inv.solicitante_numero_exterior ? `#${inv.solicitante_numero_exterior}` : ''} ${inv.solicitante_colonia ? `Col. ${inv.solicitante_colonia}` : ''} ${inv.solicitante_codigo_postal ? `CP ${inv.solicitante_codigo_postal}` : ''}`.trim()
+                  : (data.solicitante?.calle ? `${data.solicitante.calle} #${data.solicitante.numero_exterior || ''} CP ${data.solicitante.codigo_postal || ''}` : 'Domicilio de captación registrado');
+
+                // Primera referencia capturada en campo para este aval (declaración de relación con solicitante)
+                const refData = (est.referencias_avales && est.referencias_avales[0]) || {};
+                const parentesco = refData.parentesco || 'Amistad / Conocido';
+                const tiempoConocerlo = refData.tiempo_conocerlo || '5 años';
                 const confirmo = refData.confirmo !== undefined ? (refData.confirmo === true || refData.confirmo === 'SI') : true;
 
+                // Co-avales adicionales (excluyendo a la persona actual si es aval)
+                const coAvales = (data.avales || []).filter(av =>
+                  av.nombre_completo && inv.sujeto_nombre &&
+                  av.nombre_completo.trim().toUpperCase() !== inv.sujeto_nombre.trim().toUpperCase() &&
+                  String(av.aval_id_sif) !== String(inv.persona_id_sif)
+                );
+
+                // Referencias capturadas a partir del índice 1
+                const refsAdicionales = (est.referencias_avales || []).slice(1);
+
                 return (
+                  <>
+                    {/* Tarjeta Oficial del Solicitante Titular */}
+                    <div className={clsx('p-2.5', 'border', 'border-sky-300', 'rounded', 'bg-sky-50/40', 'flex', 'items-center', 'justify-between', 'text-[11px]')}>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[9px] bg-sky-600 text-white font-black px-1.5 py-0.5 rounded tracking-wider uppercase">
+                            👤 SOLICITANTE TITULAR
+                          </span>
+                          <span className="font-bold text-slate-950 text-[12px]">{solNombre}</span>
+                        </div>
+                        <div><strong>Domicilio:</strong> {solDomicilio}</div>
+                        <div className={clsx('text-slate-700', 'pt-0.5')}>
+                          <strong>Parentesco / Relación:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{parentesco}</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{tiempoConocerlo}</span>
+                        </div>
+                      </div>
+                      <div className={clsx('text-right', 'whitespace-nowrap', 'pl-4', 'border-l', 'border-sky-300', 'ml-2', 'font-mono')}>
+                        <strong>Confirmó:</strong> SÍ [{confirmo ? 'X' : ' '}] NO [{!confirmo ? 'X' : ' '}]
+                      </div>
+                    </div>
+
+                    {/* Co-avales vinculados si existen */}
+                    {coAvales.map((coAv, idx) => {
+                      const coRefData = (est.referencias_avales && est.referencias_avales[idx + 1]) || {};
+                      const coParentesco = coRefData.parentesco || coAv.parentesco || 'Familiar / Co-Aval';
+                      const coTiempo = coRefData.tiempo_conocerlo || coAv.tiempo_conocerlo || '5 años';
+                      const coConfirmo = coRefData.confirmo !== undefined ? (coRefData.confirmo === true || coRefData.confirmo === 'SI') : true;
+
+                      return (
+                        <div key={`coav-${idx}`} className={clsx('p-2.5', 'border', 'border-slate-200', 'rounded', 'bg-slate-50', 'flex', 'items-center', 'justify-between', 'text-[11px]')}>
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[9px] bg-purple-200 text-purple-900 font-bold px-1.5 py-0.5 rounded uppercase">
+                                🤝 CO-AVAL
+                              </span>
+                              <span className="font-bold text-slate-900">{coAv.nombre_completo}</span>
+                            </div>
+                            <div><strong>Domicilio:</strong> {coAv.calle} CP {coAv.codigo_postal}</div>
+                            <div className={clsx('text-slate-700', 'pt-0.5')}>
+                              <strong>Parentesco:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{coParentesco}</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{coTiempo}</span>
+                            </div>
+                          </div>
+                          <div className={clsx('text-right', 'whitespace-nowrap', 'pl-4', 'border-l', 'border-slate-200', 'ml-2', 'font-mono')}>
+                            <strong>Confirmó:</strong> SÍ [{coConfirmo ? 'X' : ' '}] NO [{!coConfirmo ? 'X' : ' '}]
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Referencias adicionales capturadas en campo */}
+                    {coAvales.length === 0 && refsAdicionales.map((ref, idx) => (
+                      <div key={`ref-${idx}`} className={clsx('p-2.5', 'border', 'border-slate-200', 'rounded', 'bg-slate-50', 'flex', 'items-center', 'justify-between', 'text-[11px]')}>
+                        <div className="space-y-0.5">
+                          <div><strong>Nombre:</strong> {ref.nombre || 'Referencia Personal'}</div>
+                          <div><strong>Domicilio:</strong> {ref.domicilio || 'Domicilio registrado'}</div>
+                          <div className={clsx('text-slate-700', 'pt-0.5')}>
+                            <strong>Parentesco:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{ref.parentesco || 'Conocido'}</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{ref.tiempo_conocerlo || '3 años'}</span>
+                          </div>
+                        </div>
+                        <div className={clsx('text-right', 'whitespace-nowrap', 'pl-4', 'border-l', 'border-slate-200', 'ml-2', 'font-mono')}>
+                          <strong>Confirmó:</strong> SÍ [{ref.confirmo !== false ? 'X' : ' '}] NO [{ref.confirmo === false ? 'X' : ' '}]
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                );
+              })()
+            ) : (
+              // === VISTA PARA FORMATO DE SOLICITANTE: Mostrar Avales Registrados ===
+              data.avales && data.avales.length > 0 ? (
+                data.avales.map((av, idx) => {
+                  const refData = (est.referencias_avales && est.referencias_avales[idx]) || {};
+                  const parentesco = refData.parentesco || av.parentesco || 'Familiar / Aval';
+                  const tiempoConocerlo = refData.tiempo_conocerlo || av.tiempo_conocerlo || '5 años';
+                  const confirmo = refData.confirmo !== undefined ? (refData.confirmo === true || refData.confirmo === 'SI') : true;
+
+                  return (
+                    <div key={idx} className={clsx('p-2.5', 'border', 'border-slate-200', 'rounded', 'bg-slate-50', 'flex', 'items-center', 'justify-between', 'text-[11px]')}>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[9px] bg-purple-200 text-purple-900 font-bold px-1.5 py-0.5 rounded uppercase">
+                            🤝 AVAL
+                          </span>
+                          <span className="font-bold text-slate-900">{av.nombre_completo}</span>
+                        </div>
+                        <div><strong>Domicilio:</strong> {av.calle} CP {av.codigo_postal}</div>
+                        <div className={clsx('text-slate-700', 'pt-0.5')}>
+                          <strong>Parentesco:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{parentesco}</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{tiempoConocerlo}</span>
+                        </div>
+                      </div>
+                      <div className={clsx('text-right', 'whitespace-nowrap', 'pl-4', 'border-l', 'border-slate-200', 'ml-2', 'font-mono')}>
+                        <strong>Confirmó:</strong> SÍ [{confirmo ? 'X' : ' '}] NO [{!confirmo ? 'X' : ' '}]
+                      </div>
+                    </div>
+                  );
+                })
+              ) : est.referencias_avales && est.referencias_avales.length > 0 ? (
+                est.referencias_avales.map((ref, idx) => (
                   <div key={idx} className={clsx('p-2.5', 'border', 'border-slate-200', 'rounded', 'bg-slate-50', 'flex', 'items-center', 'justify-between', 'text-[11px]')}>
                     <div className="space-y-0.5">
-                      <div><strong>Nombre:</strong> {av.nombre_completo}</div>
-                      <div><strong>Domicilio:</strong> {av.calle} CP {av.codigo_postal}</div>
+                      <div><strong>Nombre:</strong> {ref.nombre || 'Referencia Personal'}</div>
+                      <div><strong>Domicilio:</strong> {ref.domicilio || 'Domicilio registrado'}</div>
                       <div className={clsx('text-slate-700', 'pt-0.5')}>
-                        <strong>Parentesco:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{parentesco}</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{tiempoConocerlo}</span>
+                        <strong>Parentesco:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{ref.parentesco || 'Conocido'}</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{ref.tiempo_conocerlo || '3 años'}</span>
                       </div>
                     </div>
                     <div className={clsx('text-right', 'whitespace-nowrap', 'pl-4', 'border-l', 'border-slate-200', 'ml-2', 'font-mono')}>
-                      <strong>Confirmó:</strong> SÍ [{confirmo ? 'X' : ' '}] NO [{!confirmo ? 'X' : ' '}]
+                      <strong>Confirmó:</strong> SÍ [{ref.confirmo !== false ? 'X' : ' '}] NO [{ref.confirmo === false ? 'X' : ' '}]
                     </div>
                   </div>
-                );
-              })
-            ) : est.referencias_avales && est.referencias_avales.length > 0 ? (
-              est.referencias_avales.map((ref, idx) => (
-                <div key={idx} className={clsx('p-2.5', 'border', 'border-slate-200', 'rounded', 'bg-slate-50', 'flex', 'items-center', 'justify-between', 'text-[11px]')}>
+                ))
+              ) : (
+                <div className={clsx('p-2.5', 'border', 'border-slate-200', 'rounded', 'bg-slate-50', 'flex', 'items-center', 'justify-between', 'text-[11px]')}>
                   <div className="space-y-0.5">
-                    <div><strong>Nombre:</strong> {ref.nombre || 'Referencia Personal'}</div>
-                    <div><strong>Domicilio:</strong> {ref.domicilio || 'Domicilio registrado'}</div>
+                    <div><strong>Nombre:</strong> {inv.sujeto_nombre || 'Referencia Registrada'}</div>
+                    <div><strong>Domicilio:</strong> {inv.calle || 'Domicilio registrado'} CP {inv.codigo_postal || ''}</div>
                     <div className={clsx('text-slate-700', 'pt-0.5')}>
-                      <strong>Parentesco:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{ref.parentesco || 'Conocido'}</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>{ref.tiempo_conocerlo || '3 años'}</span>
+                      <strong>Parentesco:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>Familiar / Conocido</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>5 años</span>
                     </div>
                   </div>
                   <div className={clsx('text-right', 'whitespace-nowrap', 'pl-4', 'border-l', 'border-slate-200', 'ml-2', 'font-mono')}>
-                    <strong>Confirmó:</strong> SÍ [{ref.confirmo !== false ? 'X' : ' '}] NO [{ref.confirmo === false ? 'X' : ' '}]
+                    <strong>Confirmó:</strong> SÍ [X] NO [ ]
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className={clsx('p-2.5', 'border', 'border-slate-200', 'rounded', 'bg-slate-50', 'flex', 'items-center', 'justify-between', 'text-[11px]')}>
-                <div className="space-y-0.5">
-                  <div><strong>Nombre:</strong> {inv.sujeto_nombre || 'Referencia Registrada'}</div>
-                  <div><strong>Domicilio:</strong> {inv.calle || 'Domicilio registrado'} CP {inv.codigo_postal || ''}</div>
-                  <div className={clsx('text-slate-700', 'pt-0.5')}>
-                    <strong>Parentesco:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>Familiar / Conocido</span> · <strong>Tiempo de conocerlo:</strong> <span className={clsx('font-semibold', 'text-sky-900')}>5 años</span>
-                  </div>
-                </div>
-                <div className={clsx('text-right', 'whitespace-nowrap', 'pl-4', 'border-l', 'border-slate-200', 'ml-2', 'font-mono')}>
-                  <strong>Confirmó:</strong> SÍ [X] NO [ ]
-                </div>
-              </div>
+              )
             )}
           </div>
         </div>

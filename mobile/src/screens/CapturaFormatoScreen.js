@@ -433,7 +433,7 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
         referencias_domicilio: referenciasDomicilio,
         referencias_avales: [
           {
-            nombre: inv?.sujeto_nombre || 'Referencia Personal',
+            nombre: isAval ? (inv?.solicitante_nombre || 'Solicitante Titular') : (inv?.sujeto_nombre || 'Referencia Personal'),
             parentesco: parentescoReferencia,
             tiempo_conocerlo: tiempoConocerlo,
             confirmo: confirmoReferencia === 'SI',
@@ -1011,8 +1011,15 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
         {/* INFORMACIÓN DE REFERENCIAS / AVALES (PARENTESCO Y TIEMPO CONOCERLO) */}
         <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#334155' }}>
           <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#38bdf8', marginBottom: 6 }}>
-            🛡️ Información de Referencias / Avales:
+            🛡️ Información de Referencias / {isAval ? 'Solicitante' : 'Avales'}:
           </Text>
+
+          {isAval && (inv?.solicitante_nombre) && (
+            <View style={{ backgroundColor: '#1e293b', padding: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#0284c7' }}>
+              <Text style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>👤 Solicitante Titular del Crédito:</Text>
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#f8fafc', marginTop: 2 }}>{inv.solicitante_nombre}</Text>
+            </View>
+          )}
 
           <Text style={styles.label}>Parentesco o Relación con el {isAval ? 'Solicitante' : 'Aval'}:</Text>
           <TextInput
