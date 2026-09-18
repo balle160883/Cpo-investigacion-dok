@@ -127,7 +127,7 @@ async function getInvestigaciones(req, res, next) {
           SELECT 1 
           FROM investigaciones inv_sub 
           WHERE inv_sub.solicitud_id_sif = inv.solicitud_id_sif
-            AND (inv_sub.estado IS NULL OR inv_sub.estado NOT IN ('COMPLETADA', 'REAGENDADA'))
+            AND (inv_sub.estado IS NULL OR inv_sub.estado NOT IN ('COMPLETADA', 'REAGENDADA', 'VALIDADA', 'APROBADA_FINAL'))
         )`);
       }
 
@@ -338,7 +338,7 @@ async function getInvestigaciones(req, res, next) {
       LEFT JOIN LATERAL (
         SELECT 
           COUNT(*) as paquete_total,
-          COUNT(*) FILTER (WHERE inv_p.estado = 'COMPLETADA') as paquete_completadas,
+          COUNT(*) FILTER (WHERE inv_p.estado IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL') OR inv_p.estado_validacion = 'VALIDADA') as paquete_completadas,
           COUNT(*) FILTER (WHERE inv_p.estado_validacion = 'VALIDADA') as paquete_validadas,
           (COUNT(*) > 0 AND COUNT(*) = COUNT(*) FILTER (WHERE inv_p.estado_validacion = 'VALIDADA')) as paquete_todo_validado
         FROM investigaciones inv_p

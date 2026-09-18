@@ -596,13 +596,15 @@ export default function DetalleFormatoPage() {
               📦 Expediente Completo del Crédito — Folio: {inv.solicitud_folio || `#${inv.solicitud_id_sif}`} • 🏢 Suc. {formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre)}
             </span>
             <span className={clsx('text-[11px]', 'font-mono', 'text-slate-400')}>
-              {data.paqueteInvestigaciones.filter(p => p.estado === 'COMPLETADA').length} de {data.paqueteInvestigaciones.length} Visitas Completadas en Campo
+              {data.paqueteInvestigaciones.filter(p => ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(p.estado) || p.estado_validacion === 'VALIDADA').length} de {data.paqueteInvestigaciones.length} Visitas Completadas en Campo
             </span>
           </div>
           <div className={clsx('flex', 'flex-wrap', 'gap-2', 'pt-1')}>
             {data.paqueteInvestigaciones.map((p) => {
               const isCurrent = String(p.id_sif_research) === String(id);
               const pBadge = getBadgeSujetoProps(p);
+              const isTerminada = ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(p.estado) || p.estado_validacion === 'VALIDADA';
+              const isValidada = p.estado === 'VALIDADA' || p.estado === 'APROBADA_FINAL' || p.estado_validacion === 'VALIDADA';
               return (
                 <Link
                   key={p.id_sif_research}
@@ -616,9 +618,13 @@ export default function DetalleFormatoPage() {
                     {pBadge.icon} {pBadge.label}:
                   </span>
                   <span className="font-semibold">{p.sujeto_nombre || 'Socio'}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${p.estado === 'COMPLETADA' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${isValidada
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : isTerminada
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}>
-                    {p.estado === 'COMPLETADA' ? '✓ Visita Terminada' : '⏳ En Proceso'}
+                    {isValidada ? '✓ Validada' : isTerminada ? '✓ Visita Terminada' : '⏳ En Proceso'}
                   </span>
                 </Link>
               );
