@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
+import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, asignarAnalistaLote, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
 import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2, AlertTriangle, CheckCircle2, UserCheck, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
@@ -39,6 +39,8 @@ export default function InvestigacionesPage() {
   const canAssign = ['superadmin', 'admin', 'asignador'].some(r => userRole.includes(r)) && !isNormaBermejo && userRole !== 'analista';
   // Norma Lizette Bermejo y coordinadores/administradores pueden asignar analistas a los préstamos validados
   const canAssignAnalista = isNormaBermejo || ['superadmin', 'admin', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'].some(r => userRole.includes(r));
+  // Permiso para seleccionar con checkboxes: asignadores de campo O asignadores de analistas
+  const canSelectCheckboxes = canAssign || canAssignAnalista;
 
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -81,10 +83,15 @@ export default function InvestigacionesPage() {
   const [selectedInvestigadorId, setSelectedInvestigadorId] = useState('');
   const [assigning, setAssigning] = useState(false);
 
-  // Modal Asignar Lote
+  // Modal Asignar Lote Investigador
   const [loteModalOpen, setLoteModalOpen] = useState(false);
   const [loteInvestigadorId, setLoteInvestigadorId] = useState('');
   const [assigningLote, setAssigningLote] = useState(false);
+
+  // Modal Asignar Lote Analistas
+  const [loteAnalistaModalOpen, setLoteAnalistaModalOpen] = useState(false);
+  const [loteAnalistaId, setLoteAnalistaId] = useState('');
+  const [assigningLoteAnalista, setAssigningLoteAnalista] = useState(false);
 
   useEffect(() => {
     loadInvestigaciones();
@@ -279,6 +286,53 @@ export default function InvestigacionesPage() {
       setToast({ message: 'Error asignando en lote: ' + err.message, type: 'error' });
     } finally {
       setAssigningLote(false);
+    }
+  }
+
+  // ── Modal asignar analistas en lote ─────────────────────────────────────────
+  async function openLoteAnalistaModal() {
+    if (selectedIds.length === 0) {
+      setToast({ message: 'Selecciona al menos un crédito antes de asignar analista.', type: 'warning' });
+      return;
+    }
+    try {
+      const todos = await fetchInvestigadores();
+      const soloAnalistas = (todos || []).filter((u) =>
+        (u.rol || '').toLowerCase().includes('analista') ||
+        (u.rol || '').toLowerCase().includes('admin')
+      );
+      setAnalistasDisponibles(soloAnalistas);
+      if (soloAnalistas && soloAnalistas.length > 0) {
+        setLoteAnalistaId(String(soloAnalistas[0].id));
+      }
+    } catch (err) {
+      console.error('Error cargando catálogo de analistas:', err);
+    }
+    setLoteAnalistaModalOpen(true);
+  }
+
+  async function handleLoteAnalistaSubmit() {
+    if (selectedIds.length === 0 || !loteAnalistaId) return;
+    setAssigningLoteAnalista(true);
+    try {
+      const res = await asignarAnalistaLote({
+        investigacion_ids: selectedIds,
+        analista_id: loteAnalistaId,
+      });
+      setLoteAnalistaModalOpen(false);
+      setSelectedIds([]);
+      setToast({
+        message: res.message || `${res.asignadas_count || selectedIds.length} crédito(s) asignados al analista con éxito.`,
+        type: 'success',
+      });
+      loadInvestigaciones();
+    } catch (err) {
+      setToast({
+        message: err.message || 'Error al asignar analista en lote',
+        type: 'error',
+      });
+    } finally {
+      setAssigningLoteAnalista(false);
     }
   }
 
@@ -608,20 +662,33 @@ export default function InvestigacionesPage() {
             </button>
           )}
 
-          {canAssign && selectedIds.length > 0 && <div className="h-6 w-px bg-slate-700" />}
+          {canSelectCheckboxes && selectedIds.length > 0 && <div className="h-6 w-px bg-slate-700" />}
 
-          {/* Botón Asignar Seleccionadas */}
+          {/* Botón Asignar Investigador de campo en lote */}
           {canAssign && selectedIds.length > 0 && (
             <button
               onClick={openLoteModal}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-lg shadow-sky-600/30 transition"
+              title="Asignar visitas a investigador de campo"
             >
               <Users className="w-4 h-4" />
-              Asignar {selectedIds.length} seleccionada{selectedIds.length !== 1 ? 's' : ''}
+              Asignar {selectedIds.length} a Investigador
             </button>
           )}
 
-          {canAssign && selectedIds.length > 0 && (
+          {/* Botón Asignar Analista en lote */}
+          {canAssignAnalista && selectedIds.length > 0 && (
+            <button
+              onClick={openLoteAnalistaModal}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition"
+              title="Asignar préstamos seleccionados a un analista"
+            >
+              <UserCheck className="w-4 h-4" />
+              Asignar {selectedIds.length} a Analista
+            </button>
+          )}
+
+          {canSelectCheckboxes && selectedIds.length > 0 && (
             <button
               onClick={() => setSelectedIds([])}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold border border-slate-700 transition"
@@ -639,8 +706,8 @@ export default function InvestigacionesPage() {
           <table className="w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-950/60 text-xs text-slate-400 uppercase tracking-wider border-b border-slate-800">
               <tr>
-                {/* Columna Checkbox — solo para quienes pueden asignar */}
-                {canAssign && (
+                {/* Columna Checkbox — para quienes pueden asignar investigadores o analistas */}
+                {canSelectCheckboxes && (
                   <th className="px-4 py-3.5 w-10">
                     <button
                       onClick={toggleSeleccionarTodos}
@@ -669,13 +736,13 @@ export default function InvestigacionesPage() {
             <tbody className="divide-y divide-slate-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan={canAssign ? 9 : 8} className="text-center py-12 text-slate-500">
+                  <td colSpan={canSelectCheckboxes ? 9 : 8} className="text-center py-12 text-slate-500">
                     Cargando catálogo de investigaciones...
                   </td>
                 </tr>
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={canAssign ? 9 : 8} className="text-center py-12 text-slate-500">
+                  <td colSpan={canSelectCheckboxes ? 9 : 8} className="text-center py-12 text-slate-500">
                     {coloniaSeleccionada
                       ? `No se encontraron investigaciones en la colonia "${coloniaSeleccionada}".`
                       : 'No se encontraron registros de investigación.'}
@@ -688,7 +755,7 @@ export default function InvestigacionesPage() {
                   return (
                     <tr key={row.id_sif_research} className={`hover:bg-slate-800/30 transition ${isChecked ? 'bg-sky-500/5 border-l-2 border-sky-500' : ''}`}>
                       {/* Checkbox */}
-                      {canAssign && (
+                      {canSelectCheckboxes && (
                         <td className="px-4 py-4">
                           <button
                             onClick={() => toggleSelectId(row.id_sif_research)}
@@ -1222,24 +1289,34 @@ export default function InvestigacionesPage() {
       )}
 
       {/* ── Barra de Acción Masiva Fija (cuando hay selección) ───────── */}
-      {canAssign && selectedIds.length > 0 && (
+      {canSelectCheckboxes && selectedIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4
-                        bg-slate-900/95 backdrop-blur-md border border-sky-500/40 rounded-2xl
-                        px-6 py-3 shadow-2xl shadow-sky-900/40 ring-1 ring-sky-500/20">
+                        bg-slate-900/95 backdrop-blur-md border border-indigo-500/40 rounded-2xl
+                        px-6 py-3 shadow-2xl shadow-slate-950/80 ring-1 ring-indigo-500/20">
           <div className="flex items-center gap-2 text-sm text-white font-semibold">
-            <CheckSquare className="w-5 h-5 text-sky-400" />
-            <span>{selectedIds.length} investigación{selectedIds.length !== 1 ? 'es' : ''} seleccionada{selectedIds.length !== 1 ? 's' : ''}</span>
+            <CheckSquare className="w-5 h-5 text-indigo-400" />
+            <span>{selectedIds.length} crédito{selectedIds.length !== 1 ? 's' : ''} seleccionado{selectedIds.length !== 1 ? 's' : ''}</span>
           </div>
           <div className="h-5 w-px bg-slate-600" />
-          <button
-            onClick={openLoteModal}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-bold transition shadow-lg shadow-sky-600/30"
-          >
-            <Users className="w-4 h-4" /> Asignar a Investigador
-          </button>
+          {canAssign && (
+            <button
+              onClick={openLoteModal}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-bold transition shadow-lg shadow-sky-600/30"
+            >
+              <Users className="w-4 h-4" /> Asignar a Investigador
+            </button>
+          )}
+          {canAssignAnalista && (
+            <button
+              onClick={openLoteAnalistaModal}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition shadow-lg shadow-indigo-600/30"
+            >
+              <UserCheck className="w-4 h-4" /> Asignar a Analista
+            </button>
+          )}
           <button
             onClick={() => setSelectedIds([])}
-            className="text-slate-400 hover:text-white transition"
+            className="text-slate-400 hover:text-white transition ml-1"
             title="Cancelar selección"
           >
             <X className="w-5 h-5" />
@@ -1247,7 +1324,7 @@ export default function InvestigacionesPage() {
         </div>
       )}
 
-      {/* ── Modal Asignar Lote ─────────────────────────────────────────── */}
+      {/* ── Modal Asignar Lote Investigador ────────────────────────────── */}
       {canAssign && loteModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl ring-1 ring-sky-500/20">
@@ -1256,7 +1333,7 @@ export default function InvestigacionesPage() {
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Users className="w-5 h-5 text-sky-400" />
-                  Asignación en Lote
+                  Asignación en Lote a Investigador
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
                   Se asignarán{' '}
@@ -1343,6 +1420,142 @@ export default function InvestigacionesPage() {
                 className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-bold transition shadow-lg shadow-sky-600/30"
               >
                 {assigningLote ? 'Asignando...' : `Confirmar Asignación (${selectedIds.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Asignar Lote Analistas ─────────────────────────────── */}
+      {canAssignAnalista && loteAnalistaModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/50 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl ring-1 ring-indigo-500/30">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                  <UserCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Asignación Masiva a Analista</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {sucursalSeleccionada
+                      ? `Sucursal: ${formatNombreSucursal(sucursalSeleccionada, sucursalObj?.sucursal_nombre)}`
+                      : 'Asignación de créditos seleccionados a un analista'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setLoteAnalistaModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Análisis del lote seleccionado */}
+            {(() => {
+              const rowsSeleccionadas = data.filter(d => selectedIds.includes(String(d.id_sif_research)));
+              const listosParaAsignar = rowsSeleccionadas.filter(d => d.paquete_todo_validado);
+              const pendientesValidar = rowsSeleccionadas.filter(d => !d.paquete_todo_validado);
+
+              return (
+                <div className="space-y-3">
+                  {/* Resumen numérico */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
+                      <span className="text-slate-400 block mb-1">Préstamos Seleccionados:</span>
+                      <strong className="text-white text-base font-mono">{selectedIds.length}</strong>
+                    </div>
+                    <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl">
+                      <span className="text-indigo-300 block mb-1">Listos (100% Validados):</span>
+                      <strong className="text-emerald-400 text-base font-mono flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4" /> {listosParaAsignar.length}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Advertencia si hay no validados */}
+                  {pendientesValidar.length > 0 && (
+                    <div className="flex items-start gap-2.5 bg-amber-950/40 border border-amber-500/40 rounded-xl p-3.5 text-xs text-amber-200">
+                      <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+                      <div>
+                        <strong className="font-semibold block">
+                          {pendientesValidar.length} préstamo(s) aún no completan el visto bueno del Validador:
+                        </strong>
+                        <p className="text-[11px] text-amber-300/80 mt-1">
+                          Por regla de negocio, un analista solo puede dictaminar expedientes cuyas investigaciones de campo estén 100% validadas. El sistema asignará los <strong>{listosParaAsignar.length}</strong> listos y omitirá los pendientes.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Resumen de Socios seleccionados */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 max-h-32 overflow-y-auto space-y-1.5 text-xs">
+                    <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2">
+                      Detalle de solicitudes seleccionadas ({rowsSeleccionadas.length})
+                    </div>
+                    {rowsSeleccionadas.map((r) => (
+                      <div key={r.id_sif_research} className="flex items-center justify-between py-1 border-b border-slate-900 last:border-0">
+                        <span className="text-slate-300 truncate max-w-[240px]">
+                          <strong className="text-white">#{r.id_sif_research}</strong> — {r.sujeto_nombre}
+                        </span>
+                        {r.paquete_todo_validado ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Validado ✅
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-amber-400 border border-amber-500/30">
+                            Faltan visitas ({r.paquete_validadas || 0}/{r.paquete_total || 1})
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Selector de Analista */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span>Analista Responsable:</span>
+                <span className="text-[11px] text-indigo-400 font-normal">{analistasDisponibles.length} analistas activos</span>
+              </label>
+              <select
+                value={loteAnalistaId}
+                onChange={(e) => setLoteAnalistaId(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+              >
+                {analistasDisponibles.length === 0 ? (
+                  <option value="">Cargando catálogo de analistas...</option>
+                ) : (
+                  analistasDisponibles.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre} — {a.rol} ({a.email})
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setLoteAnalistaModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={assigningLoteAnalista || !loteAnalistaId}
+                onClick={handleLoteAnalistaSubmit}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/50 disabled:text-indigo-400/50 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 flex items-center gap-2"
+              >
+                <UserCheck className="w-4 h-4" />
+                {assigningLoteAnalista ? 'Asignando Analista en Lote...' : 'Confirmar Asignación en Lote'}
               </button>
             </div>
           </div>

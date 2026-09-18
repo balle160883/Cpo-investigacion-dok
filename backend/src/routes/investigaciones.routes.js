@@ -7,6 +7,7 @@ const {
   asignarInvestigador,
   asignarInvestigadorLote,
   asignarAnalista,
+  asignarAnalistaLote,
   guardarEvidencia,
   validarInvestigacion,
   revalidarInvestigacion,
@@ -25,6 +26,7 @@ router.get('/', authenticate, getInvestigaciones);
 router.get('/colonias', authenticate, getColoniasActivas);
 router.get('/sucursales', authenticate, getSucursalesActivas);
 router.post('/asignar-analista', authenticate, asignarAnalista);
+router.post('/asignar-analista-lote', authenticate, asignarAnalistaLote);
 router.post('/asignar-lote', authenticate, authorize(PERMISSIONS.ASIGNAR_INVESTIGADOR), asignarInvestigadorLote);
 router.get('/:id', authenticate, getInvestigacionDetalle);
 router.post('/:id/asignar', authenticate, authorize(PERMISSIONS.ASIGNAR_INVESTIGADOR), asignarInvestigador);

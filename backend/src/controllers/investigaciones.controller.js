@@ -1803,6 +1803,165 @@ async function asignarAnalista(req, res, next) {
   }
 }
 
+async function asignarAnalistaLote(req, res, next) {
+  try {
+    const { solicitud_ids, investigacion_ids, analista_id } = req.body;
+
+    if (!analista_id) {
+      return res.status(400).json({ error: 'Debes seleccionar un analista.' });
+    }
+
+    // 1. Obtener el analista para asegurar que existe y está activo
+    const analistaRes = await db.query(
+      `SELECT id, nombre, email, rol FROM investigadores WHERE id = $1 AND activo = TRUE;`,
+      [analista_id]
+    );
+
+    if (analistaRes.rows.length === 0) {
+      return res.status(404).json({ error: 'El analista seleccionado no existe o está inactivo.' });
+    }
+    const analista = analistaRes.rows[0];
+
+    // 2. Recolectar solicitudes únicas a partir de solicitud_ids o investigacion_ids
+    const targetSolicitudesSet = new Set();
+    if (Array.isArray(solicitud_ids)) {
+      solicitud_ids.forEach((s) => s && targetSolicitudesSet.add(String(s)));
+    }
+
+    if (Array.isArray(investigacion_ids) && investigacion_ids.length > 0) {
+      const invNumIds = investigacion_ids.map((id) => parseInt(id, 10)).filter((n) => !isNaN(n));
+      const invStrIds = investigacion_ids.map(String);
+
+      const invRows = await db.query(
+        `SELECT DISTINCT solicitud_id_sif FROM investigaciones 
+         WHERE id_sif_research = ANY($1::int[]) OR CAST(id_sif_research AS TEXT) = ANY($2::text[]);`,
+        [invNumIds, invStrIds]
+      );
+      invRows.rows.forEach((r) => r.solicitud_id_sif && targetSolicitudesSet.add(String(r.solicitud_id_sif)));
+    }
+
+    const listaSolicitudes = Array.from(targetSolicitudesSet);
+    if (listaSolicitudes.length === 0) {
+      return res.status(400).json({
+        error: 'No se encontraron solicitudes de crédito válidas para asignar.',
+      });
+    }
+
+    // Asegurar columna fecha_asignacion_analista
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_asignacion_analista TIMESTAMP;`);
+
+    // 3. Consultar todas las investigaciones de estas solicitudes
+    const { rows: invsRows } = await db.query(
+      `SELECT inv.id_sif_research, inv.solicitud_id_sif, inv.solicitud_folio, inv.tipo_sujeto,
+              inv.estado, inv.estado_validacion, inv.analista_id,
+              p.nombre_completo as sujeto_nombre
+       FROM investigaciones inv
+       LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
+       WHERE CAST(inv.solicitud_id_sif AS TEXT) = ANY($1::text[]);`,
+      [listaSolicitudes]
+    );
+
+    const porSolicitud = {};
+    for (const inv of invsRows) {
+      const sKey = String(inv.solicitud_id_sif);
+      if (!porSolicitud[sKey]) porSolicitud[sKey] = [];
+      porSolicitud[sKey].push(inv);
+    }
+
+    const asignadas = [];
+    const omitidas = [];
+
+    for (const solId of listaSolicitudes) {
+      const invs = porSolicitud[solId] || [];
+      if (invs.length === 0) continue;
+
+      // Regla de negocio: solo se asigna analista si el 100% de las investigaciones están validadas
+      const noValidadas = invs.filter(
+        (i) => !i.estado_validacion || i.estado_validacion.toUpperCase() !== 'VALIDADA'
+      );
+
+      const titular = invs.find((i) => (i.tipo_sujeto || '').toUpperCase() === 'SOLICITANTE');
+      const sujetoPrincipal = titular?.sujeto_nombre || invs[0]?.sujeto_nombre || 'Socio';
+      const folio = invs[0]?.solicitud_folio || solId;
+
+      if (noValidadas.length > 0) {
+        omitidas.push({
+          solicitud_id_sif: solId,
+          solicitud_folio: folio,
+          sujeto: sujetoPrincipal,
+          total_investigaciones: invs.length,
+          validadas: invs.length - noValidadas.length,
+          motivo: `Faltan ${noValidadas.length} de ${invs.length} investigaciones validadas.`,
+        });
+      } else {
+        await db.query(
+          `UPDATE investigaciones
+           SET analista_id = $1,
+               fecha_asignacion_analista = NOW(),
+               updated_at = NOW()
+           WHERE CAST(solicitud_id_sif AS TEXT) = $2;`,
+          [analista_id, solId]
+        );
+
+        asignadas.push({
+          solicitud_id_sif: solId,
+          solicitud_folio: folio,
+          sujeto: sujetoPrincipal,
+          investigaciones_count: invs.length,
+        });
+
+        registrarAuditoria({
+          usuario_id: req.user?.id || null,
+          usuario_nombre: req.user?.nombre || req.user?.email || 'Sistema',
+          usuario_rol: req.user?.rol || 'coordinacion_analistas',
+          accion: 'ASIGNAR_ANALISTA_LOTE',
+          recurso: 'solicitudes_credito',
+          recurso_id: String(solId),
+          descripcion: `Asignación en lote de analista ${analista.nombre} (ID: ${analista.id}) a crédito ${solId}.`,
+          ip_origen: req.ip || req.headers['x-forwarded-for'],
+          user_agent: req.headers['user-agent'],
+          datos_anteriores: {
+            investigaciones_count: invs.length,
+            analistas_previos: invs.map((i) => i.analista_id),
+          },
+          datos_nuevos: {
+            analista_id: analista.id,
+            analista_nombre: analista.nombre,
+          },
+        });
+      }
+    }
+
+    if (asignadas.length === 0) {
+      return res.status(400).json({
+        error: `No se pudo asignar ningún crédito: todos los seleccionados tienen investigaciones pendientes de visto bueno.`,
+        omitidas,
+      });
+    }
+
+    let message = `Analista ${analista.nombre} asignado con éxito a ${asignadas.length} crédito(s).`;
+    if (omitidas.length > 0) {
+      message += ` (Se omitieron ${omitidas.length} créditos que aún no están validados al 100%).`;
+    }
+
+    res.json({
+      success: true,
+      message,
+      analista: {
+        id: analista.id,
+        nombre: analista.nombre,
+      },
+      total_solicitudes: listaSolicitudes.length,
+      asignadas_count: asignadas.length,
+      omitidas_count: omitidas.length,
+      asignadas,
+      omitidas,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
@@ -1811,6 +1970,7 @@ module.exports = {
   asignarInvestigador,
   asignarInvestigadorLote,
   asignarAnalista,
+  asignarAnalistaLote,
   guardarEvidencia,
   validarInvestigacion,
   revalidarInvestigacion,
