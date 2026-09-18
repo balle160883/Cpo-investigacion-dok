@@ -440,6 +440,14 @@ export default function VisitasScreen({ navigation, route }) {
 
                 <Text style={styles.nombre}>{item.sujeto_nombre || 'Socio Sin Nombre'}</Text>
 
+                {/* Si es Aval, mostrar a quién avala */}
+                {isAvalItem && Boolean(item.solicitante_nombre) && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(168, 85, 247, 0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 4, marginBottom: 4, alignSelf: 'flex-start' }}>
+                    <Text style={{ fontSize: 11, color: '#c084fc', fontWeight: 'bold' }}>👤 Avalando a: </Text>
+                    <Text style={{ fontSize: 11, color: '#f8fafc', fontWeight: '600' }}>{item.solicitante_nombre}</Text>
+                  </View>
+                )}
+
                 {/* TELÉFONO DE CONTACTO */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, marginBottom: 4 }}>
                   <Text style={{ fontSize: 13, color: item.telefono_principal ? '#38bdf8' : '#64748b', fontWeight: item.telefono_principal ? 'bold' : 'normal' }}>

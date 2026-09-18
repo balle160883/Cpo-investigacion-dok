@@ -226,7 +226,104 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* 4. Botón de Captura o Banner de Bloqueo */}
+      {/* 4. INFORMACIÓN CRUZADA: SOLICITANTE / AVALES VINCULADOS */}
+      {isAval ? (
+        // VISTA PARA AVAL: Mostrar Solicitante Titular y Co-Avales
+        <View style={[styles.section, { borderColor: '#0284c7', backgroundColor: '#0f172a' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <View style={{ backgroundColor: '#0284c7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+              <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>👤 SOLICITANTE TITULAR</Text>
+            </View>
+            <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: 'bold' }}>Crédito que está avalando</Text>
+          </View>
+
+          <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>
+            {inv.solicitante_nombre || data?.solicitante?.nombre_completo || 'Solicitante Registrado'}
+          </Text>
+
+          {Boolean(data?.solicitante?.telefono || inv.solicitante_telefono) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1e293b', padding: 8, borderRadius: 8, marginBottom: 6 }}>
+              <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+                📞 Tel: <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>{data?.solicitante?.telefono || inv.solicitante_telefono}</Text>
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: '#059669', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+                onPress={() => handleLlamar(data?.solicitante?.telefono || inv.solicitante_telefono)}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: 'bold' }}>Llamar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <Text style={{ color: '#cbd5e1', fontSize: 12, marginTop: 2 }}>
+            📍 Domicilio Solicitante: {data?.solicitante?.calle ? `${data.solicitante.calle} #${data.solicitante.numero_exterior || ''} Col. ${data.solicitante.colonia || ''}` : (inv.solicitante_calle || 'Domicilio registrado')}
+          </Text>
+
+          {/* Co-Avales si existen */}
+          {Array.isArray(data?.avales) && data.avales.filter(a => String(a.aval_id_sif) !== String(inv.persona_id_sif)).length > 0 && (
+            <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#334155' }}>
+              <Text style={{ color: '#c084fc', fontSize: 12, fontWeight: 'bold', marginBottom: 6 }}>
+                🤝 Co-Avales vinculados al crédito:
+              </Text>
+              {data.avales.filter(a => String(a.aval_id_sif) !== String(inv.persona_id_sif)).map((co, idx) => (
+                <View key={idx} style={{ backgroundColor: '#1e293b', padding: 8, borderRadius: 8, marginBottom: 4 }}>
+                  <Text style={{ color: '#f8fafc', fontSize: 13, fontWeight: 'bold' }}>• {co.nombre_completo}</Text>
+                  {Boolean(co.telefono) && (
+                    <Text style={{ color: '#94a3b8', fontSize: 11 }}>Tel: {co.telefono}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      ) : (
+        // VISTA PARA SOLICITANTE: Mostrar Avales Registrados
+        <View style={[styles.section, { borderColor: '#a855f7', backgroundColor: '#0f172a' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ backgroundColor: '#7c3aed', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>🤝 AVALES ASIGNADOS</Text>
+              </View>
+              <Text style={{ color: '#c084fc', fontSize: 12, fontWeight: 'bold' }}>
+                ({(data?.avales || []).length})
+              </Text>
+            </View>
+          </View>
+
+          {Array.isArray(data?.avales) && data.avales.length > 0 ? (
+            data.avales.map((av, idx) => (
+              <View key={idx} style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#334155' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: '#f8fafc', fontSize: 14, fontWeight: 'bold', flex: 1 }}>
+                    {idx + 1}. {av.nombre_completo}
+                  </Text>
+                  {Boolean(av.telefono) && (
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#059669', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 6 }}
+                      onPress={() => handleLlamar(av.telefono)}
+                    >
+                      <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: 'bold' }}>📞 Llamar</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {Boolean(av.calle) && (
+                  <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>
+                    📍 {av.calle} #{av.numero_exterior || ''} {av.codigo_postal ? `CP ${av.codigo_postal}` : ''}
+                  </Text>
+                )}
+              </View>
+            ))
+          ) : (
+            <View style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+              <Text style={{ color: '#94a3b8', fontSize: 12, fontStyle: 'italic' }}>
+                ℹ️ Esta solicitud no cuenta con avales registrados en el sistema.
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* 5. Botón de Captura o Banner de Bloqueo */}
       {inv.estado === 'COMPLETADA' ? (
         <View style={{ backgroundColor: '#1e293b', borderLeftWidth: 4, borderLeftColor: '#10b981', padding: 16, borderRadius: 12, marginTop: 8, marginBottom: 40 }}>
           <Text style={{ color: '#10b981', fontSize: 14, fontWeight: 'bold', marginBottom: 4 }}>
@@ -239,7 +336,16 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
       ) : (
         <TouchableOpacity
           style={styles.capturaButton}
-          onPress={() => navigation.navigate('CapturaFormato', { id, inv: { ...inv, telefono_principal: telefonoActual, telefono: telefonoActual } })}
+          onPress={() =>
+            navigation.navigate('CapturaFormato', {
+              id,
+              inv: { ...inv, telefono_principal: telefonoActual, telefono: telefonoActual },
+              solicitante: data?.solicitante || null,
+              avales: data?.avales || [],
+              paqueteInvestigaciones: data?.paqueteInvestigaciones || [],
+              evidencia: data?.evidencia || null,
+            })
+          }
         >
           <Text style={styles.capturaButtonText}>📋 Capturar Estudio Socio-Económico</Text>
         </TouchableOpacity>

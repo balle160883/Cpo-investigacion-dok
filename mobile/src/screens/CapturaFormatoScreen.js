@@ -2,13 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, Share, Linking, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { guardarEvidenciaInvestigacion, escanearINEConFoto } from '../api/apiClient';
+import { guardarEvidenciaInvestigacion, escanearINEConFoto, getInvestigacionDetalle } from '../api/apiClient';
 import SignaturePad from '../components/SignaturePad';
 import { formatBase64Image } from '../utils/imageOptimizer';
 import { formatNombreSucursal, esAval } from '../utils/formatters';
 
 export default function CapturaFormatoScreen({ route, navigation }) {
-  const { id, inv } = route.params || {};
+  const {
+    id,
+    inv: initialInv,
+    solicitante: initialSol,
+    avales: initialAvales,
+    paqueteInvestigaciones: initialPaquete,
+    evidencia: initialEvidencia,
+  } = route.params || {};
+
+  const [inv, setInv] = useState(initialInv || {});
+  const [solicitante, setSolicitante] = useState(initialSol || null);
+  const [avalesList, setAvalesList] = useState(initialAvales || []);
+  const [paqueteList, setPaqueteList] = useState(initialPaquete || []);
+  const [evidenciaPrevia, setEvidenciaPrevia] = useState(initialEvidencia || null);
+
   const isAval = esAval(inv);
 
   // Form Fields based on Word Formats
@@ -65,10 +79,20 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [supuesto, setSupuesto] = useState('');
   const [observaciones, setObservaciones] = useState('');
 
-  // 3. Referencias / Avales
-  const [parentescoReferencia, setParentescoReferencia] = useState('Familiar / Aval');
-  const [tiempoConocerlo, setTiempoConocerlo] = useState('5 años');
-  const [confirmoReferencia, setConfirmoReferencia] = useState('SI');
+  // 3. Referencias / Avales / Solicitante
+  // Estado para Aval cuando investiga al Aval (referencia con el Solicitante Titular)
+  const [parentescoSolicitante, setParentescoSolicitante] = useState('Familiar / Aval');
+  const [tiempoConocerSolicitante, setTiempoConocerSolicitante] = useState('5 años');
+  const [confirmoSolicitante, setConfirmoSolicitante] = useState('SI');
+  const [coAvalesRefs, setCoAvalesRefs] = useState([]);
+
+  // Estado para Solicitante cuando investiga al Socio (lista de avales registrados)
+  const [avalesRefs, setAvalesRefs] = useState([]);
+
+  // Estado para Solicitante sin avales registrados en sistema
+  const [referenciasManuales, setReferenciasManuales] = useState([
+    { nombre: '', parentesco: 'Amigo / Conocido', tiempo_conocerlo: '3 años', confirmo: 'SI' }
+  ]);
 
 
   // Evidencias: Fotos, Firma y GPS
@@ -164,6 +188,106 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   useEffect(() => {
     obtenerUbicacionGPS();
   }, []);
+
+  useEffect(() => {
+    async function refrescarDetalles() {
+      if (!id) return;
+      try {
+        const res = await getInvestigacionDetalle(id);
+        if (res) {
+          if (res.investigacion) {
+            setInv(prev => ({ ...res.investigacion, ...prev }));
+          }
+          if (res.solicitante) setSolicitante(res.solicitante);
+          if (Array.isArray(res.avales)) setAvalesList(res.avales);
+          if (Array.isArray(res.paqueteInvestigaciones)) setPaqueteList(res.paqueteInvestigaciones);
+          if (res.evidencia) setEvidenciaPrevia(res.evidencia);
+        }
+      } catch (e) {
+        console.log('Error refrescando investigación en CapturaFormato:', e);
+      }
+    }
+    refrescarDetalles();
+  }, [id]);
+
+  useEffect(() => {
+    if (isAval) {
+      const coList = (avalesList || []).filter(
+        a => String(a.aval_id_sif) !== String(inv?.persona_id_sif) &&
+             a.nombre_completo?.trim().toUpperCase() !== inv?.sujeto_nombre?.trim().toUpperCase()
+      );
+      setCoAvalesRefs(prev => {
+        if (prev.length === coList.length && prev.length > 0) return prev;
+        return coList.map((co, idx) => ({
+          aval_id_sif: co.aval_id_sif,
+          nombre_completo: co.nombre_completo,
+          calle: co.calle || '',
+          numero_exterior: co.numero_exterior || '',
+          codigo_postal: co.codigo_postal || '',
+          telefono: co.telefono || co.celular || '',
+          parentesco: prev[idx]?.parentesco || 'Familiar / Co-Aval',
+          tiempo_conocerlo: prev[idx]?.tiempo_conocerlo || '5 años',
+          confirmo: prev[idx]?.confirmo || 'SI',
+        }));
+      });
+    } else {
+      if (avalesList && avalesList.length > 0) {
+        setAvalesRefs(prev => {
+          if (prev.length === avalesList.length && prev.length > 0) return prev;
+          return avalesList.map((av, idx) => ({
+            aval_id_sif: av.aval_id_sif,
+            nombre_completo: av.nombre_completo,
+            calle: av.calle || '',
+            numero_exterior: av.numero_exterior || '',
+            codigo_postal: av.codigo_postal || '',
+            telefono: av.telefono || av.celular || '',
+            parentesco: prev[idx]?.parentesco || 'Familiar / Aval',
+            tiempo_conocerlo: prev[idx]?.tiempo_conocerlo || '5 años',
+            confirmo: prev[idx]?.confirmo || 'SI',
+          }));
+        });
+      }
+    }
+  }, [avalesList, isAval, inv?.persona_id_sif, inv?.sujeto_nombre]);
+
+  useEffect(() => {
+    const est = evidenciaPrevia?.estudio_socioeconomico;
+    if (est && Array.isArray(est.referencias_avales) && est.referencias_avales.length > 0) {
+      if (isAval) {
+        const refSol = est.referencias_avales[0];
+        if (refSol) {
+          if (refSol.parentesco) setParentescoSolicitante(refSol.parentesco);
+          if (refSol.tiempo_conocerlo) setTiempoConocerSolicitante(refSol.tiempo_conocerlo);
+          if (refSol.confirmo !== undefined) setConfirmoSolicitante(refSol.confirmo ? 'SI' : 'NO');
+        }
+        const refsCo = est.referencias_avales.slice(1);
+        if (refsCo.length > 0) {
+          setCoAvalesRefs(prev => prev.map((item, i) => ({
+            ...item,
+            parentesco: refsCo[i]?.parentesco || item.parentesco,
+            tiempo_conocerlo: refsCo[i]?.tiempo_conocerlo || item.tiempo_conocerlo,
+            confirmo: refsCo[i]?.confirmo !== undefined ? (refsCo[i].confirmo ? 'SI' : 'NO') : item.confirmo,
+          })));
+        }
+      } else {
+        if (avalesList.length > 0) {
+          setAvalesRefs(prev => prev.map((item, i) => ({
+            ...item,
+            parentesco: est.referencias_avales[i]?.parentesco || item.parentesco,
+            tiempo_conocerlo: est.referencias_avales[i]?.tiempo_conocerlo || item.tiempo_conocerlo,
+            confirmo: est.referencias_avales[i]?.confirmo !== undefined ? (est.referencias_avales[i].confirmo ? 'SI' : 'NO') : item.confirmo,
+          })));
+        } else {
+          setReferenciasManuales(est.referencias_avales.map(r => ({
+            nombre: r.nombre || '',
+            parentesco: r.parentesco || 'Conocido',
+            tiempo_conocerlo: r.tiempo_conocerlo || '3 años',
+            confirmo: r.confirmo ? 'SI' : 'NO'
+          })));
+        }
+      }
+    }
+  }, [evidenciaPrevia, isAval, avalesList.length]);
 
   async function obtenerUbicacionGPS() {
     setGettingLocation(true);
@@ -336,6 +460,53 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
     }
   }
 
+  function updateAvalRef(index, field, value) {
+    setAvalesRefs(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  function updateCoAvalRef(index, field, value) {
+    setCoAvalesRefs(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  function updateManualRef(index, field, value) {
+    setReferenciasManuales(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  function addManualRef() {
+    setReferenciasManuales(prev => [
+      ...prev,
+      { nombre: '', parentesco: 'Amigo / Conocido', tiempo_conocerlo: '3 años', confirmo: 'SI' }
+    ]);
+  }
+
+  function removeManualRef(index) {
+    if (referenciasManuales.length <= 1) return;
+    setReferenciasManuales(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function handleLlamarNumero(num) {
+    if (!num) {
+      Alert.alert('Sin Teléfono', 'No hay número registrado para esta persona.');
+      return;
+    }
+    const cleanNumber = String(num).replace(/[^0-9+]/g, '');
+    Linking.openURL(`tel:${cleanNumber}`).catch(() => {
+      Alert.alert('Error', 'No se pudo abrir la aplicación de llamadas.');
+    });
+  }
+
   async function handleGuardar() {
     if (inv?.estado === 'COMPLETADA') {
       Alert.alert('Bloqueado', 'Esta investigación ya fue completada y guardada. No se puede volver a editar salvo que un supervisor la reasigne.');
@@ -431,14 +602,40 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
         calle_real: calleReal,
         colonia_real: coloniaReal,
         referencias_domicilio: referenciasDomicilio,
-        referencias_avales: [
-          {
-            nombre: isAval ? (inv?.solicitante_nombre || 'Solicitante Titular') : (inv?.sujeto_nombre || 'Referencia Personal'),
-            parentesco: parentescoReferencia,
-            tiempo_conocerlo: tiempoConocerlo,
-            confirmo: confirmoReferencia === 'SI',
-          },
-        ],
+        referencias_avales: isAval
+          ? [
+              {
+                nombre: inv?.solicitante_nombre || solicitante?.nombre_completo || 'Solicitante Titular',
+                parentesco: parentescoSolicitante || 'Familiar / Aval',
+                tiempo_conocerlo: tiempoConocerSolicitante || '5 años',
+                confirmo: confirmoSolicitante === 'SI',
+                es_solicitante: true,
+                domicilio: solicitante?.calle ? `${solicitante.calle} #${solicitante.numero_exterior || ''} Col. ${solicitante.colonia || ''}`.trim() : (inv?.solicitante_calle || ''),
+              },
+              ...coAvalesRefs.map(co => ({
+                nombre: co.nombre_completo,
+                parentesco: co.parentesco || 'Familiar / Co-Aval',
+                tiempo_conocerlo: co.tiempo_conocerlo || '5 años',
+                confirmo: co.confirmo === 'SI',
+                es_coaval: true,
+                domicilio: co.calle ? `${co.calle} #${co.numero_exterior || ''}`.trim() : '',
+              })),
+            ]
+          : avalesRefs.length > 0
+          ? avalesRefs.map(av => ({
+              nombre: av.nombre_completo,
+              parentesco: av.parentesco || 'Familiar / Aval',
+              tiempo_conocerlo: av.tiempo_conocerlo || '5 años',
+              confirmo: av.confirmo === 'SI',
+              es_aval: true,
+              domicilio: av.calle ? `${av.calle} #${av.numero_exterior || ''}`.trim() : (av.domicilio || ''),
+            }))
+          : referenciasManuales.map(r => ({
+              nombre: r.nombre || 'Referencia Personal',
+              parentesco: r.parentesco || 'Conocido',
+              tiempo_conocerlo: r.tiempo_conocerlo || '3 años',
+              confirmo: r.confirmo === 'SI',
+            })),
       };
 
       const res = await guardarEvidenciaInvestigacion(id, {
@@ -499,9 +696,62 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
         </View>
         <Text style={styles.headerSujetoNombre}>{inv?.sujeto_nombre || 'Socio Sin Nombre'}</Text>
         <Text style={styles.headerSubMeta}>
-          Socio N° {inv?.persona_id_sif || 'N/A'} • Solicitud #{inv?.solicitud_folio || 'N/A'}
+          Socio N° {inv?.persona_id_sif || 'N/A'} • Solicitud #{inv?.solicitud_folio || 'N/A'} • Monto: ${parseFloat(inv?.monto_solicitado || 0).toLocaleString('es-MX')}
         </Text>
       </View>
+
+      {/* BANNER INFORMATIVO: SOLICITANTE TITULAR (PARA AVAL) O AVALES REGISTRADOS (PARA SOLICITANTE) */}
+      {isAval ? (
+        <View style={styles.headerCardRelacion}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <View style={{ backgroundColor: '#0284c7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+              <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>👤 SOLICITANTE TITULAR DEL CRÉDITO</Text>
+            </View>
+            <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: 'bold' }}>Titular que avala</Text>
+          </View>
+          <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: 'bold', marginBottom: 2 }}>
+            {inv?.solicitante_nombre || solicitante?.nombre_completo || 'Solicitante Registrado'}
+          </Text>
+          {Boolean(solicitante?.telefono || inv?.solicitante_telefono) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+              <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+                📞 Tel: <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>{solicitante?.telefono || inv?.solicitante_telefono}</Text>
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: '#059669', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}
+                onPress={() => handleLlamarNumero(solicitante?.telefono || inv?.solicitante_telefono)}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>Llamar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}>
+            📍 Domicilio: {solicitante?.calle ? `${solicitante.calle} #${solicitante.numero_exterior || ''} Col. ${solicitante.colonia || ''}` : (inv?.solicitante_calle || 'Domicilio registrado')}
+          </Text>
+        </View>
+      ) : (
+        <View style={[styles.headerCardRelacion, { borderColor: '#a855f7' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ backgroundColor: '#7c3aed', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>🤝 AVALES ASIGNADOS</Text>
+              </View>
+              <Text style={{ color: '#c084fc', fontSize: 12, fontWeight: 'bold' }}>
+                ({avalesRefs.length})
+              </Text>
+            </View>
+          </View>
+          {avalesRefs.length > 0 ? (
+            <Text style={{ color: '#e2e8f0', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
+              {avalesRefs.map((a, i) => `${i + 1}. ${a.nombre_completo}`).join('  •  ')}
+            </Text>
+          ) : (
+            <Text style={{ color: '#94a3b8', fontSize: 11, fontStyle: 'italic', marginTop: 4 }}>
+              Este crédito no cuenta con avales registrados en sistema.
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* UBICACIÓN GPS */}
       <View style={styles.gpsBanner}>
@@ -1008,52 +1258,313 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
           )}
         </View>
 
-        {/* INFORMACIÓN DE REFERENCIAS / AVALES (PARENTESCO Y TIEMPO CONOCERLO) */}
-        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#334155' }}>
-          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#38bdf8', marginBottom: 6 }}>
-            🛡️ Información de Referencias / {isAval ? 'Solicitante' : 'Avales'}:
-          </Text>
+        {/* INFORMACIÓN DE REFERENCIAS / AVALES / SOLICITANTE */}
+        <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#334155' }}>
+          {isAval ? (
+            // =========================================================================
+            // CASO AVAL: MOSTRAR DECLARACIÓN SOBRE SOLICITANTE TITULAR Y CO-AVALES
+            // =========================================================================
+            <View>
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#38bdf8', marginBottom: 4 }}>
+                👤 Declaración del Aval sobre el Solicitante Titular:
+              </Text>
+              <Text style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10 }}>
+                Capture la relación del aval con el titular del crédito y confirme si acepta ser su aval:
+              </Text>
 
-          {isAval && (inv?.solicitante_nombre) && (
-            <View style={{ backgroundColor: '#1e293b', padding: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#0284c7' }}>
-              <Text style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>👤 Solicitante Titular del Crédito:</Text>
-              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#f8fafc', marginTop: 2 }}>{inv.solicitante_nombre}</Text>
+              {/* Tarjeta del Solicitante Titular */}
+              <View style={{ backgroundColor: '#0f172a', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#0284c7' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <View style={{ backgroundColor: '#0284c7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 10, color: '#ffffff', fontWeight: 'bold' }}>👤 SOLICITANTE TITULAR</Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: '#38bdf8', fontWeight: 'bold' }}>Folio: #{inv?.solicitud_folio || 'N/A'}</Text>
+                </View>
+
+                <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#f8fafc', marginTop: 2 }}>
+                  {inv?.solicitante_nombre || solicitante?.nombre_completo || 'Solicitante Titular del Crédito'}
+                </Text>
+
+                {Boolean(solicitante?.telefono || inv?.solicitante_telefono) && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                    <Text style={{ fontSize: 12, color: '#94a3b8' }}>
+                      📞 Tel: <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>{solicitante?.telefono || inv?.solicitante_telefono}</Text>
+                    </Text>
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#059669', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}
+                      onPress={() => handleLlamarNumero(solicitante?.telefono || inv?.solicitante_telefono)}
+                    >
+                      <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>Llamar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                  📍 Domicilio: {solicitante?.calle ? `${solicitante.calle} #${solicitante.numero_exterior || ''} Col. ${solicitante.colonia || ''}` : (inv?.solicitante_calle || 'Domicilio registrado')}
+                </Text>
+
+                <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#334155' }}>
+                  <Text style={styles.label}>Parentesco o Relación con el Solicitante Titular:</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={parentescoSolicitante}
+                    onChangeText={setParentescoSolicitante}
+                    placeholder="Ej. Hermano, Amigo, Familiar, Compañero de trabajo"
+                    placeholderTextColor="#64748b"
+                  />
+
+                  <Text style={styles.label}>Tiempo de Conocer al Solicitante (Años / Meses):</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={tiempoConocerSolicitante}
+                    onChangeText={setTiempoConocerSolicitante}
+                    placeholder="Ej. 5 años, 10 años, Toda la vida"
+                    placeholderTextColor="#64748b"
+                  />
+
+                  <Text style={styles.label}>¿El Aval confirma responder por el préstamo y conoce al Titular?:</Text>
+                  <View style={styles.row}>
+                    <TouchableOpacity
+                      style={[styles.chip, confirmoSolicitante === 'SI' && styles.chipActive]}
+                      onPress={() => setConfirmoSolicitante('SI')}
+                    >
+                      <Text style={styles.chipText}>SÍ [X] (Acepta responder / Conoce al titular)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.chip, confirmoSolicitante === 'NO' && styles.chipActive]}
+                      onPress={() => setConfirmoSolicitante('NO')}
+                    >
+                      <Text style={styles.chipText}>NO [ ] (Desconoce / No acepta ser aval)</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Co-Avales vinculados al mismo crédito si existen */}
+              {coAvalesRefs.length > 0 && (
+                <View style={{ marginTop: 10 }}>
+                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#c084fc', marginBottom: 4 }}>
+                    🤝 Co-Avales Vinculados al Mismo Crédito ({coAvalesRefs.length}):
+                  </Text>
+                  <Text style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>
+                    Verifique si el aval tiene relación con los otros co-avales de la solicitud:
+                  </Text>
+
+                  {coAvalesRefs.map((co, idx) => (
+                    <View key={idx} style={{ backgroundColor: '#0f172a', padding: 12, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#a855f7' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <View style={{ backgroundColor: '#7c3aed', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                          <Text style={{ fontSize: 10, color: '#ffffff', fontWeight: 'bold' }}>🤝 CO-AVAL {idx + 1}</Text>
+                        </View>
+                        {Boolean(co.telefono) && (
+                          <TouchableOpacity
+                            style={{ backgroundColor: '#059669', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}
+                            onPress={() => handleLlamarNumero(co.telefono)}
+                          >
+                            <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>📞 {co.telefono}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#f8fafc' }}>
+                        {co.nombre_completo}
+                      </Text>
+
+                      {Boolean(co.calle) && (
+                        <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                          📍 {co.calle} #{co.numero_exterior || ''} {co.codigo_postal ? `CP ${co.codigo_postal}` : ''}
+                        </Text>
+                      )}
+
+                      <Text style={styles.label}>Parentesco o Relación con este Co-Aval:</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={co.parentesco}
+                        onChangeText={(val) => updateCoAvalRef(idx, 'parentesco', val)}
+                        placeholder="Ej. Familiar, Conocido, Ninguno"
+                        placeholderTextColor="#64748b"
+                      />
+
+                      <Text style={styles.label}>Tiempo de Conocerlo:</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={co.tiempo_conocerlo}
+                        onChangeText={(val) => updateCoAvalRef(idx, 'tiempo_conocerlo', val)}
+                        placeholder="Ej. 5 años, No lo conoce"
+                        placeholderTextColor="#64748b"
+                      />
+
+                      <Text style={styles.label}>¿Confirmó relación / conocimiento?:</Text>
+                      <View style={styles.row}>
+                        <TouchableOpacity
+                          style={[styles.chip, co.confirmo === 'SI' && styles.chipActive]}
+                          onPress={() => updateCoAvalRef(idx, 'confirmo', 'SI')}
+                        >
+                          <Text style={styles.chipText}>SÍ [X]</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.chip, co.confirmo === 'NO' && styles.chipActive]}
+                          onPress={() => updateCoAvalRef(idx, 'confirmo', 'NO')}
+                        >
+                          <Text style={styles.chipText}>NO [ ]</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : (
+            // =========================================================================
+            // CASO SOLICITANTE / SOCIO: MOSTRAR AVALES REGISTRADOS EN EL CRÉDITO
+            // =========================================================================
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#c084fc' }}>
+                  🤝 Avales Asignados a la Solicitud ({avalesRefs.length}):
+                </Text>
+              </View>
+              <Text style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10 }}>
+                Verifique y confirme a los avales vinculados a este crédito:
+              </Text>
+
+              {avalesRefs.length > 0 ? (
+                avalesRefs.map((av, idx) => (
+                  <View key={idx} style={{ backgroundColor: '#0f172a', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#a855f7' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <View style={{ backgroundColor: '#7c3aed', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                        <Text style={{ fontSize: 10, color: '#ffffff', fontWeight: 'bold' }}>🤝 AVAL {idx + 1}</Text>
+                      </View>
+                      {Boolean(av.telefono) && (
+                        <TouchableOpacity
+                          style={{ backgroundColor: '#059669', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}
+                          onPress={() => handleLlamarNumero(av.telefono)}
+                        >
+                          <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>📞 Llamar</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#f8fafc', marginTop: 2 }}>
+                      {av.nombre_completo}
+                    </Text>
+
+                    {Boolean(av.calle || av.domicilio) && (
+                      <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                        📍 {av.calle ? `${av.calle} #${av.numero_exterior || ''} CP ${av.codigo_postal || ''}` : av.domicilio}
+                      </Text>
+                    )}
+
+                    <Text style={styles.label}>Parentesco o Relación del Solicitante con este Aval:</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={av.parentesco}
+                      onChangeText={(val) => updateAvalRef(idx, 'parentesco', val)}
+                      placeholder="Ej. Hermano, Primo, Amigo, Vecino"
+                      placeholderTextColor="#64748b"
+                    />
+
+                    <Text style={styles.label}>Tiempo de Conocerlo (Años / Meses):</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={av.tiempo_conocerlo}
+                      onChangeText={(val) => updateAvalRef(idx, 'tiempo_conocerlo', val)}
+                      placeholder="Ej. 5 años, 10 años, Toda la vida"
+                      placeholderTextColor="#64748b"
+                    />
+
+                    <Text style={styles.label}>¿El Solicitante confirma a este Aval?:</Text>
+                    <View style={styles.row}>
+                      <TouchableOpacity
+                        style={[styles.chip, av.confirmo === 'SI' && styles.chipActive]}
+                        onPress={() => updateAvalRef(idx, 'confirmo', 'SI')}
+                      >
+                        <Text style={styles.chipText}>SÍ [X] (Confirmado)</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.chip, av.confirmo === 'NO' && styles.chipActive]}
+                        onPress={() => updateAvalRef(idx, 'confirmo', 'NO')}
+                      >
+                        <Text style={styles.chipText}>NO [ ] (Rechazado)</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                // Si no hay avales registrados en la solicitud, permitir capturar referencias personales
+                <View style={{ backgroundColor: '#0f172a', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#334155', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 12, color: '#facc15', marginBottom: 8 }}>
+                    ⚠️ Esta solicitud no cuenta con avales registrados en el sistema. Registre las referencias personales a continuación:
+                  </Text>
+
+                  {referenciasManuales.map((ref, idx) => (
+                    <View key={idx} style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: '#475569' }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#38bdf8' }}>
+                          Referencia Personal #{idx + 1}
+                        </Text>
+                        {referenciasManuales.length > 1 && (
+                          <TouchableOpacity onPress={() => removeManualRef(idx)}>
+                            <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: 'bold' }}>✕ Eliminar</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      <Text style={styles.label}>Nombre Completo de la Referencia:</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={ref.nombre}
+                        onChangeText={(val) => updateManualRef(idx, 'nombre', val)}
+                        placeholder="Nombre y Apellidos"
+                        placeholderTextColor="#64748b"
+                      />
+
+                      <Text style={styles.label}>Parentesco o Relación:</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={ref.parentesco}
+                        onChangeText={(val) => updateManualRef(idx, 'parentesco', val)}
+                        placeholder="Ej. Hermano, Amigo, Compañero"
+                        placeholderTextColor="#64748b"
+                      />
+
+                      <Text style={styles.label}>Tiempo de Conocerlo:</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={ref.tiempo_conocerlo}
+                        onChangeText={(val) => updateManualRef(idx, 'tiempo_conocerlo', val)}
+                        placeholder="Ej. 3 años, 5 años"
+                        placeholderTextColor="#64748b"
+                      />
+
+                      <Text style={styles.label}>¿Confirmó la información?:</Text>
+                      <View style={styles.row}>
+                        <TouchableOpacity
+                          style={[styles.chip, ref.confirmo === 'SI' && styles.chipActive]}
+                          onPress={() => updateManualRef(idx, 'confirmo', 'SI')}
+                        >
+                          <Text style={styles.chipText}>SÍ [X]</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.chip, ref.confirmo === 'NO' && styles.chipActive]}
+                          onPress={() => updateManualRef(idx, 'confirmo', 'NO')}
+                        >
+                          <Text style={styles.chipText}>NO [ ]</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#0284c7', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 4 }}
+                    onPress={addManualRef}
+                  >
+                    <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 12 }}>+ Agregar Otra Referencia</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
-
-          <Text style={styles.label}>Parentesco o Relación con el {isAval ? 'Solicitante' : 'Aval'}:</Text>
-          <TextInput
-            style={styles.input}
-            value={parentescoReferencia}
-            onChangeText={setParentescoReferencia}
-            placeholder="Ej. Hermano, Amigo, Familiar, Vecino"
-            placeholderTextColor="#64748b"
-          />
-
-          <Text style={styles.label}>Tiempo de Conocerlo (Años / Meses):</Text>
-          <TextInput
-            style={styles.input}
-            value={tiempoConocerlo}
-            onChangeText={setTiempoConocerlo}
-            placeholder="Ej. 5 años, 10 años, Toda la vida"
-            placeholderTextColor="#64748b"
-          />
-
-          <Text style={styles.label}>¿Confirmó Domicilio e Información?:</Text>
-          <View style={styles.row}>
-            <TouchableOpacity
-              style={[styles.chip, confirmoReferencia === 'SI' && styles.chipActive]}
-              onPress={() => setConfirmoReferencia('SI')}
-            >
-              <Text style={styles.chipText}>SÍ [X] (Confirmado)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.chip, confirmoReferencia === 'NO' && styles.chipActive]}
-              onPress={() => setConfirmoReferencia('NO')}
-            >
-              <Text style={styles.chipText}>NO [ ] (Rechazado)</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
 
@@ -1233,6 +1744,14 @@ const styles = StyleSheet.create({
     color: '#bae6fd',
     fontSize: 11,
     marginTop: 4,
+  },
+  headerCardRelacion: {
+    backgroundColor: '#0f172a',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#0284c7',
   },
   headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#38bdf8', marginBottom: 12, marginTop: 40, textAlign: 'center' },
   gpsBanner: { backgroundColor: '#1e293b', padding: 12, borderRadius: 12, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#38bdf8' },
