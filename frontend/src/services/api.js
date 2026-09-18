@@ -83,6 +83,15 @@ export async function asignarAnalistaLote({ solicitud_ids, investigacion_ids, an
   return handleResponse(res, 'Error al asignar analista en lote');
 }
 
+export async function asignarAnalistaPorSucursales({ sucursal_ids, analista_id, reasignar_existentes }) {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/asignar-analista-sucursales`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ sucursal_ids, analista_id, reasignar_existentes }),
+  });
+  return handleResponse(res, 'Error al asignar analista por sucursales');
+}
+
 export async function fetchColoniasActivas() {
   const res = await fetch(`${getApiBaseUrl()}/investigaciones/colonias`, { headers: getAuthHeaders() });
   return handleResponse(res, 'Error al cargar colonias activas');

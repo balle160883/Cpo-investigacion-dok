@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, asignarAnalistaLote, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
+import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, asignarAnalistaLote, asignarAnalistaPorSucursales, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
 import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2, AlertTriangle, CheckCircle2, UserCheck, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
@@ -92,6 +92,13 @@ export default function InvestigacionesPage() {
   const [loteAnalistaModalOpen, setLoteAnalistaModalOpen] = useState(false);
   const [loteAnalistaId, setLoteAnalistaId] = useState('');
   const [assigningLoteAnalista, setAssigningLoteAnalista] = useState(false);
+
+  // Modal Asignar por Sucursal a Analista
+  const [asignarPorSucursalModalOpen, setAsignarPorSucursalModalOpen] = useState(false);
+  const [sucursalesSeleccionadasParaAnalista, setSucursalesSeleccionadasParaAnalista] = useState([]);
+  const [sucursalAnalistaId, setSucursalAnalistaId] = useState('');
+  const [reasignarExistentes, setReasignarExistentes] = useState(false);
+  const [assigningPorSucursales, setAssigningPorSucursales] = useState(false);
 
   useEffect(() => {
     loadInvestigaciones();
@@ -336,6 +343,74 @@ export default function InvestigacionesPage() {
     }
   }
 
+  // ── Modal asignar analista por sucursales completas ─────────────────────────
+  async function openAsignarPorSucursalesModal() {
+    try {
+      const todos = await fetchInvestigadores();
+      const soloAnalistas = (todos || []).filter((u) =>
+        (u.rol || '').toLowerCase().includes('analista') ||
+        (u.rol || '').toLowerCase().includes('admin')
+      );
+      setAnalistasDisponibles(soloAnalistas);
+      if (soloAnalistas && soloAnalistas.length > 0) {
+        setSucursalAnalistaId(String(soloAnalistas[0].id));
+      }
+      await loadSucursales();
+    } catch (err) {
+      console.error('Error preparando modal de asignación por sucursal:', err);
+    }
+    // Si ya había una sucursal filtrada activa, preseleccionarla
+    if (sucursalSeleccionada) {
+      setSucursalesSeleccionadasParaAnalista([String(sucursalSeleccionada)]);
+    } else {
+      setSucursalesSeleccionadasParaAnalista([]);
+    }
+    setAsignarPorSucursalModalOpen(true);
+  }
+
+  function toggleSucursalSeleccionadaParaAnalista(id) {
+    const idStr = String(id);
+    setSucursalesSeleccionadasParaAnalista((prev) =>
+      prev.includes(idStr) ? prev.filter((item) => item !== idStr) : [...prev, idStr]
+    );
+  }
+
+  function toggleTodasSucursalesParaAnalista() {
+    const todasIds = sucursales.map((s) => String(s.sucursal_id));
+    const estanTodas = todasIds.length > 0 && todasIds.every((id) => sucursalesSeleccionadasParaAnalista.includes(id));
+    if (estanTodas) {
+      setSucursalesSeleccionadasParaAnalista([]);
+    } else {
+      setSucursalesSeleccionadasParaAnalista(todasIds);
+    }
+  }
+
+  async function handleConfirmAsignarPorSucursales() {
+    if (sucursalesSeleccionadasParaAnalista.length === 0 || !sucursalAnalistaId) return;
+    setAssigningPorSucursales(true);
+    try {
+      const res = await asignarAnalistaPorSucursales({
+        sucursal_ids: sucursalesSeleccionadasParaAnalista,
+        analista_id: sucursalAnalistaId,
+        reasignar_existentes: reasignarExistentes,
+      });
+      setAsignarPorSucursalModalOpen(false);
+      setToast({
+        message: res.message || `${res.total_asignados || 0} crédito(s) asignados al analista exitosamente.`,
+        type: 'success',
+      });
+      loadInvestigaciones();
+      loadSucursales();
+    } catch (err) {
+      setToast({
+        message: err.message || 'Error al asignar analista por sucursales',
+        type: 'error',
+      });
+    } finally {
+      setAssigningPorSucursales(false);
+    }
+  }
+
   // Colonia activa del filtro (objeto completo con conteos)
   const coloniaObj = colonias.find((c) => c.colonia === coloniaSeleccionada);
   // Sucursal activa del filtro
@@ -460,6 +535,16 @@ export default function InvestigacionesPage() {
               title="Exportar listado actual a Excel / CSV"
             >
               <FileText className="w-4 h-4" /> Exportar a Excel
+            </button>
+          )}
+
+          {canAssignAnalista && (
+            <button
+              onClick={openAsignarPorSucursalesModal}
+              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition flex items-center gap-1.5"
+              title="Asignar en bloque créditos validados de sucursales a un analista"
+            >
+              <Building2 className="w-4 h-4" /> Asignar por Sucursal
             </button>
           )}
         </div>
@@ -1556,6 +1641,216 @@ export default function InvestigacionesPage() {
               >
                 <UserCheck className="w-4 h-4" />
                 {assigningLoteAnalista ? 'Asignando Analista en Lote...' : 'Confirmar Asignación en Lote'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Asignar por Sucursal a Analista ──────────────────────── */}
+      {canAssignAnalista && asignarPorSucursalModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/50 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl ring-1 ring-indigo-500/30">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Asignar Analista por Sucursal</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Selecciona una o varias sucursales para asignar en bloque sus créditos con visto bueno del Validador.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAsignarPorSucursalModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Selector de Sucursales */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300">
+                  Sucursales de Captación ({sucursales.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleTodasSucursalesParaAnalista}
+                  className="text-indigo-400 hover:text-indigo-300 font-semibold transition"
+                >
+                  {sucursales.length > 0 && sucursales.every((s) => sucursalesSeleccionadasParaAnalista.includes(String(s.sucursal_id)))
+                    ? 'Deseleccionar todas'
+                    : 'Seleccionar todas'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 border border-slate-800 rounded-xl bg-slate-950/60">
+                {sucursales.length === 0 ? (
+                  <div className="col-span-2 text-center py-6 text-slate-500 text-xs">
+                    Cargando sucursales...
+                  </div>
+                ) : (
+                  sucursales.map((suc) => {
+                    const isSelected = sucursalesSeleccionadasParaAnalista.includes(String(suc.sucursal_id));
+                    const listasCount = parseInt(suc.listas_analista || 0, 10);
+                    const totalValidados = parseInt(suc.total_validados || 0, 10);
+
+                    return (
+                      <div
+                        key={suc.sucursal_id}
+                        onClick={() => toggleSucursalSeleccionadaParaAnalista(suc.sucursal_id)}
+                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition select-none ${
+                          isSelected
+                            ? 'bg-indigo-500/15 border-indigo-500/60 shadow-sm shadow-indigo-500/10'
+                            : 'bg-slate-900/80 border-slate-800 hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 truncate">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}} // controlado por el contenedor
+                            className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-slate-950"
+                          />
+                          <div className="truncate">
+                            <div className="text-xs font-bold text-white truncate">
+                              {formatNombreSucursal(suc.sucursal_id, suc.sucursal_nombre)}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              Sucursal #{suc.sucursal_id}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end shrink-0 ml-2">
+                          {listasCount > 0 ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              {listasCount} listo{listasCount !== 1 ? 's' : ''}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700/50">
+                              0 listos
+                            </span>
+                          )}
+                          {totalValidados > 0 && totalValidados !== listasCount && (
+                            <span className="text-[9px] text-slate-500 mt-0.5" title="Total validados en esta sucursal">
+                              ({totalValidados} validados)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Opciones y Selector de Analista */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                  <span>Analista Destinatario</span>
+                  <span className="text-[11px] text-indigo-400 font-normal">
+                    {analistasDisponibles.length} activos
+                  </span>
+                </label>
+                <select
+                  value={sucursalAnalistaId}
+                  onChange={(e) => setSucursalAnalistaId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                >
+                  {analistasDisponibles.length === 0 ? (
+                    <option value="">Cargando analistas...</option>
+                  ) : (
+                    analistasDisponibles.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nombre} — {a.rol}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div className="flex flex-col justify-end">
+                <label className="flex items-start gap-2.5 p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-950 transition">
+                  <input
+                    type="checkbox"
+                    checked={reasignarExistentes}
+                    onChange={(e) => setReasignarExistentes(e.target.checked)}
+                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 h-4 w-4 mt-0.5 bg-slate-900"
+                  />
+                  <div>
+                    <span className="text-xs font-semibold text-slate-200 block">
+                      Reasignar créditos existentes
+                    </span>
+                    <span className="text-[11px] text-slate-400 block">
+                      Si se activa, también cambiará los créditos que ya tenían analista.
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Resumen dinámico */}
+            {(() => {
+              const sucursalesSel = sucursales.filter((s) =>
+                sucursalesSeleccionadasParaAnalista.includes(String(s.sucursal_id))
+              );
+              const totalEstimado = sucursalesSel.reduce((acc, s) => {
+                const count = reasignarExistentes
+                  ? parseInt(s.total_validados || 0, 10)
+                  : parseInt(s.listas_analista || 0, 10);
+                return acc + count;
+              }, 0);
+              const analistaSel = analistasDisponibles.find((a) => String(a.id) === String(sucursalAnalistaId));
+
+              return (
+                <div className="bg-indigo-950/30 border border-indigo-500/30 rounded-xl p-3.5 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-slate-400 block">Créditos listos a asignar:</span>
+                    <strong className="text-white text-base font-mono flex items-center gap-1.5 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      {totalEstimado} crédito{totalEstimado !== 1 ? 's' : ''} en {sucursalesSeleccionadasParaAnalista.length} sucursal{sucursalesSeleccionadasParaAnalista.length !== 1 ? 'es' : ''}
+                    </strong>
+                  </div>
+                  {analistaSel && (
+                    <div className="text-right">
+                      <span className="text-slate-400 block">Analista asignado:</span>
+                      <span className="text-indigo-300 font-bold mt-0.5 block truncate max-w-[200px]">
+                        👨‍💼 {analistaSel.nombre}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Botones de acción */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setAsignarPorSucursalModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={
+                  assigningPorSucursales ||
+                  sucursalesSeleccionadasParaAnalista.length === 0 ||
+                  !sucursalAnalistaId
+                }
+                onClick={handleConfirmAsignarPorSucursales}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/50 disabled:text-indigo-400/50 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 flex items-center gap-2"
+              >
+                <Building2 className="w-4 h-4" />
+                {assigningPorSucursales ? 'Asignando por Sucursales...' : 'Confirmar Asignación por Sucursal'}
               </button>
             </div>
           </div>

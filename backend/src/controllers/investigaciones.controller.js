@@ -1259,21 +1259,50 @@ async function getColoniasActivas(req, res, next) {
   }
 }
 
-// Devuelve las sucursales únicas con investigaciones activas, con conteo de total y sin asignar
+// Devuelve las sucursales únicas con investigaciones activas, con conteo de total, sin asignar e investigaciones listas para analista
 async function getSucursalesActivas(req, res, next) {
   try {
     const { rows } = await db.query(`
-      SELECT
-        s.sucursal_id,
-        COALESCE(MAX(s.sucursal_nombre), '') AS sucursal_nombre,
-        COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'REAGENDADA') AS sin_asignar
-      FROM investigaciones inv
-      JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
-      WHERE s.sucursal_id IS NOT NULL
-        AND (inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'RECHAZADA'))
-      GROUP BY s.sucursal_id
-      ORDER BY s.sucursal_id ASC;
+      WITH creditos_analista AS (
+        SELECT 
+          s.sucursal_id,
+          inv.solicitud_id_sif,
+          MAX(inv.analista_id) AS analista_id,
+          BOOL_AND(COALESCE(inv.estado_validacion, '') = 'VALIDADA') AS todo_validado
+        FROM investigaciones inv
+        JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+        WHERE s.sucursal_id IS NOT NULL
+        GROUP BY s.sucursal_id, inv.solicitud_id_sif
+      ),
+      conteo_analista AS (
+        SELECT
+          sucursal_id,
+          COUNT(*) FILTER (WHERE todo_validado = TRUE) AS total_validados,
+          COUNT(*) FILTER (WHERE todo_validado = TRUE AND analista_id IS NULL) AS listas_analista
+        FROM creditos_analista
+        GROUP BY sucursal_id
+      ),
+      sucursales_base AS (
+        SELECT
+          s.sucursal_id,
+          COALESCE(MAX(s.sucursal_nombre), '') AS sucursal_nombre,
+          COUNT(inv.id_sif_research) FILTER (WHERE inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'RECHAZADA')) AS total,
+          COUNT(inv.id_sif_research) FILTER (WHERE (inv.investigador_id IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'REAGENDADA') AND (inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'RECHAZADA'))) AS sin_asignar
+        FROM investigaciones inv
+        JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+        WHERE s.sucursal_id IS NOT NULL
+        GROUP BY s.sucursal_id
+      )
+      SELECT 
+        sb.sucursal_id,
+        sb.sucursal_nombre,
+        COALESCE(sb.total, 0) AS total,
+        COALESCE(sb.sin_asignar, 0) AS sin_asignar,
+        COALESCE(ca.listas_analista, 0) AS listas_analista,
+        COALESCE(ca.total_validados, 0) AS total_validados
+      FROM sucursales_base sb
+      LEFT JOIN conteo_analista ca ON sb.sucursal_id = ca.sucursal_id
+      ORDER BY sb.sucursal_id ASC;
     `);
     res.json(rows);
   } catch (err) {
@@ -1962,6 +1991,170 @@ async function asignarAnalistaLote(req, res, next) {
   }
 }
 
+async function asignarAnalistaPorSucursales(req, res, next) {
+  try {
+    const { sucursal_ids, analista_id, reasignar_existentes = false } = req.body;
+
+    if (!analista_id) {
+      return res.status(400).json({ error: 'Debes seleccionar un analista.' });
+    }
+
+    if (!Array.isArray(sucursal_ids) || sucursal_ids.length === 0) {
+      return res.status(400).json({ error: 'Debes seleccionar al menos una sucursal.' });
+    }
+
+    // 1. Verificar analista activo
+    const analistaRes = await db.query(
+      `SELECT id, nombre, email, rol FROM investigadores WHERE id = $1 AND activo = TRUE;`,
+      [analista_id]
+    );
+
+    if (analistaRes.rows.length === 0) {
+      return res.status(404).json({ error: 'El analista seleccionado no existe o está inactivo.' });
+    }
+    const analista = analistaRes.rows[0];
+
+    // Asegurar columna fecha_asignacion_analista
+    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_asignacion_analista TIMESTAMP;`);
+
+    // 2. Obtener todas las investigaciones de las sucursales seleccionadas
+    const { rows: invsRows } = await db.query(
+      `SELECT inv.id_sif_research, inv.solicitud_id_sif, inv.solicitud_folio, inv.tipo_sujeto,
+              inv.estado, inv.estado_validacion, inv.analista_id,
+              s.sucursal_id, COALESCE(s.sucursal_nombre, '') as sucursal_nombre,
+              p.nombre_completo as sujeto_nombre
+       FROM investigaciones inv
+       JOIN solicitudes_credito s ON inv.solicitud_id_sif = s.id_sif
+       LEFT JOIN personas p ON inv.persona_id_sif = p.id_sif
+       WHERE CAST(s.sucursal_id AS TEXT) = ANY($1::text[]);`,
+      [sucursal_ids.map(String)]
+    );
+
+    if (invsRows.length === 0) {
+      return res.status(400).json({ error: 'No se encontraron solicitudes de crédito para las sucursales seleccionadas.' });
+    }
+
+    // Agrupar por solicitud
+    const porSolicitud = {};
+    for (const inv of invsRows) {
+      const sKey = String(inv.solicitud_id_sif);
+      if (!porSolicitud[sKey]) {
+        porSolicitud[sKey] = {
+          solicitud_id_sif: inv.solicitud_id_sif,
+          solicitud_folio: inv.solicitud_folio,
+          sucursal_id: inv.sucursal_id,
+          sucursal_nombre: inv.sucursal_nombre,
+          investigaciones: [],
+        };
+      }
+      porSolicitud[sKey].investigaciones.push(inv);
+    }
+
+    const asignadas = [];
+    const omitidas = [];
+    const porSucursalResumen = {};
+
+    for (const solKey of Object.keys(porSolicitud)) {
+      const sol = porSolicitud[solKey];
+      const invs = sol.investigaciones;
+
+      // Comprobar si todas las investigaciones de la solicitud están validadas
+      const noValidadas = invs.filter(
+        (i) => !i.estado_validacion || i.estado_validacion.toUpperCase() !== 'VALIDADA'
+      );
+
+      const titular = invs.find((i) => (i.tipo_sujeto || '').toUpperCase() === 'SOLICITANTE');
+      const sujetoPrincipal = titular?.sujeto_nombre || invs[0]?.sujeto_nombre || 'Socio';
+      const yaTieneAnalista = invs.some((i) => i.analista_id);
+
+      if (noValidadas.length > 0) {
+        omitidas.push({
+          solicitud_id_sif: sol.solicitud_id_sif,
+          solicitud_folio: sol.solicitud_folio,
+          sucursal_id: sol.sucursal_id,
+          sujeto: sujetoPrincipal,
+          motivo: `Faltan ${noValidadas.length} de ${invs.length} investigaciones validadas.`,
+        });
+      } else if (yaTieneAnalista && !reasignar_existentes) {
+        omitidas.push({
+          solicitud_id_sif: sol.solicitud_id_sif,
+          solicitud_folio: sol.solicitud_folio,
+          sucursal_id: sol.sucursal_id,
+          sujeto: sujetoPrincipal,
+          motivo: 'El crédito ya cuenta con analista asignado (reasignar_existentes = false).',
+        });
+      } else {
+        // Asignar analista al crédito
+        await db.query(
+          `UPDATE investigaciones
+           SET analista_id = $1,
+               fecha_asignacion_analista = NOW(),
+               updated_at = NOW()
+           WHERE CAST(solicitud_id_sif AS TEXT) = $2;`,
+          [analista_id, sol.solicitud_id_sif]
+        );
+
+        asignadas.push({
+          solicitud_id_sif: sol.solicitud_id_sif,
+          solicitud_folio: sol.solicitud_folio,
+          sucursal_id: sol.sucursal_id,
+          sucursal_nombre: sol.sucursal_nombre,
+          sujeto: sujetoPrincipal,
+          investigaciones_count: invs.length,
+        });
+
+        // Contabilizar por sucursal
+        const sucKey = String(sol.sucursal_id);
+        if (!porSucursalResumen[sucKey]) {
+          porSucursalResumen[sucKey] = {
+            sucursal_id: sol.sucursal_id,
+            sucursal_nombre: sol.sucursal_nombre,
+            creditos_asignados: 0,
+          };
+        }
+        porSucursalResumen[sucKey].creditos_asignados++;
+
+        registrarAuditoria({
+          usuario_id: req.user?.id || null,
+          usuario_nombre: req.user?.nombre || req.user?.email || 'Sistema',
+          usuario_rol: req.user?.rol || 'coordinacion_analistas',
+          accion: 'ASIGNAR_ANALISTA_SUCURSAL',
+          recurso: 'solicitudes_credito',
+          recurso_id: String(sol.solicitud_id_sif),
+          descripcion: `Asignación de analista ${analista.nombre} (ID: ${analista.id}) por sucursal ${sol.sucursal_nombre || sol.sucursal_id} a crédito ${sol.solicitud_id_sif}.`,
+          ip_origen: req.ip || req.headers['x-forwarded-for'],
+          user_agent: req.headers['user-agent'],
+          datos_anteriores: { analistas_previos: invs.map((i) => i.analista_id) },
+          datos_nuevos: { analista_id: analista.id, analista_nombre: analista.nombre },
+        });
+      }
+    }
+
+    if (asignadas.length === 0) {
+      return res.status(400).json({
+        error: `No se asignó ningún crédito en las sucursales seleccionadas: no hay créditos 100% validados pendientes de analista.`,
+        omitidas,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Se asignaron ${asignadas.length} crédito(s) de ${Object.keys(porSucursalResumen).length} sucursal(es) al analista ${analista.nombre}.`,
+      analista: {
+        id: analista.id,
+        nombre: analista.nombre,
+      },
+      total_asignados: asignadas.length,
+      total_omitidos: omitidas.length,
+      resumen_sucursales: Object.values(porSucursalResumen),
+      asignadas,
+      omitidas,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
@@ -1971,6 +2164,7 @@ module.exports = {
   asignarInvestigadorLote,
   asignarAnalista,
   asignarAnalistaLote,
+  asignarAnalistaPorSucursales,
   guardarEvidencia,
   validarInvestigacion,
   revalidarInvestigacion,
