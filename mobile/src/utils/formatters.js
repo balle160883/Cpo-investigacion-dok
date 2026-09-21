@@ -107,12 +107,40 @@ export function esAval(item) {
     const s = item.toUpperCase().trim();
     return s.includes('AVAL') || s === 'AVL';
   }
-  if (item.es_aval === true || item.es_aval === 't' || item.es_aval === 1 || item.es_aval === 'true') {
-    return true;
+
+  // 1. Si se tienen los IDs de persona y del cliente titular de la solicitud:
+  const personaId = item.persona_id_sif ? String(item.persona_id_sif).trim() : null;
+  const clienteId = (item.cliente_id_sif || item.solicitante_id_sif || item.solicitante?.id_sif)
+    ? String(item.cliente_id_sif || item.solicitante_id_sif || item.solicitante?.id_sif).trim()
+    : null;
+
+  if (personaId && clienteId) {
+    if (personaId === clienteId) {
+      return false; // Es el solicitante titular del crédito
+    }
+    return true; // Es un aval del crédito
   }
+
+  // 2. Si el nombre del sujeto coincide con el solicitante titular
+  const sujetoNombre = (item.sujeto_nombre || item.nombre_completo || '').trim().toUpperCase();
+  const solNombre = (item.solicitante_nombre || item.solicitante?.nombre_completo || '').trim().toUpperCase();
+  if (sujetoNombre && solNombre && sujetoNombre === solNombre) {
+    return false; // Es el titular del crédito
+  }
+
+  // 3. Revisar tipo_sujeto explícito
   const tipo = (item.tipo_sujeto || item.tipo || item.sujeto_tipo || '').toUpperCase().trim();
+  if (tipo.includes('SOLICITANTE') || tipo === 'TITULAR') {
+    return false;
+  }
   if (tipo.includes('AVAL') || tipo === 'AVL') {
     return true;
   }
+
+  // 4. Si viene es_aval explícito
+  if (item.es_aval !== undefined && item.es_aval !== null) {
+    return item.es_aval === true || item.es_aval === 't' || item.es_aval === 1 || item.es_aval === 'true';
+  }
+
   return false;
 }

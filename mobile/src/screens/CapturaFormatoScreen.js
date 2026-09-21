@@ -196,7 +196,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         const res = await getInvestigacionDetalle(id);
         if (res) {
           if (res.investigacion) {
-            setInv(prev => ({ ...res.investigacion, ...prev }));
+            setInv(prev => ({ ...prev, ...res.investigacion }));
           }
           if (res.solicitante) setSolicitante(res.solicitante);
           if (Array.isArray(res.avales)) setAvalesList(res.avales);
@@ -211,10 +211,24 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   }, [id]);
 
   useEffect(() => {
+    const clienteId = String(inv?.cliente_id_sif || solicitante?.id_sif || '').trim();
+    const personaId = String(inv?.persona_id_sif || '').trim();
+    const solNombre = (inv?.solicitante_nombre || solicitante?.nombre_completo || '').trim().toUpperCase();
+    const sujetoNombre = (inv?.sujeto_nombre || '').trim().toUpperCase();
+
+    // Filtrar siempre al solicitante titular para que jamás aparezca en la lista de avales
+    const avalesLimpios = (avalesList || []).filter(a => {
+      const aId = String(a.aval_id_sif || '').trim();
+      const aNom = (a.nombre_completo || '').trim().toUpperCase();
+      if (clienteId && aId === clienteId) return false;
+      if (solNombre && aNom === solNombre) return false;
+      return true;
+    });
+
     if (isAval) {
-      const coList = (avalesList || []).filter(
-        a => String(a.aval_id_sif) !== String(inv?.persona_id_sif) &&
-             a.nombre_completo?.trim().toUpperCase() !== inv?.sujeto_nombre?.trim().toUpperCase()
+      const coList = avalesLimpios.filter(
+        a => String(a.aval_id_sif).trim() !== personaId &&
+             a.nombre_completo?.trim().toUpperCase() !== sujetoNombre
       );
       setCoAvalesRefs(prev => {
         if (prev.length === coList.length && prev.length > 0) return prev;
@@ -231,24 +245,26 @@ export default function CapturaFormatoScreen({ route, navigation }) {
         }));
       });
     } else {
-      if (avalesList && avalesList.length > 0) {
-        setAvalesRefs(prev => {
-          if (prev.length === avalesList.length && prev.length > 0) return prev;
-          return avalesList.map((av, idx) => ({
-            aval_id_sif: av.aval_id_sif,
-            nombre_completo: av.nombre_completo,
-            calle: av.calle || '',
-            numero_exterior: av.numero_exterior || '',
-            codigo_postal: av.codigo_postal || '',
-            telefono: av.telefono || av.celular || '',
-            parentesco: prev[idx]?.parentesco || 'Familiar / Aval',
-            tiempo_conocerlo: prev[idx]?.tiempo_conocerlo || '5 años',
-            confirmo: prev[idx]?.confirmo || 'SI',
-          }));
-        });
-      }
+      const solAvales = avalesLimpios.filter(
+        a => String(a.aval_id_sif).trim() !== personaId &&
+             a.nombre_completo?.trim().toUpperCase() !== sujetoNombre
+      );
+      setAvalesRefs(prev => {
+        if (prev.length === solAvales.length && prev.length > 0) return prev;
+        return solAvales.map((av, idx) => ({
+          aval_id_sif: av.aval_id_sif,
+          nombre_completo: av.nombre_completo,
+          calle: av.calle || '',
+          numero_exterior: av.numero_exterior || '',
+          codigo_postal: av.codigo_postal || '',
+          telefono: av.telefono || av.celular || '',
+          parentesco: prev[idx]?.parentesco || 'Familiar / Aval',
+          tiempo_conocerlo: prev[idx]?.tiempo_conocerlo || '5 años',
+          confirmo: prev[idx]?.confirmo || 'SI',
+        }));
+      });
     }
-  }, [avalesList, isAval, inv?.persona_id_sif, inv?.sujeto_nombre]);
+  }, [avalesList, isAval, inv?.persona_id_sif, inv?.cliente_id_sif, inv?.sujeto_nombre, inv?.solicitante_nombre, solicitante]);
 
   useEffect(() => {
     const est = evidenciaPrevia?.estudio_socioeconomico;

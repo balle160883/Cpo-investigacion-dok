@@ -120,7 +120,35 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
     }
   }
 
-  const isAval = esAval(inv);
+  const isAval = esAval({
+    ...inv,
+    cliente_id_sif: inv.cliente_id_sif || data?.solicitante?.id_sif,
+    solicitante_id_sif: data?.solicitante?.id_sif,
+    solicitante_nombre: inv.solicitante_nombre || data?.solicitante?.nombre_completo,
+  });
+
+  const clienteId = String(inv.cliente_id_sif || data?.solicitante?.id_sif || '').trim();
+  const solNombre = (inv.solicitante_nombre || data?.solicitante?.nombre_completo || '').trim().toUpperCase();
+  const personaId = String(inv.persona_id_sif || '').trim();
+  const sujetoNombre = (inv.sujeto_nombre || '').trim().toUpperCase();
+
+  const avalesLimpios = (data?.avales || []).filter(a => {
+    const aId = String(a.aval_id_sif || '').trim();
+    const aNom = (a.nombre_completo || '').trim().toUpperCase();
+    if (clienteId && aId === clienteId) return false;
+    if (solNombre && aNom === solNombre) return false;
+    return true;
+  });
+
+  const coAvales = avalesLimpios.filter(
+    a => String(a.aval_id_sif).trim() !== personaId &&
+         a.nombre_completo?.trim().toUpperCase() !== sujetoNombre
+  );
+
+  const avalesSolicitante = avalesLimpios.filter(
+    a => String(a.aval_id_sif).trim() !== personaId &&
+         a.nombre_completo?.trim().toUpperCase() !== sujetoNombre
+  );
   const folioCredito = inv.solicitud_folio || (inv.solicitud_id_sif ? `#${inv.solicitud_id_sif}` : 'N/A');
   const sucNombre = formatNombreSucursal(inv.sucursal_id, inv.sucursal_nombre);
 
@@ -260,12 +288,12 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
           </Text>
 
           {/* Co-Avales si existen */}
-          {Array.isArray(data?.avales) && data.avales.filter(a => String(a.aval_id_sif) !== String(inv.persona_id_sif)).length > 0 && (
+          {coAvales.length > 0 && (
             <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#334155' }}>
               <Text style={{ color: '#c084fc', fontSize: 12, fontWeight: 'bold', marginBottom: 6 }}>
                 🤝 Co-Avales vinculados al crédito:
               </Text>
-              {data.avales.filter(a => String(a.aval_id_sif) !== String(inv.persona_id_sif)).map((co, idx) => (
+              {coAvales.map((co, idx) => (
                 <View key={idx} style={{ backgroundColor: '#1e293b', padding: 8, borderRadius: 8, marginBottom: 4 }}>
                   <Text style={{ color: '#f8fafc', fontSize: 13, fontWeight: 'bold' }}>• {co.nombre_completo}</Text>
                   {Boolean(co.telefono) && (
@@ -285,13 +313,13 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
                 <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>🤝 AVALES ASIGNADOS</Text>
               </View>
               <Text style={{ color: '#c084fc', fontSize: 12, fontWeight: 'bold' }}>
-                ({(data?.avales || []).length})
+                ({avalesSolicitante.length})
               </Text>
             </View>
           </View>
 
-          {Array.isArray(data?.avales) && data.avales.length > 0 ? (
-            data.avales.map((av, idx) => (
+          {avalesSolicitante.length > 0 ? (
+            avalesSolicitante.map((av, idx) => (
               <View key={idx} style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#334155' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text style={{ color: '#f8fafc', fontSize: 14, fontWeight: 'bold', flex: 1 }}>

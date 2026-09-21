@@ -558,6 +558,22 @@ async function initDb() {
       await db.query(`UPDATE investigadores SET rol = 'superadmin' WHERE email = 'admin@cajaoblatos.com.mx';`);
     } catch (e) {}
 
+    // Garantizar clasificación correcta de tipo_sujeto ('SOLICITANTE' vs 'AVAL')
+    try {
+      await db.query(`
+        UPDATE investigaciones inv
+        SET tipo_sujeto = CASE 
+          WHEN CAST(inv.persona_id_sif AS TEXT) = CAST(s.cliente_id_sif AS TEXT) THEN 'SOLICITANTE'
+          ELSE 'AVAL'
+        END
+        FROM solicitudes_credito s
+        WHERE CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
+          AND (inv.tipo_sujeto IS NULL OR inv.tipo_sujeto = 'CLIENTE');
+      `);
+    } catch (e) {
+      console.error('Error sincronizando tipo_sujeto en investigaciones:', e.message);
+    }
+
     console.log('✅ Esquema inicializado correctamente.');
   } catch (err) {
     console.error('Error inicializando base de datos:', err);

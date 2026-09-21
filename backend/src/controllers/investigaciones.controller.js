@@ -262,7 +262,16 @@ async function getInvestigaciones(req, res, next) {
           inv.fecha_revalidacion,
           inv.comentarios_revalidacion,
           p.nombre_completo as sujeto_nombre,
-          p.es_aval,
+          CASE 
+            WHEN s.cliente_id_sif IS NOT NULL AND CAST(inv.persona_id_sif AS TEXT) = CAST(s.cliente_id_sif AS TEXT) THEN 'SOLICITANTE'
+            WHEN s.cliente_id_sif IS NOT NULL AND CAST(inv.persona_id_sif AS TEXT) != CAST(s.cliente_id_sif AS TEXT) THEN 'AVAL'
+            ELSE COALESCE(inv.tipo_sujeto, 'SOLICITANTE')
+          END as tipo_sujeto,
+          CASE 
+            WHEN s.cliente_id_sif IS NOT NULL AND CAST(inv.persona_id_sif AS TEXT) = CAST(s.cliente_id_sif AS TEXT) THEN FALSE
+            WHEN s.cliente_id_sif IS NOT NULL AND CAST(inv.persona_id_sif AS TEXT) != CAST(s.cliente_id_sif AS TEXT) THEN TRUE
+            ELSE COALESCE(p.es_aval, FALSE)
+          END as es_aval,
           p.estado_contacto_semaforo,
           COALESCE(p.telefono_principal, p.celular, p.telefono) as telefono_principal,
           p.celular,
@@ -276,6 +285,7 @@ async function getInvestigaciones(req, res, next) {
           s.monto_solicitado,
           s.sucursal_id,
           s.sucursal_nombre,
+          s.cliente_id_sif,
           p_sol.nombre_completo as solicitante_nombre,
           d.calle,
           d.numero_exterior,
@@ -414,7 +424,11 @@ async function getInvestigacionDetalle(req, res, next) {
         inv.id_sif_research,
         inv.solicitud_id_sif,
         inv.persona_id_sif,
-        inv.tipo_sujeto,
+        CASE 
+          WHEN s.cliente_id_sif IS NOT NULL AND CAST(inv.persona_id_sif AS TEXT) = CAST(s.cliente_id_sif AS TEXT) THEN 'SOLICITANTE'
+          WHEN s.cliente_id_sif IS NOT NULL AND CAST(inv.persona_id_sif AS TEXT) != CAST(s.cliente_id_sif AS TEXT) THEN 'AVAL'
+          ELSE COALESCE(inv.tipo_sujeto, 'SOLICITANTE')
+        END as tipo_sujeto,
         inv.investigador_id,
         inv.fecha_asignacion,
         inv.fecha_cumplimiento,
@@ -426,7 +440,12 @@ async function getInvestigacionDetalle(req, res, next) {
         inv.comprobante_folio_url,
         p.nombre_completo as sujeto_nombre,
         p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido,
-        p.genero, p.es_aval,
+        p.genero,
+        CASE 
+          WHEN s.cliente_id_sif IS NOT NULL AND CAST(inv.persona_id_sif AS TEXT) = CAST(s.cliente_id_sif AS TEXT) THEN FALSE
+          WHEN s.cliente_id_sif IS NOT NULL AND CAST(inv.persona_id_sif AS TEXT) != CAST(s.cliente_id_sif AS TEXT) THEN TRUE
+          ELSE COALESCE(p.es_aval, FALSE)
+        END as es_aval,
         p.estado_contacto_semaforo,
         COALESCE(p.telefono_principal, p.celular, p.telefono) as telefono_principal,
         p.celular,
@@ -519,43 +538,74 @@ async function getInvestigacionDetalle(req, res, next) {
     let paqueteInvestigaciones = [];
     if (investigacion.solicitud_id_sif) {
       const avalesRes = await db.query(`
-        SELECT 
-          sa.aval_id_sif, 
-          p.nombre_completo, 
-          COALESCE(p.telefono_principal, p.celular, p.telefono) as telefono,
-          p.celular,
-          p.telefono as telefono_fijo,
+        SELECT DISTINCT ON (sub.aval_id_sif)
+          sub.aval_id_sif,
+          sub.nombre_completo,
+          COALESCE(sub.telefono_principal, sub.celular, sub.telefono) as telefono,
+          sub.celular,
+          sub.telefono as telefono_fijo,
           d.calle, d.numero_exterior, d.codigo_postal
-        FROM solicitud_avales sa
-        JOIN personas p ON CAST(sa.aval_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+        FROM (
+          SELECT 
+            sa.aval_id_sif,
+            p.nombre_completo,
+            p.telefono_principal,
+            p.celular,
+            p.telefono
+          FROM solicitud_avales sa
+          JOIN personas p ON CAST(sa.aval_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+          WHERE CAST(sa.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
+            AND CAST(sa.aval_id_sif AS TEXT) != CAST(COALESCE($2, '') AS TEXT)
+          
+          UNION ALL
+          
+          SELECT 
+            inv_a.persona_id_sif as aval_id_sif,
+            p.nombre_completo,
+            p.telefono_principal,
+            p.celular,
+            p.telefono
+          FROM investigaciones inv_a
+          JOIN personas p ON CAST(inv_a.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+          WHERE CAST(inv_a.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
+            AND CAST(inv_a.persona_id_sif AS TEXT) != CAST(COALESCE($2, '') AS TEXT)
+        ) sub
         LEFT JOIN LATERAL (
           SELECT d.calle, d.numero_exterior, d.codigo_postal
           FROM direcciones d
-          WHERE d.persona_id_sif = p.id_sif
+          WHERE d.persona_id_sif = sub.aval_id_sif
           ORDER BY 
             COALESCE(d.es_principal, FALSE) DESC,
             COALESCE(d.activa, TRUE) DESC,
             COALESCE(d.updated_at, '1970-01-01'::timestamp) DESC,
             d.id_sif DESC
           LIMIT 1
-        ) d ON TRUE
-        WHERE CAST(sa.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT);
-      `, [investigacion.solicitud_id_sif]);
+        ) d ON TRUE;
+      `, [investigacion.solicitud_id_sif, investigacion.cliente_id_sif]);
       avales = avalesRes.rows;
 
       const paqueteRes = await db.query(`
         SELECT 
           inv_p.id_sif_research,
           inv_p.persona_id_sif,
-          inv_p.tipo_sujeto,
-          COALESCE(p.es_aval, FALSE) as es_aval,
+          CASE 
+            WHEN s_p.cliente_id_sif IS NOT NULL AND CAST(inv_p.persona_id_sif AS TEXT) = CAST(s_p.cliente_id_sif AS TEXT) THEN 'SOLICITANTE'
+            ELSE 'AVAL'
+          END as tipo_sujeto,
+          CASE 
+            WHEN s_p.cliente_id_sif IS NOT NULL AND CAST(inv_p.persona_id_sif AS TEXT) = CAST(s_p.cliente_id_sif AS TEXT) THEN FALSE
+            ELSE TRUE
+          END as es_aval,
           COALESCE(inv_p.estado, 'PENDIENTE') as estado,
           inv_p.estado_validacion,
           p.nombre_completo as sujeto_nombre
         FROM investigaciones inv_p
+        LEFT JOIN solicitudes_credito s_p ON CAST(inv_p.solicitud_id_sif AS TEXT) = CAST(s_p.id_sif AS TEXT)
         LEFT JOIN personas p ON CAST(inv_p.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
         WHERE CAST(inv_p.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
-        ORDER BY COALESCE(p.es_aval, FALSE) ASC, inv_p.id_sif_research ASC;
+        ORDER BY 
+          CASE WHEN s_p.cliente_id_sif IS NOT NULL AND CAST(inv_p.persona_id_sif AS TEXT) = CAST(s_p.cliente_id_sif AS TEXT) THEN 0 ELSE 1 END ASC,
+          inv_p.id_sif_research ASC;
       `, [investigacion.solicitud_id_sif]);
       paqueteInvestigaciones = paqueteRes.rows;
     }
