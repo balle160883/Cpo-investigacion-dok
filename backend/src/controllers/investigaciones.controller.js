@@ -401,23 +401,6 @@ async function getInvestigacionDetalle(req, res, next) {
   try {
     const id = req.params.id;
 
-    // Garantizar que existen las columnas de validación antes de consultarlas
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS estado_validacion TEXT;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS validador_id INTEGER;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_validacion TIMESTAMP;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_validacion TEXT;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS analista_id INTEGER;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_revalidacion TIMESTAMP;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_revalidacion TEXT;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS folio_solventado BOOLEAN DEFAULT FALSE;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
-    await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_asignacion_analista TIMESTAMP;`);
-    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS solventado_en TIMESTAMP WITH TIME ZONE;`);
-    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS solventado_por_usuario_id INT;`);
-    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`);
-    await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`);
-
     // 1. Investigacion principal
     const invRes = await db.query(`
       SELECT 

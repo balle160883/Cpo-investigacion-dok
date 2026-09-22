@@ -124,6 +124,20 @@ async function initDb() {
     try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS asignacion_manual BOOLEAN DEFAULT FALSE;`); } catch (e) {}
     try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS origen_asignacion VARCHAR(50);`); } catch (e) {}
     try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_asignacion_analista TIMESTAMP;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS estado_validacion TEXT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS validador_id INTEGER;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_validacion TIMESTAMP;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_validacion TEXT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS analista_id INTEGER;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS fecha_revalidacion TIMESTAMP;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_revalidacion TEXT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS folio_solventado BOOLEAN DEFAULT FALSE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS solventado_en TIMESTAMP WITH TIME ZONE;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS solventado_por_usuario_id INT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS justificacion_folio TEXT;`); } catch (e) {}
+    try { await db.query(`ALTER TABLE evidencias_visita ADD COLUMN IF NOT EXISTS comprobante_folio_url TEXT;`); } catch (e) {}
 
     // Trigger de protección de asignaciones manuales realizadas desde la plataforma CPO
     try {
