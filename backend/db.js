@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Pool } = require('pg');
 
 let currentHost = process.env.DB_HOST || '31.97.144.6';
-let currentPort = parseInt(process.env.DB_PORT || (process.env.DB_HOST ? '5432' : '5437'), 10);
+let currentPort = parseInt(process.env.DB_PORT || '5437', 10);
 let currentPassword = process.env.DB_PASSWORD || 'Seguridad2028@';
 
 if (!process.env.DB_PASSWORD) {
@@ -29,5 +29,7 @@ pool.on('error', (err) => {
 module.exports = {
   query: (text, params) => pool.query(text, params),
   pool,
+  currentHost,
+  currentPort,
 };
 

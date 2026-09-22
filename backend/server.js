@@ -7,6 +7,7 @@ const fs = require('fs');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./src/swagger/swagger.config');
 const initDb = require('./init_db');
+const db = require('./db');
 const errorHandler = require('./src/middlewares/error.middleware');
 const auditLogger = require('./src/middlewares/audit.middleware');
 const { authenticate } = require('./src/middlewares/auth.middleware');
@@ -75,6 +76,29 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 app.get('/api/docs.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
+});
+
+// Endpoint de Diagnóstico y Salud del Sistema
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbRes = await db.query('SELECT NOW() as db_time, version() as db_version');
+    res.json({
+      status: 'ok',
+      database: 'connected',
+      host: db.currentHost,
+      port: db.currentPort,
+      db_time: dbRes.rows[0].db_time,
+      db_version: dbRes.rows[0].db_version,
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'error',
+      database: 'disconnected',
+      host: db.currentHost,
+      port: db.currentPort,
+      error: err.message,
+    });
+  }
 });
 
 // Inicializar esquema de Base de Datos al arrancar
