@@ -540,13 +540,14 @@ export default function InvestigacionesPage() {
                 }}
                 className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-300 focus:outline-none focus:border-sky-500"
               >
+                <option value="">Activas (Cola de trabajo - Últimos 90 días)</option>
                 <option value="TODAS">Ver Todas (Histórico Completo)</option>
-                <option value="">Activas (Cola de trabajo)</option>
                 <option value="PENDIENTE">Pendientes</option>
                 <option value="EN_PROCESO">En Proceso</option>
                 <option value="COMPLETADA">Completadas en Campo</option>
                 <option value="VALIDADA">Validadas / Visto Bueno ✅</option>
                 <option value="RECHAZADA">Rechazadas ❌</option>
+                <option value="CANCELADA">Canceladas / Eliminadas 🗑️</option>
               </select>
             )}
           </form>

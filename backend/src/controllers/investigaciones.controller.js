@@ -194,6 +194,15 @@ async function getInvestigaciones(req, res, next) {
       )`);
     }
 
+    // Regla de 90 días: En la cola activa y filtros de operación diaria,
+    // ocultar investigaciones de más de 90 días para mantener la cola limpia y ágil.
+    // Solo si se solicita explícitamente ver 'TODAS' (histórico) o si se busca un término concreto (buscar)
+    // se permite consultar más allá de 90 días.
+    const esHistoricoOBusqueda = (estado === 'TODAS' || estado === 'CANCELADA' || Boolean(buscar));
+    if (!esHistoricoOBusqueda) {
+      whereClauses.push(`inv.created_at >= NOW() - INTERVAL '90 days'`);
+    }
+
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
     const necesitaDireccionEnCount = Boolean(colonia || buscar);
 
@@ -232,15 +241,15 @@ async function getInvestigaciones(req, res, next) {
       orderClause = 'ORDER BY COALESCE(inv.fecha_cumplimiento, inv.fecha_asignacion, inv.created_at) DESC, inv.id_sif_research DESC';
       outerOrderClause = 'ORDER BY COALESCE(pag.fecha_cumplimiento, pag.fecha_asignacion, pag.created_at) DESC, pag.id_sif_research DESC;';
     } else {
-      // Cola activa o pendientes: Mostrar primero las no completadas con la fecha de captación de sucursal más vieja (ASC) para darles prioridad
+      // Cola activa o pendientes: De las más nuevas hacia abajo (DESC), priorizando pendientes sobre completadas
       orderClause = `ORDER BY 
         CASE WHEN inv.estado IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL') THEN 1 ELSE 0 END ASC,
-        COALESCE(inv.fecha_asignacion, inv.created_at) ASC, 
-        inv.id_sif_research ASC`;
+        COALESCE(inv.created_at, inv.fecha_asignacion) DESC, 
+        inv.id_sif_research DESC`;
       outerOrderClause = `ORDER BY 
         CASE WHEN pag.estado IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL') THEN 1 ELSE 0 END ASC,
-        COALESCE(pag.fecha_asignacion, pag.created_at) ASC, 
-        pag.id_sif_research ASC;`;
+        COALESCE(pag.created_at, pag.fecha_asignacion) DESC, 
+        pag.id_sif_research DESC;`;
     }
 
     const dataQuery = `
