@@ -76,7 +76,7 @@ function evaluarInconsistenciasPersona(row) {
 
 async function getInvestigaciones(req, res, next) {
   try {
-    const { estado, buscar, investigador_id, colonia, sucursal } = req.query;
+    const { estado, buscar, investigador_id, colonia, sucursal, paquete_completo } = req.query;
 
     let whereClauses = [];
     let queryParams = [];
@@ -198,6 +198,53 @@ async function getInvestigaciones(req, res, next) {
         CAST(inv.id_sif_research AS TEXT) ILIKE $${queryParams.length} OR
         d.colonia ILIKE $${queryParams.length}
       )`);
+    }
+
+    // Filtro por Estado de Paquete (Multivisitas Solicitante + Avales)
+    if (paquete_completo) {
+      if (paquete_completo === 'COMPLETO' || paquete_completo === 'true' || paquete_completo === '1') {
+        // Paquetes multivisita (> 1) donde todas las investigaciones del crédito están completadas en campo
+        whereClauses.push(`(
+          SELECT COUNT(*) 
+          FROM investigaciones i2 
+          WHERE i2.solicitud_id_sif = inv.solicitud_id_sif 
+            AND (i2.estado IS NULL OR i2.estado != 'CANCELADA')
+        ) > 1`);
+        whereClauses.push(`NOT EXISTS (
+          SELECT 1 
+          FROM investigaciones inv_sub 
+          WHERE inv_sub.solicitud_id_sif = inv.solicitud_id_sif
+            AND (inv_sub.estado IS NULL OR inv_sub.estado NOT IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'))
+            AND (inv_sub.estado_validacion IS NULL OR inv_sub.estado_validacion != 'VALIDADA')
+            AND (inv_sub.estado IS NULL OR inv_sub.estado != 'CANCELADA')
+        )`);
+      } else if (paquete_completo === 'INCOMPLETO') {
+        // Paquetes multivisita (> 1) donde aún faltan visitas por completar
+        whereClauses.push(`(
+          SELECT COUNT(*) 
+          FROM investigaciones i2 
+          WHERE i2.solicitud_id_sif = inv.solicitud_id_sif 
+            AND (i2.estado IS NULL OR i2.estado != 'CANCELADA')
+        ) > 1`);
+        whereClauses.push(`EXISTS (
+          SELECT 1 
+          FROM investigaciones inv_sub 
+          WHERE inv_sub.solicitud_id_sif = inv.solicitud_id_sif
+            AND (inv_sub.estado IS NULL OR inv_sub.estado NOT IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'))
+            AND (inv_sub.estado_validacion IS NULL OR inv_sub.estado_validacion != 'VALIDADA')
+            AND (inv_sub.estado IS NULL OR inv_sub.estado != 'CANCELADA')
+        )`);
+      } else if (paquete_completo === 'TODAS_LISTAS') {
+        // Cualquier crédito (individual o multivisita) donde el 100% de visitas fueron completadas
+        whereClauses.push(`NOT EXISTS (
+          SELECT 1 
+          FROM investigaciones inv_sub 
+          WHERE inv_sub.solicitud_id_sif = inv.solicitud_id_sif
+            AND (inv_sub.estado IS NULL OR inv_sub.estado NOT IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'))
+            AND (inv_sub.estado_validacion IS NULL OR inv_sub.estado_validacion != 'VALIDADA')
+            AND (inv_sub.estado IS NULL OR inv_sub.estado != 'CANCELADA')
+        )`);
+      }
     }
 
     // Regla de 90 días: En la cola activa y filtros de operación diaria,

@@ -70,6 +70,9 @@ export default function InvestigacionesPage() {
   const [sucursalDropdownOpen, setSucursalDropdownOpen] = useState(false);
   const [loadingSucursales, setLoadingSucursales] = useState(false);
 
+  // Filtro por paquete completado
+  const [filtroPaquete, setFiltroPaquete] = useState('');
+
   // Selección múltiple (checkboxes)
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -126,7 +129,7 @@ export default function InvestigacionesPage() {
 
   useEffect(() => {
     loadInvestigaciones();
-  }, [page, estado, coloniaSeleccionada, sucursalSeleccionada]);
+  }, [page, estado, coloniaSeleccionada, sucursalSeleccionada, filtroPaquete]);
 
   // Debounce para búsqueda al escribir
   useEffect(() => {
@@ -173,6 +176,7 @@ export default function InvestigacionesPage() {
       const params = { page, limit: 25, estado, buscar };
       if (coloniaSeleccionada) params.colonia = coloniaSeleccionada;
       if (sucursalSeleccionada) params.sucursal = sucursalSeleccionada;
+      if (filtroPaquete) params.paquete_completo = filtroPaquete;
       const res = await fetchInvestigaciones(params);
       setData(res.data || []);
       setTotal(res.total || 0);
@@ -765,6 +769,42 @@ export default function InvestigacionesPage() {
               title="Quitar filtro de colonia"
             >
               <X className={clsx('w-3.5', 'h-3.5')} /> Quitar colonia
+            </button>
+          )}
+
+          {/* Selector de Estado de Paquete */}
+          <div className="relative">
+            <select
+              value={filtroPaquete}
+              onChange={(e) => {
+                setFiltroPaquete(e.target.value);
+                setPage(1);
+              }}
+              className={clsx(
+                'px-3.5', 'py-2', 'rounded-xl', 'text-xs', 'font-semibold', 'border', 'transition', 'cursor-pointer', 'focus:outline-none',
+                filtroPaquete === 'COMPLETO'
+                  ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/50'
+                  : filtroPaquete === 'INCOMPLETO'
+                    ? 'bg-amber-950/80 border-amber-500 text-amber-300 ring-1 ring-amber-500/50'
+                    : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+              )}
+              title="Filtrar por estado del paquete (Solicitante + Avales)"
+            >
+              <option value="">📦 Todos los paquetes</option>
+              <option value="COMPLETO">🟢 Paquete Completado (100% visitas en campo)</option>
+              <option value="INCOMPLETO">⏳ Paquete En Espera (Faltan visitas)</option>
+              <option value="TODAS_LISTAS">✅ Cualquier crédito completado (100%)</option>
+            </select>
+          </div>
+
+          {/* Botón limpiar filtro paquete */}
+          {filtroPaquete && (
+            <button
+              onClick={() => { setFiltroPaquete(''); setPage(1); }}
+              className={clsx('flex', 'items-center', 'gap-1.5', 'px-3', 'py-2', 'rounded-xl', 'bg-slate-800', 'hover:bg-slate-700', 'text-slate-400', 'hover:text-white', 'text-xs', 'font-semibold', 'border', 'border-slate-700', 'transition')}
+              title="Quitar filtro de paquete"
+            >
+              <X className={clsx('w-3.5', 'h-3.5')} /> Quitar filtro paquete
             </button>
           )}
 
