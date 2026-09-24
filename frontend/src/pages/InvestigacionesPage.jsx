@@ -505,14 +505,14 @@ export default function InvestigacionesPage() {
             {isNormaBermejo
               ? 'Todas las Investigaciones Domiciliarias'
               : isAnalista
-                ? '📊 Investigaciones Validadas — Revisión'
+                ? '📊 Mis Investigaciones Asignadas — Revisión'
                 : 'Investigaciones Domiciliarias'}
           </h2>
           <p className={clsx('text-slate-400', 'text-sm')}>
             {isNormaBermejo
               ? 'Vista global de todas las investigaciones sin restricción de estado para Norma Lizette Bermejo Palos.'
               : isAnalista
-                ? 'Vista de solo lectura. Aquí aparecen únicamente las investigaciones que ya fueron aprobadas por el Validador.'
+                ? 'Aquí aparecen únicamente las investigaciones validadas que tu supervisora te ha asignado para revisión y dictamen.'
                 : 'Administración, asignación y exportación de estudios a Solicitantes y Avales.'}
           </p>
         </div>
@@ -590,7 +590,7 @@ export default function InvestigacionesPage() {
         <div className={clsx('flex', 'items-center', 'gap-3', 'bg-teal-900/40', 'border', 'border-teal-700/60', 'rounded-xl', 'px-4', 'py-3', 'text-teal-300', 'text-sm')}>
           <ShieldCheck className={clsx('w-5', 'h-5', 'flex-shrink-0')} />
           <span>
-            <strong>Modo Solo Lectura — Analista.</strong> Solo puedes consultar el formato completo de las investigaciones que el Validador ya aprobó. No puedes crear, modificar ni validar investigaciones.
+            <strong>Modo Solo Lectura — Analista:</strong> Solo puedes consultar el formato de las investigaciones validadas asignadas a tu cuenta por supervisión.
           </span>
         </div>
       )}

@@ -100,6 +100,8 @@ async function getInvestigaciones(req, res, next) {
       userEmail.includes('norma') ||
       userEmail.includes('bermejo');
 
+    let esSoloAnalista = false;
+
     if (req.user) {
       const userRol = (req.user.rol || '').toLowerCase();
       const rolesArray = userRol.split(',').map((r) => r.trim());
@@ -108,7 +110,7 @@ async function getInvestigaciones(req, res, next) {
           ['admin', 'superadmin', 'asignador', 'supervisor', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'].includes(r)
         ) || isNormaBermejo;
       const esSoloValidador = rolesArray.includes('validador') && !esAdminOAsignador;
-      const esSoloAnalista = rolesArray.includes('analista') && !esAdminOAsignador && !isNormaBermejo;
+      esSoloAnalista = rolesArray.includes('analista') && !esAdminOAsignador && !isNormaBermejo;
       const esInvestigadorCampo =
         rolesArray.some((r) => ['investigador', 'investigador_campo'].includes(r)) &&
         !esAdminOAsignador &&
@@ -131,9 +133,12 @@ async function getInvestigaciones(req, res, next) {
         )`);
       }
 
-      // ANALISTA PURO (excepto Norma Bermejo): solo puede ver investigaciones con estado_validacion = 'VALIDADA'
+      // ANALISTA PURO (excepto Norma Bermejo / supervisores): solo puede ver investigaciones con estado_validacion = 'VALIDADA'
+      // que hayan sido expresamente asignadas a él por su supervisora (Norma Bermejo)
       if (esSoloAnalista) {
+        queryParams.push(req.user.id);
         whereClauses.push(`inv.estado_validacion = 'VALIDADA'`);
+        whereClauses.push(`CAST(inv.analista_id AS TEXT) = CAST($${queryParams.length} AS TEXT)`);
       }
     }
 
@@ -156,7 +161,8 @@ async function getInvestigaciones(req, res, next) {
       }
     } else {
       // Por defecto (cola activa sin filtro explícito), ocultar investigaciones ya validadas, aprobadas o canceladas
-      if (!isNormaBermejo) {
+      // NOTA: Para Norma Bermejo o Analistas, se permiten ver las validadas asignadas a ellos (excluyendo solo canceladas)
+      if (!isNormaBermejo && !esSoloAnalista) {
         whereClauses.push(`(inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'CANCELADA'))`);
       } else {
         whereClauses.push(`(inv.estado IS NULL OR inv.estado != 'CANCELADA')`);
@@ -521,6 +527,28 @@ async function getInvestigacionDetalle(req, res, next) {
 
     if (invRes.rows.length === 0) {
       return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+
+    // Validación de seguridad para analistas: solo pueden consultar si les fue asignada por supervisión
+    const userNameDet = req.user ? (req.user.nombre || '').toLowerCase() : '';
+    const userEmailDet = req.user ? (req.user.email || '').toLowerCase() : '';
+    const isNormaBermejoDet =
+      userNameDet.includes('norma') ||
+      userNameDet.includes('bermejo') ||
+      userEmailDet.includes('norma') ||
+      userEmailDet.includes('bermejo');
+    const userRolDet = (req.user?.rol || '').toLowerCase();
+    const rolesArrayDet = userRolDet.split(',').map((r) => r.trim());
+    const esAdminOAsignadorDet =
+      rolesArrayDet.some((r) =>
+        ['admin', 'superadmin', 'asignador', 'supervisor', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'].includes(r)
+      ) || isNormaBermejoDet;
+    const esSoloAnalistaDet = rolesArrayDet.includes('analista') && !esAdminOAsignadorDet && !isNormaBermejoDet;
+
+    if (esSoloAnalistaDet) {
+      if (!invRes.rows[0].analista_id || String(invRes.rows[0].analista_id) !== String(req.user.id)) {
+        return res.status(403).json({ error: 'No tienes permiso para consultar esta investigación porque no ha sido asignada a tu usuario.' });
+      }
     }
 
     const inconsistenciasDetalle = evaluarInconsistenciasPersona(invRes.rows[0]);
