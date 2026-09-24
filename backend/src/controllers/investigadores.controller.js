@@ -74,8 +74,11 @@ async function getUbicaciones(req, res, next) {
   try {
     const userRol = (req.user?.rol || '').toLowerCase();
     const rolesArray = userRol.split(',').map((r) => r.trim());
+    const userName = (req.user?.nombre || '').toLowerCase();
+    const userEmail = (req.user?.email || '').toLowerCase();
+    const isNormaBermejo = userName.includes('norma') || userName.includes('bermejo') || userEmail.includes('norma') || userEmail.includes('bermejo');
     const allowed = ['superadmin', 'asignador', 'validador', 'analista', 'admin', 'supervisor', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'];
-    const isAllowed = rolesArray.some((r) => allowed.includes(r));
+    const isAllowed = isNormaBermejo || rolesArray.some((r) => allowed.includes(r));
     if (userRol && !isAllowed) {
       return res.status(403).json({ error: 'Acceso denegado. Permiso solo para administradores o asignadores' });
     }
