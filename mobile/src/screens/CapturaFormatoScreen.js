@@ -451,7 +451,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 ================================
 FECHA: ${fechaActual}
 FOLIO CRÉDITO: ${folioSolicitud}
-N° INVESTIGACIÓN: #${numInvestigacion}
+FOLIO INVESTIGACIÓN: ${numInvestigacion}
 SUCURSAL: Suc. ${sucNombre}
 --------------------------------
 TIPO SUJETO: ${isAval ? '🤝 AVAL DE CRÉDITO' : '👤 SOLICITANTE DE PRÉSTAMO'}

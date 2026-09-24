@@ -403,7 +403,7 @@ export default function VisitasScreen({ navigation, route }) {
                 {/* Cabecera del ticket: Folio Investigación, Folio Crédito y Badge Solicitante/Aval */}
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.folio}>#{item.id_sif_research}</Text>
+                    <Text style={styles.folio}>Folio: {item.id_sif_research}</Text>
                     <Text style={styles.solicitudFolio}>Sol: {folioCredito}</Text>
                   </View>
 

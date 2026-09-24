@@ -162,7 +162,7 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
               {!isAval ? '👤 SOLICITANTE DE PRÉSTAMO' : '🤝 AVAL DE CRÉDITO'}
             </Text>
           </View>
-          <Text style={styles.folioHeader}>#{inv.id_sif_research || id}</Text>
+          <Text style={styles.folioHeader}>Folio: {inv.id_sif_research || id}</Text>
         </View>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
