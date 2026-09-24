@@ -146,17 +146,20 @@ async function getInvestigaciones(req, res, next) {
       if (estado === 'PENDIENTE') {
         whereClauses.push(`(inv.estado IS NULL OR inv.estado = 'PENDIENTE' OR inv.estado = 'EN_PROCESO' OR inv.estado = 'REAGENDADA')`);
       } else if (estado === 'TODAS') {
-        // Muestra todas las investigaciones históricas sin filtrar por estado
+        // Muestra todas las investigaciones históricas sin canceladas
+        whereClauses.push(`(inv.estado IS NULL OR inv.estado != 'CANCELADA')`);
+      } else if (estado === 'CANCELADA') {
+        whereClauses.push(`inv.estado = 'CANCELADA'`);
       } else {
         queryParams.push(estado);
         whereClauses.push(`inv.estado = $${queryParams.length}`);
       }
     } else {
-      // Por defecto (sin filtro explícito), ocultar investigaciones ya validadas o aprobadas final
-      // para que al dar el visto bueno desaparezcan de la cola de trabajo activa.
-      // Excepción: Si es Norma Bermejo, no ocultar nada por defecto para que vea todas.
+      // Por defecto (cola activa sin filtro explícito), ocultar investigaciones ya validadas, aprobadas o canceladas
       if (!isNormaBermejo) {
-        whereClauses.push(`(inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL'))`);
+        whereClauses.push(`(inv.estado IS NULL OR inv.estado NOT IN ('VALIDADA', 'APROBADA_FINAL', 'CANCELADA'))`);
+      } else {
+        whereClauses.push(`(inv.estado IS NULL OR inv.estado != 'CANCELADA')`);
       }
     }
 
@@ -353,6 +356,7 @@ async function getInvestigaciones(req, res, next) {
           (COUNT(*) > 0 AND COUNT(*) = COUNT(*) FILTER (WHERE inv_p.estado_validacion = 'VALIDADA')) as paquete_todo_validado
         FROM investigaciones inv_p
         WHERE inv_p.solicitud_id_sif = pag.solicitud_id_sif
+          AND (inv_p.estado IS NULL OR inv_p.estado != 'CANCELADA')
       ) paq ON TRUE
       LEFT JOIN LATERAL (
         SELECT
@@ -586,6 +590,7 @@ async function getInvestigacionDetalle(req, res, next) {
         LEFT JOIN solicitudes_credito s_p ON CAST(inv_p.solicitud_id_sif AS TEXT) = CAST(s_p.id_sif AS TEXT)
         LEFT JOIN personas p ON CAST(inv_p.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
         WHERE CAST(inv_p.solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
+          AND (inv_p.estado IS NULL OR inv_p.estado != 'CANCELADA')
         ORDER BY 
           CASE WHEN s_p.cliente_id_sif IS NOT NULL AND CAST(inv_p.persona_id_sif AS TEXT) = CAST(s_p.cliente_id_sif AS TEXT) THEN 0 ELSE 1 END ASC,
           inv_p.id_sif_research ASC;
@@ -2188,6 +2193,76 @@ async function asignarAnalistaPorSucursales(req, res, next) {
   }
 }
 
+/**
+ * Soft Delete / Cancelación de Investigación (Exclusivo para Validador)
+ * Cambia el estado a 'CANCELADA' para no romper histórico ni llaves foráneas
+ */
+async function eliminarInvestigacion(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { motivo } = req.body || {};
+    const usuarioId = req.user?.id;
+    const usuarioNombre = req.user?.nombre || 'Validador';
+    const usuarioRol = req.user?.rol || 'validador';
+
+    // 1. Verificar existencia
+    const { rows } = await db.query(
+      `SELECT id_sif_research, solicitud_id_sif, persona_id_sif, tipo_sujeto, estado, estado_validacion
+       FROM investigaciones
+       WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: `La investigación #${id} no existe.` });
+    }
+
+    const inv = rows[0];
+
+    // 2. Realizar soft delete
+    await db.query(
+      `UPDATE investigaciones
+       SET estado = 'CANCELADA',
+           updated_at = NOW()
+       WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      [id]
+    );
+
+    // 3. Registrar en bitácora de auditoría
+    registrarAuditoria({
+      usuario_id: usuarioId,
+      usuario_nombre: usuarioNombre,
+      usuario_rol: usuarioRol,
+      accion: 'ELIMINAR_INVESTIGACION',
+      recurso: 'investigaciones',
+      recurso_id: String(id),
+      descripcion: `Investigación #${id} marcada como CANCELADA por ${usuarioNombre}. Motivo: ${motivo || 'Sin motivo especificado'}`,
+      ip_origen: req.ip || req.connection?.remoteAddress,
+      user_agent: req.headers['user-agent'],
+      datos_anteriores: {
+        estado: inv.estado,
+        estado_validacion: inv.estado_validacion,
+        solicitud_id_sif: inv.solicitud_id_sif,
+        persona_id_sif: inv.persona_id_sif,
+        tipo_sujeto: inv.tipo_sujeto,
+      },
+      datos_nuevos: {
+        estado: 'CANCELADA',
+        motivo: motivo || 'Cancelada por validador',
+      },
+      resultado: 'exito',
+    });
+
+    res.json({
+      success: true,
+      message: `Investigación #${id} eliminada/cancelada exitosamente.`,
+      id_sif_research: id,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
@@ -2205,5 +2280,6 @@ module.exports = {
   actualizarTelefonoInvestigacion,
   solventarFolioInvestigacion,
   subirComprobanteFolio,
+  eliminarInvestigacion,
 };
 

@@ -16,6 +16,7 @@ const {
   actualizarTelefonoInvestigacion,
   solventarFolioInvestigacion,
   subirComprobanteFolio,
+  eliminarInvestigacion,
 } = require('../controllers/investigaciones.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const upload = require('../middlewares/upload.middleware');
@@ -39,6 +40,7 @@ router.post('/:id/revalidar', authenticate, authorize(PERMISSIONS.REVALIDAR_INVE
 router.post('/:id/comentarios-validador', authenticate, authorize(PERMISSIONS.VALIDAR_INVESTIGACION), guardarComentariosValidador);
 router.post('/:id/solventar-folio', authenticate, authorize(PERMISSIONS.VALIDAR_INVESTIGACION), solventarFolioInvestigacion);
 router.post('/:id/comprobante-folio', authenticate, authorize(PERMISSIONS.VALIDAR_INVESTIGACION), upload.single('comprobante'), subirComprobanteFolio);
+router.delete('/:id', authenticate, authorize(PERMISSIONS.ELIMINAR_INVESTIGACION), eliminarInvestigacion);
 
 module.exports = router;
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, asignarAnalistaLote, asignarAnalistaPorSucursales, fetchColoniasActivas, fetchSucursalesActivas } from '../services/api';
-import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2, AlertTriangle, CheckCircle2, UserCheck, Lock } from 'lucide-react';
+import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, asignarAnalistaLote, asignarAnalistaPorSucursales, fetchColoniasActivas, fetchSucursalesActivas, eliminarInvestigacionApi } from '../services/api';
+import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2, AlertTriangle, CheckCircle2, UserCheck, Lock, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +41,8 @@ export default function InvestigacionesPage() {
   const canAssignAnalista = isNormaBermejo || ['superadmin', 'admin', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'].some(r => userRole.includes(r));
   // Permiso para seleccionar con checkboxes: asignadores de campo O asignadores de analistas
   const canSelectCheckboxes = canAssign || canAssignAnalista;
+  // Solo los usuarios con rol de validador (o superadmin) pueden eliminar investigaciones
+  const canDeleteInv = userRole.includes('validador') || userRole === 'superadmin';
 
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -99,6 +101,27 @@ export default function InvestigacionesPage() {
   const [sucursalAnalistaId, setSucursalAnalistaId] = useState('');
   const [reasignarExistentes, setReasignarExistentes] = useState(false);
   const [assigningPorSucursales, setAssigningPorSucursales] = useState(false);
+
+  // Modal Eliminar / Cancelar Investigación (Exclusivo Validador)
+  const [deletingInv, setDeletingInv] = useState(null);
+  const [deleteMotivo, setDeleteMotivo] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleConfirmDelete() {
+    if (!deletingInv) return;
+    setIsDeleting(true);
+    try {
+      await eliminarInvestigacionApi(deletingInv.id_sif_research, deleteMotivo);
+      setToast({ message: `Investigación #${deletingInv.id_sif_research} eliminada exitosamente.`, type: 'success' });
+      setDeletingInv(null);
+      setDeleteMotivo('');
+      loadInvestigaciones();
+    } catch (err) {
+      setToast({ message: err.message || 'Error al eliminar la investigación.', type: 'error' });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   useEffect(() => {
     loadInvestigaciones();
@@ -1114,6 +1137,20 @@ export default function InvestigacionesPage() {
                         <Eye className="w-3.5 h-3.5" />
                         {isAnalista ? 'Consultar' : 'Ver Formato'}
                       </Link>
+
+                      {canDeleteInv && row.estado !== 'CANCELADA' && (
+                        <button
+                          onClick={() => {
+                            setDeletingInv(row);
+                            setDeleteMotivo('');
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 hover:text-rose-100 border border-rose-500/30 text-xs font-semibold transition inline-flex items-center gap-1 shadow-sm"
+                          title="Eliminar / Cancelar investigación (Exclusivo Validador)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Eliminar
+                        </button>
+                      )}
                     </td>
                   </tr>
                   );
@@ -1851,6 +1888,61 @@ export default function InvestigacionesPage() {
               >
                 <Building2 className="w-4 h-4" />
                 {assigningPorSucursales ? 'Asignando por Sucursales...' : 'Confirmar Asignación por Sucursal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Eliminación de Investigación (Exclusivo Validador) */}
+      {deletingInv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-rose-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <Trash2 className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">¿Eliminar Investigación?</h3>
+                <p className="text-xs text-slate-400">Esta acción cancelará la investigación del paquete activo.</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800 text-xs space-y-1.5">
+              <div><span className="text-slate-400">Folio Investigación:</span> <strong className="text-white font-mono">#{deletingInv.id_sif_research}</strong></div>
+              <div><span className="text-slate-400">Sujeto:</span> <strong className="text-white">{deletingInv.sujeto_nombre}</strong> ({deletingInv.tipo_sujeto})</div>
+              <div><span className="text-slate-400">Folio Crédito:</span> <strong className="text-sky-400">{deletingInv.solicitud_folio || `Sol: #${deletingInv.solicitud_id_sif}`}</strong></div>
+              <div><span className="text-slate-400">Estado Actual:</span> <strong className="text-amber-400">{deletingInv.estado}</strong></div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Motivo de cancelación / eliminación (para auditoría):
+              </label>
+              <textarea
+                value={deleteMotivo}
+                onChange={(e) => setDeleteMotivo(e.target.value)}
+                placeholder="Ej. Duplicada, error de solicitud, cancelada por sucursal..."
+                className="w-full h-20 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500 resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeletingInv(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white transition flex items-center gap-1.5 shadow-lg shadow-rose-600/30"
+              >
+                {isDeleting ? 'Eliminando...' : 'Sí, Eliminar'}
               </button>
             </div>
           </div>

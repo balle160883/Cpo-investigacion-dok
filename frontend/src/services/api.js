@@ -447,3 +447,12 @@ export async function fetchSlaStats(params = {}) {
   });
   return handleResponse(res, 'Error al cargar estadísticas SLA');
 }
+
+export async function eliminarInvestigacionApi(id, motivo = '') {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ motivo }),
+  });
+  return handleResponse(res, 'Error al eliminar la investigación');
+}
