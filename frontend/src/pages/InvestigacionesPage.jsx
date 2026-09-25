@@ -590,6 +590,7 @@ export default function InvestigacionesPage() {
                 <option value="EN_PROCESO">En Proceso</option>
                 <option value="COMPLETADA">Completadas en Campo</option>
                 <option value="VALIDADA">Validadas / Visto Bueno ✅</option>
+                <option value="DEVUELTA_A_VALIDADOR">Devueltas al Validador 🔄</option>
                 <option value="RECHAZADA">Rechazadas ❌</option>
                 <option value="CANCELADA">Canceladas / Eliminadas 🗑️</option>
               </select>
@@ -1201,7 +1202,7 @@ export default function InvestigacionesPage() {
                                         : 'bg-slate-800 text-slate-400 border border-slate-700'
                           }`}>
                           {row.estado === 'APROBADA_FINAL' ? '✅✅ APROBADA FINAL'
-                            : row.estado === 'DEVUELTA_A_VALIDADOR' ? '🔄 DEVUELTA'
+                            : row.estado === 'DEVUELTA_A_VALIDADOR' ? (row.paquete_total > 1 ? `🔄 DEVUELTA (${row.paquete_total})` : '🔄 DEVUELTA')
                               : row.estado === 'VALIDADA' ? 'VALIDADA ✅'
                                 : row.estado === 'RECHAZADA' ? 'RECHAZADA ❌'
                                   : row.estado === 'REAGENDADA' ? '🔄 REAGENDADA (CITA/FOLIO)'
@@ -1210,6 +1211,12 @@ export default function InvestigacionesPage() {
                         {row.estado === 'REAGENDADA' && row.observaciones_sif && (
                           <div className={clsx('mt-1', 'text-[10px]', 'text-purple-300', 'italic', 'truncate', 'max-w-[170px]')} title={row.observaciones_sif}>
                             📌 {row.observaciones_sif}
+                          </div>
+                        )}
+                        {/* Motivo de Devolución del Analista (cuando fue regresada al Validador) */}
+                        {row.estado === 'DEVUELTA_A_VALIDADOR' && row.comentarios_revalidacion && (
+                          <div className={clsx('mt-1', 'text-[10px]', 'text-orange-300', 'bg-orange-950/40', 'border', 'border-orange-500/30', 'p-1', 'rounded-lg', 'truncate', 'max-w-[170px]')} title={`Observación del Analista:\n"${row.comentarios_revalidacion}"`}>
+                            ⚠️ {row.comentarios_revalidacion}
                           </div>
                         )}
                         {/* Dictamen/Observaciones del Validador */}

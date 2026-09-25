@@ -229,7 +229,7 @@ export default function DetalleFormatoPage() {
 
   const paquete = data.paqueteInvestigaciones || [];
   const totalVisitas = paquete.length;
-  const completadasVisitas = paquete.filter(p => ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(p.estado)).length;
+  const completadasVisitas = paquete.filter(p => ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'].includes(p.estado)).length;
   const isPaqueteCompleto = totalVisitas <= 1 || completadasVisitas === totalVisitas;
 
   const plantillasDictamen = [
@@ -567,9 +567,9 @@ export default function DetalleFormatoPage() {
                 onClick={() => setShowDevolucionModal(true)}
                 disabled={revalidating}
                 className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-orange-600/30"
-                title="Devolver al validador por inconsistencias"
+                title="Devolver el paquete completo de este crédito al validador por inconsistencias"
               >
-                <AlertTriangle className="w-3.5 h-3.5" /> Devolver al Validador
+                <AlertTriangle className="w-3.5 h-3.5" /> {totalVisitas > 1 ? `Devolver Paquete (${totalVisitas})` : 'Devolver al Validador'}
               </button>
             </div>
           )}
@@ -2152,7 +2152,7 @@ export default function DetalleFormatoPage() {
             </div>
 
             <p className={clsx('text-xs', 'text-slate-300')}>
-              Describe detalladamente las inconsistencias u observaciones encontradas. El <strong>Validador de Crédito</strong> recibirá tu reporte para corregir o complementar la información:
+              Describe detalladamente las inconsistencias u observaciones encontradas. Al devolver esta investigación, <strong className="text-amber-400">se devolverá el paquete completo ({totalVisitas > 1 ? `${totalVisitas} investigaciones del crédito` : 'esta investigación'})</strong> a la bandeja del <strong>Validador de Crédito</strong> para que revise integralmente el expediente:
             </p>
 
             {/* Chips de motivos comunes */}
@@ -2193,7 +2193,7 @@ export default function DetalleFormatoPage() {
                 disabled={revalidating || !comentariosDevolucion.trim()}
                 className={clsx('px-4', 'py-2', 'rounded-xl', 'bg-orange-600', 'hover:bg-orange-500', 'disabled:opacity-50', 'text-white', 'text-xs', 'font-bold', 'transition', 'flex', 'items-center', 'gap-1.5', 'shadow-lg', 'shadow-orange-600/30')}
               >
-                {revalidating ? 'Enviando...' : '🔄 Devolver al Validador'}
+                {revalidating ? 'Enviando...' : totalVisitas > 1 ? `🔄 Devolver Paquete Completo (${totalVisitas}) al Validador` : '🔄 Devolver al Validador'}
               </button>
             </div>
           </div>

@@ -170,10 +170,78 @@ async function sendCreditoValidadoEmail({
   return sendMail({ to, subject, html });
 }
 
+// 4. Notificación al Validador cuando el Analista devuelve el paquete por inconsistencias
+async function sendPaqueteDevueltoAValidadorEmail({
+  to,
+  solicitudFolio,
+  clienteNombre,
+  sucursalNombre,
+  montoSolicitado,
+  analistaNombre,
+  motivoDevolucion,
+  sujetoObservado,
+  totalInvestigaciones = 1,
+  investigacionId,
+}) {
+  if (!to) return;
+  const subject = `⚠️ Paquete de Crédito Devuelto: Folio ${solicitudFolio || `#${investigacionId}`} — Observaciones del Analista`;
+  const montoFormat = montoSolicitado ? `$${parseFloat(montoSolicitado).toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : 'N/A';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background-color: #0f172a; color: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #334155;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #f97316; margin: 0;">Caja Popular Oblatos</h2>
+        <p style="color: #94a3b8; font-size: 12px; margin: 4px 0 0 0;">Control de Calidad de Investigaciones Domiciliarias</p>
+      </div>
+      <hr style="border-color: #334155; margin-bottom: 20px;" />
+      <div style="background-color: rgba(234, 88, 12, 0.15); border-left: 4px solid #f97316; padding: 14px; border-radius: 8px; margin-bottom: 20px;">
+        <h3 style="color: #fb923c; margin: 0 0 6px 0; font-size: 16px;">🔄 Paquete Completo Devuelto por el Analista</h3>
+        <p style="margin: 0; font-size: 13px; color: #e2e8f0;">
+          El Analista <strong>${analistaNombre || 'Analista de Crédito'}</strong> ha devuelto el paquete completo de este crédito (${totalInvestigaciones} investigación/es) debido a inconsistencias detectadas en <strong>${sujetoObservado || 'el estudio'}</strong>.
+        </p>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
+        <tr>
+          <td style="padding: 8px; color: #94a3b8; border-bottom: 1px solid #1e293b; width: 40%;"><strong>Folio de Crédito:</strong></td>
+          <td style="padding: 8px; color: #ffffff; border-bottom: 1px solid #1e293b; font-weight: bold;">${solicitudFolio || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; color: #94a3b8; border-bottom: 1px solid #1e293b;"><strong>Socio / Acreditado:</strong></td>
+          <td style="padding: 8px; color: #ffffff; border-bottom: 1px solid #1e293b; font-weight: bold;">${clienteNombre || 'Socio CPO'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; color: #94a3b8; border-bottom: 1px solid #1e293b;"><strong>Sucursal:</strong></td>
+          <td style="padding: 8px; color: #ffffff; border-bottom: 1px solid #1e293b;">${sucursalNombre || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; color: #94a3b8; border-bottom: 1px solid #1e293b;"><strong>Monto Solicitado:</strong></td>
+          <td style="padding: 8px; color: #38bdf8; border-bottom: 1px solid #1e293b; font-weight: bold;">${montoFormat}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; color: #94a3b8; border-bottom: 1px solid #1e293b;"><strong>Motivo de Inconsistencia:</strong></td>
+          <td style="padding: 8px; color: #fca5a5; border-bottom: 1px solid #1e293b; font-style: italic;">"${motivoDevolucion}"</td>
+        </tr>
+      </table>
+
+      <div style="text-align: center; margin: 26px 0;">
+        <a href="http://31.97.144.6:3002/investigaciones/${investigacionId}" style="background-color: #ea580c; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 13px;">
+          🔍 Revisar Formato y Corregir Inconsistencia
+        </a>
+      </div>
+
+      <p style="font-size: 11px; color: #64748b; text-align: center; margin-top: 24px;">
+        Notificación automática emitida por la plataforma CPO Investigaciones • Caja Popular Oblatos
+      </p>
+    </div>
+  `;
+  return sendMail({ to, subject, html });
+}
+
 module.exports = {
   getSmtpConfig,
   sendMail,
   sendPasswordResetEmail,
   sendInvestigacionCompletadaEmail,
   sendCreditoValidadoEmail,
+  sendPaqueteDevueltoAValidadorEmail,
 };

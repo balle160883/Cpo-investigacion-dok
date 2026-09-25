@@ -129,7 +129,7 @@ async function getInvestigaciones(req, res, next) {
           SELECT 1 
           FROM investigaciones inv_sub 
           WHERE inv_sub.solicitud_id_sif = inv.solicitud_id_sif
-            AND (inv_sub.estado IS NULL OR inv_sub.estado NOT IN ('COMPLETADA', 'REAGENDADA', 'VALIDADA', 'APROBADA_FINAL'))
+            AND (inv_sub.estado IS NULL OR inv_sub.estado NOT IN ('COMPLETADA', 'REAGENDADA', 'VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'))
         )`);
       }
 
@@ -422,7 +422,7 @@ async function getInvestigaciones(req, res, next) {
       LEFT JOIN LATERAL (
         SELECT 
           COUNT(*) as paquete_total,
-          COUNT(*) FILTER (WHERE inv_p.estado IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL') OR inv_p.estado_validacion = 'VALIDADA') as paquete_completadas,
+          COUNT(*) FILTER (WHERE inv_p.estado IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR') OR inv_p.estado_validacion = 'VALIDADA') as paquete_completadas,
           COUNT(*) FILTER (WHERE inv_p.estado_validacion = 'VALIDADA') as paquete_validadas,
           (COUNT(*) > 0 AND COUNT(*) = COUNT(*) FILTER (WHERE inv_p.estado_validacion = 'VALIDADA')) as paquete_todo_validado
         FROM investigaciones inv_p
@@ -1192,7 +1192,7 @@ async function validarInvestigacion(req, res, next) {
         SELECT id_sif_research, estado
         FROM investigaciones
         WHERE CAST(solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
-          AND (estado IS NULL OR estado NOT IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'))
+          AND (estado IS NULL OR estado NOT IN ('COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR'))
       `, [prev[0].solicitud_id_sif]);
 
       if (incompletas.length > 0) {
@@ -1300,9 +1300,15 @@ async function revalidarInvestigacion(req, res, next) {
       return res.status(400).json({ error: 'Acción de revalidación inválida. Debe ser APROBAR_FINAL o DEVOLVER_VALIDADOR.' });
     }
 
-    // Verificar que la investigación exista y esté VALIDADA (solo se puede revalidar tras el validador)
+    // Verificar que la investigación exista y obtener datos del crédito/paquete
     const { rows: prev } = await db.query(
-      `SELECT estado, estado_validacion FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
+      `SELECT inv.id_sif_research, inv.estado, inv.estado_validacion, inv.solicitud_id_sif, inv.tipo_sujeto,
+              p.nombre_completo as persona_nombre, s.folio as solicitud_folio, s.sucursal_nombre, s.monto_solicitado,
+              inv.validador_id
+       FROM investigaciones inv
+       LEFT JOIN personas p ON CAST(inv.persona_id_sif AS TEXT) = CAST(p.id_sif AS TEXT)
+       LEFT JOIN solicitudes_credito s ON CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
+       WHERE CAST(inv.id_sif_research AS TEXT) = CAST($1 AS TEXT)`,
       [id]
     );
 
@@ -1310,9 +1316,11 @@ async function revalidarInvestigacion(req, res, next) {
       return res.status(404).json({ error: 'Investigación no encontrada' });
     }
 
-    const estadoActual = prev[0].estado_validacion || prev[0].estado;
+    const targetInv = prev[0];
+    const estadoActual = targetInv.estado_validacion || targetInv.estado;
     const nuevoEstado = accion === 'APROBAR_FINAL' ? 'APROBADA_FINAL' : 'DEVUELTA_A_VALIDADOR';
     const analistaId = req.user?.id || null;
+    const analistaNombre = req.user?.nombre || req.user?.email || 'Analista de Crédito';
 
     // Garantizar columnas de revalidacion
     try {
@@ -1321,6 +1329,134 @@ async function revalidarInvestigacion(req, res, next) {
       await db.query(`ALTER TABLE investigaciones ADD COLUMN IF NOT EXISTS comentarios_revalidacion TEXT;`);
     } catch (e) {}
 
+    // REGLA CLAVE: Si el analista devuelve una investigación, se devuelve el paquete COMPLETO del crédito al validador
+    if (accion === 'DEVOLVER_VALIDADOR') {
+      const solId = targetInv.solicitud_id_sif;
+      const sujetoLabel = targetInv.tipo_sujeto
+        ? `${targetInv.tipo_sujeto.toUpperCase()}${targetInv.persona_nombre ? ` (${targetInv.persona_nombre})` : ''}`
+        : 'esta investigación';
+
+      if (solId) {
+        // Obtenemos todas las investigaciones activas del paquete del crédito
+        const { rows: paqueteRows } = await db.query(
+          `SELECT id_sif_research, tipo_sujeto, estado, estado_validacion, validador_id
+           FROM investigaciones
+           WHERE CAST(solicitud_id_sif AS TEXT) = CAST($1 AS TEXT)
+             AND (estado IS NULL OR estado != 'CANCELADA')`,
+          [solId]
+        );
+
+        const affectedCount = paqueteRows.length || 1;
+
+        // Actualizamos TODAS las investigaciones del paquete a DEVUELTA_A_VALIDADOR
+        await db.query(`
+          UPDATE investigaciones
+          SET estado = 'DEVUELTA_A_VALIDADOR',
+              estado_validacion = 'DEVUELTA_A_VALIDADOR',
+              analista_id = COALESCE($1, analista_id),
+              fecha_revalidacion = NOW(),
+              comentarios_revalidacion = CASE 
+                WHEN CAST(id_sif_research AS TEXT) = CAST($2 AS TEXT) THEN $3
+                ELSE CONCAT('[Paquete devuelto al Validador por observación en ', $4::text, ']: ', $3::text)
+              END,
+              updated_at = NOW()
+          WHERE CAST(solicitud_id_sif AS TEXT) = CAST($5 AS TEXT)
+            AND (estado IS NULL OR estado != 'CANCELADA');
+        `, [analistaId, id, comentarios || '', sujetoLabel, solId]);
+
+        // Registrar auditoría para cada investigación del paquete
+        for (const rowP of paqueteRows) {
+          await registrarAuditoria(req, {
+            accion: 'DEVOLVER_A_VALIDADOR_PAQUETE',
+            entidad: 'investigaciones',
+            entidad_id: rowP.id_sif_research,
+            datos_anteriores: { estado: rowP.estado, estado_validacion: rowP.estado_validacion },
+            datos_nuevos: {
+              estado: 'DEVUELTA_A_VALIDADOR',
+              comentarios_revalidacion: rowP.id_sif_research === targetInv.id_sif_research
+                ? comentarios
+                : `[Paquete devuelto al Validador por observación en ${sujetoLabel}]: ${comentarios}`,
+              devuelto_por_investigacion_id: id,
+            },
+          });
+        }
+
+        // Notificar por correo al validador si está configurado
+        (async () => {
+          try {
+            const { sendPaqueteDevueltoAValidadorEmail } = require('../utils/mailer.service');
+            let validadorEmails = [];
+            if (targetInv.validador_id) {
+              const { rows: vRows } = await db.query(
+                `SELECT email FROM investigadores WHERE id = $1 AND activo = TRUE AND email IS NOT NULL AND email != ''`,
+                [targetInv.validador_id]
+              );
+              if (vRows.length > 0 && vRows[0].email) {
+                validadorEmails.push(vRows[0].email);
+              }
+            }
+            if (validadorEmails.length === 0) {
+              const { rows: vAll } = await db.query(
+                `SELECT email FROM investigadores WHERE rol ILIKE '%validador%' AND activo = TRUE AND email IS NOT NULL AND email != ''`
+              );
+              validadorEmails = vAll.map((r) => r.email).filter(Boolean);
+            }
+
+            for (const emailTo of validadorEmails) {
+              await sendPaqueteDevueltoAValidadorEmail({
+                to: emailTo,
+                solicitudFolio: targetInv.solicitud_folio,
+                clienteNombre: targetInv.persona_nombre,
+                sucursalNombre: targetInv.sucursal_nombre,
+                montoSolicitado: targetInv.monto_solicitado,
+                analistaNombre,
+                motivoDevolucion: comentarios || 'Sin detalle de inconsistencia.',
+                sujetoObservado: sujetoLabel,
+                totalInvestigaciones: affectedCount,
+                investigacionId: id,
+              });
+            }
+          } catch (errEmail) {
+            console.error('[EMAIL ERROR] Error enviando alerta de devolución al validador:', errEmail.message);
+          }
+        })();
+
+        return res.json({
+          success: true,
+          message: `🔄 Paquete completo devuelto al Validador (${affectedCount} investigaciones del crédito).`,
+          estado: 'DEVUELTA_A_VALIDADOR',
+          total_paquete: affectedCount,
+        });
+      } else {
+        // Si no tiene solicitud_id_sif agrupada, devolver solo esta investigación
+        await db.query(`
+          UPDATE investigaciones
+          SET estado = 'DEVUELTA_A_VALIDADOR',
+              estado_validacion = 'DEVUELTA_A_VALIDADOR',
+              analista_id = $1,
+              fecha_revalidacion = NOW(),
+              comentarios_revalidacion = $2,
+              updated_at = NOW()
+          WHERE CAST(id_sif_research AS TEXT) = CAST($3 AS TEXT);
+        `, [analistaId, comentarios || '', id]);
+
+        await registrarAuditoria(req, {
+          accion: 'DEVOLVER_A_VALIDADOR',
+          entidad: 'investigaciones',
+          entidad_id: id,
+          datos_anteriores: { estado: estadoActual },
+          datos_nuevos: { estado: 'DEVUELTA_A_VALIDADOR', comentarios_revalidacion: comentarios },
+        });
+
+        return res.json({
+          success: true,
+          message: `🔄 Investigación devuelta al Validador para revisión.`,
+          estado: 'DEVUELTA_A_VALIDADOR',
+        });
+      }
+    }
+
+    // APROBACIÓN FINAL
     await db.query(`
       UPDATE investigaciones
       SET estado = $1,
@@ -1333,9 +1469,8 @@ async function revalidarInvestigacion(req, res, next) {
     `, [nuevoEstado, nuevoEstado, analistaId, comentarios || '', id]);
 
     // Registrar en Audit Log
-    const accionAuditoria = accion === 'APROBAR_FINAL' ? 'APROBAR_INVESTIGACION_FINAL' : 'DEVOLVER_A_VALIDADOR';
     await registrarAuditoria(req, {
-      accion: accionAuditoria,
+      accion: 'APROBAR_INVESTIGACION_FINAL',
       entidad: 'investigaciones',
       entidad_id: id,
       datos_anteriores: { estado: estadoActual },
@@ -1344,9 +1479,7 @@ async function revalidarInvestigacion(req, res, next) {
 
     res.json({
       success: true,
-      message: accion === 'APROBAR_FINAL'
-        ? `✅ Investigación aprobada definitivamente (APROBADA_FINAL).`
-        : `🔄 Investigación devuelta al Validador para revisión.`,
+      message: `✅ Investigación aprobada definitivamente (APROBADA_FINAL).`,
       estado: nuevoEstado,
     });
   } catch (err) {
