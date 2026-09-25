@@ -175,12 +175,21 @@ async function getInvestigaciones(req, res, next) {
     }
 
     if (sucursal) {
-      const sucursalNum = parseInt(sucursal, 10);
-      if (!isNaN(sucursalNum)) {
-        queryParams.push(sucursalNum);
-        whereClauses.push(`s.sucursal_id = $${queryParams.length}`);
+      const sucursalStr = String(sucursal).trim();
+      const sucursalParts = sucursalStr.split(',').map((s) => s.trim()).filter(Boolean);
+      const allNumbers = sucursalParts.length > 0 && sucursalParts.every((s) => !isNaN(parseInt(s, 10)));
+
+      if (allNumbers) {
+        if (sucursalParts.length === 1) {
+          queryParams.push(parseInt(sucursalParts[0], 10));
+          whereClauses.push(`s.sucursal_id = $${queryParams.length}`);
+        } else {
+          const nums = sucursalParts.map((s) => parseInt(s, 10));
+          queryParams.push(nums);
+          whereClauses.push(`s.sucursal_id = ANY($${queryParams.length}::int[])`);
+        }
       } else {
-        queryParams.push(`%${sucursal.trim()}%`);
+        queryParams.push(`%${sucursalStr}%`);
         whereClauses.push(`s.sucursal_nombre ILIKE $${queryParams.length}`);
       }
     }
@@ -1834,6 +1843,22 @@ async function subirComprobanteFolio(req, res, next) {
 
 async function asignarAnalista(req, res, next) {
   try {
+    // REGLA ESTRICTA DE NEGOCIO: Únicamente Norma Lizette Bermejo Palos (o superadmin) puede asignar analistas
+    const userName = (req.user?.nombre || '').toLowerCase();
+    const userEmail = (req.user?.email || '').toLowerCase();
+    const isNormaBermejo =
+      userName.includes('norma') ||
+      userName.includes('bermejo') ||
+      userEmail.includes('norma') ||
+      userEmail.includes('bermejo');
+    const isSuperadmin = (req.user?.rol || '').toLowerCase() === 'superadmin';
+
+    if (!isNormaBermejo && !isSuperadmin) {
+      return res.status(403).json({
+        error: 'Acceso denegado: Únicamente Norma Lizette Bermejo Palos tiene facultades para asignar investigaciones a los analistas.'
+      });
+    }
+
     const { solicitud_id_sif, investigacion_id, analista_id } = req.body;
 
     if (!analista_id) {
@@ -1956,6 +1981,22 @@ async function asignarAnalista(req, res, next) {
 
 async function asignarAnalistaLote(req, res, next) {
   try {
+    // REGLA ESTRICTA DE NEGOCIO: Únicamente Norma Lizette Bermejo Palos (o superadmin) puede asignar analistas
+    const userName = (req.user?.nombre || '').toLowerCase();
+    const userEmail = (req.user?.email || '').toLowerCase();
+    const isNormaBermejo =
+      userName.includes('norma') ||
+      userName.includes('bermejo') ||
+      userEmail.includes('norma') ||
+      userEmail.includes('bermejo');
+    const isSuperadmin = (req.user?.rol || '').toLowerCase() === 'superadmin';
+
+    if (!isNormaBermejo && !isSuperadmin) {
+      return res.status(403).json({
+        error: 'Acceso denegado: Únicamente Norma Lizette Bermejo Palos tiene facultades para asignar investigaciones a los analistas.'
+      });
+    }
+
     const { solicitud_ids, investigacion_ids, analista_id } = req.body;
 
     if (!analista_id) {
@@ -2115,6 +2156,22 @@ async function asignarAnalistaLote(req, res, next) {
 
 async function asignarAnalistaPorSucursales(req, res, next) {
   try {
+    // REGLA ESTRICTA DE NEGOCIO: Únicamente Norma Lizette Bermejo Palos (o superadmin) puede asignar analistas
+    const userName = (req.user?.nombre || '').toLowerCase();
+    const userEmail = (req.user?.email || '').toLowerCase();
+    const isNormaBermejo =
+      userName.includes('norma') ||
+      userName.includes('bermejo') ||
+      userEmail.includes('norma') ||
+      userEmail.includes('bermejo');
+    const isSuperadmin = (req.user?.rol || '').toLowerCase() === 'superadmin';
+
+    if (!isNormaBermejo && !isSuperadmin) {
+      return res.status(403).json({
+        error: 'Acceso denegado: Únicamente Norma Lizette Bermejo Palos tiene facultades para asignar investigaciones a los analistas.'
+      });
+    }
+
     const { sucursal_ids, analista_id, reasignar_existentes = false } = req.body;
 
     if (!analista_id) {

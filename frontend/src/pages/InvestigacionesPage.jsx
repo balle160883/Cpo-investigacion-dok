@@ -38,8 +38,8 @@ export default function InvestigacionesPage() {
   const isAnalista = userRole === 'analista' && !isNormaBermejo;
   // Solo administradores y asignadores pueden asignar investigadores de campo. Norma Bermejo y analistas NO asignan visitas.
   const canAssign = ['superadmin', 'admin', 'asignador'].some(r => userRole.includes(r)) && !isNormaBermejo && userRole !== 'analista';
-  // Norma Lizette Bermejo y coordinadores/administradores pueden asignar analistas a los préstamos validados
-  const canAssignAnalista = isNormaBermejo || ['superadmin', 'admin', 'coordinadora_analistas', 'coordinador_analistas', 'gerente_analistas'].some(r => userRole.includes(r));
+  // ÚNICAMENTE Norma Lizette Bermejo Palos (y superadmin de soporte) tiene facultades para asignar analistas
+  const canAssignAnalista = isNormaBermejo || userRole === 'superadmin';
   // Permiso para seleccionar con checkboxes: asignadores de campo O asignadores de analistas
   const canSelectCheckboxes = canAssign || canAssignAnalista;
   // Solo los usuarios con rol de validador (o superadmin) pueden eliminar investigaciones
@@ -372,7 +372,7 @@ export default function InvestigacionesPage() {
   }
 
   // ── Modal asignar analista por sucursales completas ─────────────────────────
-  async function openAsignarPorSucursalesModal() {
+  async function openAsignarPorSucursalesModal(initialSucursalIds = null) {
     try {
       const todos = await fetchInvestigadores();
       const soloAnalistas = (todos || []).filter((u) =>
@@ -387,9 +387,11 @@ export default function InvestigacionesPage() {
     } catch (err) {
       console.error('Error preparando modal de asignación por sucursal:', err);
     }
-    // Si ya había una sucursal filtrada activa, preseleccionarla
-    if (sucursalSeleccionada) {
-      setSucursalesSeleccionadasParaAnalista([String(sucursalSeleccionada)]);
+    // Si se pasa un array explícito o hay sucursales activas en el filtro, preseleccionarlas
+    if (Array.isArray(initialSucursalIds) && initialSucursalIds.length > 0) {
+      setSucursalesSeleccionadasParaAnalista(initialSucursalIds.map(String));
+    } else if (sucursalesSeleccionadasArray.length > 0) {
+      setSucursalesSeleccionadasParaAnalista(sucursalesSeleccionadasArray.map(String));
     } else {
       setSucursalesSeleccionadasParaAnalista([]);
     }
@@ -439,10 +441,47 @@ export default function InvestigacionesPage() {
     }
   }
 
+  // Sucursales activas del filtro (array para selección múltiple o individual)
+  const sucursalesSeleccionadasArray = sucursalSeleccionada
+    ? sucursalSeleccionada.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  function toggleSucursalFiltro(id) {
+    const idStr = String(id);
+    let next;
+    if (sucursalesSeleccionadasArray.includes(idStr)) {
+      next = sucursalesSeleccionadasArray.filter((item) => item !== idStr);
+    } else {
+      next = [...sucursalesSeleccionadasArray, idStr];
+    }
+    setSucursalSeleccionada(next.join(','));
+    setPage(1);
+  }
+
+  function seleccionarTodasSucursalesFiltro() {
+    if (sucursalesSeleccionadasArray.length === sucursales.length) {
+      setSucursalSeleccionada('');
+    } else {
+      setSucursalSeleccionada(sucursales.map((s) => String(s.sucursal_id)).join(','));
+    }
+    setPage(1);
+  }
+
   // Colonia activa del filtro (objeto completo con conteos)
   const coloniaObj = colonias.find((c) => c.colonia === coloniaSeleccionada);
-  // Sucursal activa del filtro
-  const sucursalObj = sucursales.find((s) => String(s.sucursal_id) === String(sucursalSeleccionada));
+  // Sucursal activa del filtro (u objetos si son múltiples)
+  const sucursalesSeleccionadasObjs = sucursales.filter((s) =>
+    sucursalesSeleccionadasArray.includes(String(s.sucursal_id))
+  );
+  const sucursalObj = sucursalesSeleccionadasObjs.length === 1 ? sucursalesSeleccionadasObjs[0] : null;
+  const totalCasosSucursalesSeleccionadas = sucursalesSeleccionadasObjs.reduce(
+    (acc, curr) => acc + parseInt(curr.total || 0, 10),
+    0
+  );
+  const totalListasAnalistaSucursalesSeleccionadas = sucursalesSeleccionadasObjs.reduce(
+    (acc, curr) => acc + parseInt(curr.listas_analista || 0, 10),
+    0
+  );
 
   function exportarAExcel() {
     if (!data || data.length === 0) {
@@ -604,89 +643,184 @@ export default function InvestigacionesPage() {
       {!isAnalista && (
         <div className={clsx('flex', 'flex-wrap', 'items-center', 'gap-3')}>
 
-          {/* Selector de Sucursal de Captación */}
+          {/* Selector de Sucursal de Captación (Soporta individual y múltiple con asignación directa) */}
           <div className="relative">
             <button
               onClick={() => { setSucursalDropdownOpen((prev) => !prev); setColoniaDropdownOpen(false); }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition ${sucursalSeleccionada
-                  ? 'bg-sky-600/20 border-sky-500 text-sky-300'
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition ${sucursalesSeleccionadasArray.length > 0
+                  ? 'bg-sky-600/20 border-sky-500 text-sky-300 ring-1 ring-sky-500/30'
                   : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
                 }`}
-              title="Filtrar investigaciones por sucursal de captación"
+              title="Filtrar investigaciones por una o varias sucursales de captación"
             >
               <Building2 className={clsx('w-4', 'h-4', 'text-sky-400')} />
-              {sucursalSeleccionada
-                ? <>Sucursal: <strong className="ml-1">{formatNombreSucursal(sucursalSeleccionada, sucursalObj?.sucursal_nombre)}</strong>
+              {sucursalesSeleccionadasArray.length === 0 ? (
+                'Filtrar por Sucursal'
+              ) : sucursalesSeleccionadasArray.length === 1 ? (
+                <>
+                  Sucursal: <strong className="ml-1">{formatNombreSucursal(sucursalesSeleccionadasArray[0], sucursalObj?.sucursal_nombre)}</strong>
                   {sucursalObj && (
                     <span className={clsx('ml-1.5', 'px-1.5', 'py-0.5', 'rounded-full', 'bg-sky-500/20', 'text-sky-300', 'text-[10px]', 'font-bold')}>
                       {sucursalObj.total}
                     </span>
                   )}
                 </>
-                : 'Filtrar por Sucursal'}
+              ) : (
+                <>
+                  Sucursales: <strong className="ml-1">{sucursalesSeleccionadasArray.length} seleccionadas</strong>
+                  <span className={clsx('ml-1.5', 'px-1.5', 'py-0.5', 'rounded-full', 'bg-sky-500/20', 'text-sky-300', 'text-[10px]', 'font-bold')}>
+                    {totalCasosSucursalesSeleccionadas}
+                  </span>
+                </>
+              )}
               <ChevronDown className={clsx('w-3.5', 'h-3.5', 'ml-1', 'text-slate-400')} />
             </button>
 
             {sucursalDropdownOpen && (
               <div
-                className={clsx('absolute', 'top-full', 'left-0', 'mt-2', 'z-40', 'bg-slate-950', 'border', 'border-slate-700', 'rounded-2xl', 'shadow-2xl', 'w-80', 'max-h-72', 'overflow-y-auto')}
+                className={clsx('absolute', 'top-full', 'left-0', 'mt-2', 'z-40', 'bg-slate-950', 'border', 'border-slate-700', 'rounded-2xl', 'shadow-2xl', 'w-88', 'max-h-80', 'overflow-hidden', 'flex', 'flex-col')}
                 onMouseLeave={() => setSucursalDropdownOpen(false)}
               >
-                <div className={clsx('p-2', 'border-b', 'border-slate-800', 'text-[11px]', 'text-slate-400', 'font-semibold', 'uppercase', 'tracking-wider', 'px-4', 'py-2.5', 'flex', 'items-center', 'justify-between')}>
-                  <span>Sucursales con casos activos</span>
-                  <span className={clsx('text-[10px]', 'text-sky-400', 'font-normal')}>{sucursales.length} sucursales</span>
+                {/* Header del dropdown */}
+                <div className={clsx('p-3', 'border-b', 'border-slate-800', 'text-[11px]', 'text-slate-400', 'font-semibold', 'flex', 'items-center', 'justify-between', 'bg-slate-900/60')}>
+                  <div>
+                    <span className="uppercase tracking-wider">Sucursales con casos activos</span>
+                    <span className={clsx('text-[10px]', 'text-sky-400', 'block', 'font-normal')}>
+                      {sucursalesSeleccionadasArray.length === 0
+                        ? `${sucursales.length} disponibles`
+                        : `${sucursalesSeleccionadasArray.length} de ${sucursales.length} seleccionadas`}
+                    </span>
+                  </div>
+                  {sucursales.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={seleccionarTodasSucursalesFiltro}
+                      className={clsx('text-sky-400', 'hover:text-sky-300', 'text-[11px]', 'font-semibold', 'transition')}
+                    >
+                      {sucursalesSeleccionadasArray.length === sucursales.length ? 'Limpiar todas' : 'Marcar todas'}
+                    </button>
+                  )}
                 </div>
+
+                {/* Opción Ver todas */}
                 <button
-                  onClick={() => { setSucursalSeleccionada(''); setPage(1); setSucursalDropdownOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-slate-800 transition ${!sucursalSeleccionada ? 'text-sky-400 font-bold' : 'text-slate-300'}`}
+                  type="button"
+                  onClick={() => { setSucursalSeleccionada(''); setPage(1); }}
+                  className={`w-full text-left px-4 py-2 text-xs flex items-center justify-between hover:bg-slate-800/80 transition border-b border-slate-900 ${sucursalesSeleccionadasArray.length === 0 ? 'text-sky-400 font-bold bg-sky-500/10' : 'text-slate-300'}`}
                 >
-                  <span>🏢 Ver todas las sucursales</span>
-                  {!sucursalSeleccionada && <span className={clsx('text-[10px]', 'bg-sky-500/20', 'text-sky-300', 'px-1.5', 'py-0.5', 'rounded-full')}>activo</span>}
+                  <span className="flex items-center gap-2">
+                    <CheckSquare className={clsx('w-3.5', 'h-3.5', sucursalesSeleccionadasArray.length === 0 ? 'text-sky-400' : 'text-slate-600')} />
+                    🏢 Ver todas las sucursales (Sin filtro)
+                  </span>
+                  {sucursalesSeleccionadasArray.length === 0 && (
+                    <span className={clsx('text-[10px]', 'bg-sky-500/20', 'text-sky-300', 'px-1.5', 'py-0.5', 'rounded-full')}>activo</span>
+                  )}
                 </button>
-                {loadingSucursales ? (
-                  <div className={clsx('text-center', 'py-6', 'text-slate-500', 'text-xs')}>Cargando sucursales...</div>
-                ) : sucursales.length === 0 ? (
-                  <div className={clsx('text-center', 'py-6', 'text-slate-500', 'text-xs')}>Sin sucursales disponibles</div>
-                ) : (
-                  sucursales.map((suc) => {
-                    const isSel = String(sucursalSeleccionada) === String(suc.sucursal_id);
-                    return (
-                      <button
-                        key={suc.sucursal_id}
-                        onClick={() => { setSucursalSeleccionada(String(suc.sucursal_id)); setPage(1); setSucursalDropdownOpen(false); }}
-                        className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-slate-800 transition ${isSel ? 'text-sky-400 font-bold bg-sky-500/10' : 'text-slate-300'
-                          }`}
-                      >
-                        <span className={clsx('flex', 'items-center', 'gap-2', 'truncate')}>
-                          <span className={clsx('text-[10px]', 'font-mono', 'font-bold', 'px-1.5', 'py-0.5', 'rounded', 'bg-slate-800', 'text-slate-400', 'border', 'border-slate-700', 'shrink-0')}>#{suc.sucursal_id}</span>
-                          <span className="truncate">{formatNombreSucursal(suc.sucursal_id, suc.sucursal_nombre)}</span>
-                        </span>
-                        <div className={clsx('flex', 'gap-1', 'shrink-0', 'ml-2')}>
-                          <span className={clsx('text-[10px]', 'bg-slate-700', 'text-slate-300', 'px-1.5', 'py-0.5', 'rounded-full')}>
-                            {suc.total}
-                          </span>
-                          {parseInt(suc.sin_asignar) > 0 && (
-                            <span className={clsx('text-[10px]', 'bg-amber-500/20', 'text-amber-300', 'px-1.5', 'py-0.5', 'rounded-full')}>
-                              {suc.sin_asignar}
+
+                {/* Lista de sucursales con checkboxes */}
+                <div className={clsx('overflow-y-auto', 'max-h-56', 'p-1', 'divide-y', 'divide-slate-900')}>
+                  {loadingSucursales ? (
+                    <div className={clsx('text-center', 'py-6', 'text-slate-500', 'text-xs')}>Cargando sucursales...</div>
+                  ) : sucursales.length === 0 ? (
+                    <div className={clsx('text-center', 'py-6', 'text-slate-500', 'text-xs')}>Sin sucursales disponibles</div>
+                  ) : (
+                    sucursales.map((suc) => {
+                      const isSel = sucursalesSeleccionadasArray.includes(String(suc.sucursal_id));
+                      const listasCount = parseInt(suc.listas_analista || 0, 10);
+                      return (
+                        <div
+                          key={suc.sucursal_id}
+                          onClick={() => toggleSucursalFiltro(suc.sucursal_id)}
+                          className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800/70 cursor-pointer rounded-lg transition select-none ${isSel ? 'text-sky-300 font-semibold bg-sky-500/10' : 'text-slate-300'}`}
+                        >
+                          <div className={clsx('flex', 'items-center', 'gap-2', 'truncate', 'mr-2')}>
+                            {isSel ? (
+                              <CheckSquare className={clsx('w-4', 'h-4', 'text-sky-400', 'shrink-0')} />
+                            ) : (
+                              <Square className={clsx('w-4', 'h-4', 'text-slate-600', 'shrink-0')} />
+                            )}
+                            <span className={clsx('text-[10px]', 'font-mono', 'font-bold', 'px-1.5', 'py-0.5', 'rounded', 'bg-slate-800', 'text-slate-400', 'border', 'border-slate-700', 'shrink-0')}>
+                              #{suc.sucursal_id}
                             </span>
-                          )}
+                            <span className="truncate">{formatNombreSucursal(suc.sucursal_id, suc.sucursal_nombre)}</span>
+                          </div>
+
+                          <div className={clsx('flex', 'items-center', 'gap-1.5', 'shrink-0')}>
+                            <span className={clsx('text-[10px]', 'bg-slate-700', 'text-slate-300', 'px-1.5', 'py-0.5', 'rounded-full')} title="Total investigaciones en esta sucursal">
+                              {suc.total}
+                            </span>
+                            {listasCount > 0 && (
+                              <span className={clsx('text-[10px]', 'bg-emerald-500/20', 'text-emerald-300', 'border', 'border-emerald-500/30', 'px-1.5', 'py-0.5', 'rounded-full', 'font-bold')} title="Créditos validados listos para asignar a analista">
+                                {listasCount} listos
+                              </span>
+                            )}
+                            {/* Acción rápida para Norma Bermejo */}
+                            {canAssignAnalista && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSucursalDropdownOpen(false);
+                                  openAsignarPorSucursalesModal([String(suc.sucursal_id)]);
+                                }}
+                                className={clsx('p-1', 'rounded-md', 'bg-indigo-600/30', 'hover:bg-indigo-600', 'text-indigo-300', 'hover:text-white', 'transition')}
+                                title={`Asignar directamente créditos de ${suc.sucursal_nombre || suc.sucursal_id} a un analista`}
+                              >
+                                <Building2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </button>
-                    );
-                  })
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer con acción directa de Asignación para Norma Bermejo */}
+                {canAssignAnalista && sucursalesSeleccionadasArray.length > 0 && (
+                  <div className={clsx('p-2.5', 'border-t', 'border-slate-800', 'bg-slate-900', 'flex', 'items-center', 'justify-between', 'gap-2')}>
+                    <span className={clsx('text-[11px]', 'text-indigo-300', 'font-semibold')}>
+                      {sucursalesSeleccionadasArray.length} sucursal{sucursalesSeleccionadasArray.length !== 1 ? 'es' : ''} marcada{sucursalesSeleccionadasArray.length !== 1 ? 's' : ''}
+                      {totalListasAnalistaSucursalesSeleccionadas > 0 && ` (${totalListasAnalistaSucursalesSeleccionadas} listos)`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSucursalDropdownOpen(false);
+                        openAsignarPorSucursalesModal(sucursalesSeleccionadasArray);
+                      }}
+                      className={clsx('px-3', 'py-1.5', 'rounded-xl', 'bg-indigo-600', 'hover:bg-indigo-500', 'text-white', 'text-xs', 'font-bold', 'shadow-md', 'shadow-indigo-600/30', 'flex', 'items-center', 'gap-1.5', 'transition')}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      Asignar a Analista
+                    </button>
+                  </div>
                 )}
               </div>
             )}
           </div>
 
           {/* Botón limpiar filtro sucursal */}
-          {sucursalSeleccionada && (
+          {sucursalesSeleccionadasArray.length > 0 && (
             <button
               onClick={() => { setSucursalSeleccionada(''); setPage(1); }}
               className={clsx('flex', 'items-center', 'gap-1.5', 'px-3', 'py-2', 'rounded-xl', 'bg-slate-800', 'hover:bg-slate-700', 'text-slate-400', 'hover:text-white', 'text-xs', 'font-semibold', 'border', 'border-slate-700', 'transition')}
-              title="Quitar filtro de sucursal"
+              title="Quitar filtro de sucursales"
             >
-              <X className={clsx('w-3.5', 'h-3.5')} /> Quitar sucursal
+              <X className={clsx('w-3.5', 'h-3.5')} /> Quitar sucursales ({sucursalesSeleccionadasArray.length})
+            </button>
+          )}
+
+          {/* Botón directo de Asignación en la barra para Norma Bermejo cuando tiene sucursales filtradas */}
+          {canAssignAnalista && sucursalesSeleccionadasArray.length > 0 && (
+            <button
+              type="button"
+              onClick={() => openAsignarPorSucursalesModal(sucursalesSeleccionadasArray)}
+              className={clsx('flex', 'items-center', 'gap-2', 'px-3.5', 'py-2', 'rounded-xl', 'bg-indigo-600', 'hover:bg-indigo-500', 'text-white', 'text-xs', 'font-bold', 'shadow-lg', 'shadow-indigo-600/30', 'transition', 'animate-in', 'fade-in')}
+              title="Asignar los créditos validados de las sucursales seleccionadas a un analista"
+            >
+              <Building2 className={clsx('w-4', 'h-4')} />
+              Asignar {sucursalesSeleccionadasArray.length} sucursal{sucursalesSeleccionadasArray.length !== 1 ? 'es' : ''} a Analista
             </button>
           )}
 
