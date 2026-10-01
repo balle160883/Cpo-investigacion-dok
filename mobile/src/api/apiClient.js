@@ -56,10 +56,13 @@ export async function login(email, password) {
     if (data.token) {
       inMemoryToken = data.token;
       inMemoryUser = data.user;
-      await Promise.all([
-        AsyncStorage.setItem('userToken', data.token),
-        AsyncStorage.setItem('userData', JSON.stringify(data.user)),
-      ]);
+      // Solo persistir la sesión completa si no requiere cambio obligatorio de contraseña
+      if (!data.debe_cambiar_password) {
+        await Promise.all([
+          AsyncStorage.setItem('userToken', data.token),
+          AsyncStorage.setItem('userData', JSON.stringify(data.user)),
+        ]);
+      }
     }
     return data;
   } catch (err) {
@@ -67,6 +70,46 @@ export async function login(email, password) {
       throw new Error(
         `Error de red al conectar con el servidor (http://31.97.144.6:4002). Por favor verifica tu conexión a internet.`
       );
+    }
+    throw err;
+  }
+}
+
+export async function primerCambioPassword(nuevaPassword, confirmarPassword, email = null, passwordActual = null) {
+  try {
+    const token = await getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${BASE_URL}/auth/primer-cambio-password`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        nuevaPassword,
+        confirmarPassword,
+        email,
+        passwordActual,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al actualizar contraseña');
+
+    if (data.token) {
+      inMemoryToken = data.token;
+      inMemoryUser = data.user;
+      await Promise.all([
+        AsyncStorage.setItem('userToken', data.token),
+        AsyncStorage.setItem('userData', JSON.stringify(data.user)),
+      ]);
+    }
+
+    return data;
+  } catch (err) {
+    if (err.message === 'Network request failed' || err.name === 'TypeError') {
+      throw new Error('Error de red al conectar con el servidor. Verifica tu conexión.');
     }
     throw err;
   }

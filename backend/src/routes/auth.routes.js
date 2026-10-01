@@ -1,63 +1,46 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { login, me, recuperarPassword, restablecerPassword, enviarResetAdmin } = require('../controllers/auth.controller');
+const { 
+  login, 
+  me, 
+  recuperarPassword, 
+  restablecerPassword, 
+  enviarResetAdmin, 
+  cambiarPasswordPrimerIngreso 
+} = require('../controllers/auth.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 15,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos de inicio de sesión desde esta IP. Por favor intenta de nuevo en 15 minutos.' }
 });
 
-/**
- * @swagger
- * /auth/login:
- *   post:
- *     summary: Iniciar sesión en el sistema CPO
- *     tags: [Autenticación]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email, password]
- *             properties:
- *               email:
- *                 type: string
- *                 example: admin@cajaoblatos.mx
- *               password:
- *                 type: string
- *                 example: "MiContraseña123"
- *     responses:
- *       200:
- *         description: Login exitoso, retorna token JWT
- *       401:
- *         description: Credenciales inválidas
- *       429:
- *         description: Demasiados intentos (rate limit)
- */
 router.post('/login', loginLimiter, login);
+router.get('/me', authenticate, me);
+
+// Middleware opcional de autenticación para cambio obligatorio de contraseña
+function optionalAuthenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authenticate(req, res, next);
+  }
+  next();
+}
 
 /**
- * @swagger
- * /auth/me:
- *   get:
- *     summary: Obtener datos del usuario autenticado
- *     tags: [Autenticación]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Datos del usuario activo en sesión
- *       401:
- *         description: Token inválido o expirado
+ * Endpoint para cambio obligatorio de contraseña en primer ingreso
+ * Soporta autenticación por token Bearer o por usuario/passwordActual en el body
  */
-router.get('/me', authenticate, me);
+router.post('/primer-cambio-password', optionalAuthenticate, cambiarPasswordPrimerIngreso);
+
+router.post('/recuperar-password', recuperarPassword);
+router.post('/restablecer-password', restablecerPassword);
+router.post('/admin-reset', authenticate, enviarResetAdmin);
 
 module.exports = router;
 

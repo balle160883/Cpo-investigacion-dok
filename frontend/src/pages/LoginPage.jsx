@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { getApiBaseUrl, recuperarPasswordApi } from '../services/api';
+import { ShieldCheck, Lock, User, AlertCircle, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { getApiBaseUrl, recuperarPasswordApi, cambiarPasswordPrimerIngresoApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -16,6 +16,15 @@ export default function LoginPage() {
   const [resetEmailInput, setResetEmailInput] = useState('');
   const [sendingResetReq, setSendingResetReq] = useState(false);
   const [resetMsg, setResetMsg] = useState('');
+
+  // Cambio Obligatorio de Contraseña (Primer Ingreso) Modal State
+  const [showForceChangeModal, setShowForceChangeModal] = useState(false);
+  const [pendingSession, setPendingSession] = useState(null);
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [forceChangeLoading, setForceChangeLoading] = useState(false);
+  const [forceChangeError, setForceChangeError] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -47,7 +56,7 @@ export default function LoginPage() {
       const res = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const data = await res.json();
@@ -56,12 +65,63 @@ export default function LoginPage() {
         throw new Error(data.error || 'Credenciales inválidas');
       }
 
+      // Si requiere cambio obligatorio en primer ingreso
+      if (data.debe_cambiar_password) {
+        setPendingSession(data);
+        setShowForceChangeModal(true);
+        return;
+      }
+
       login(data.user, data.token);
       navigate('/');
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForcePasswordChange = async (e) => {
+    e.preventDefault();
+    setForceChangeError('');
+
+    if (!nuevaPassword || !confirmarPassword) {
+      setForceChangeError('Ambos campos son obligatorios.');
+      return;
+    }
+
+    if (nuevaPassword.length < 6) {
+      setForceChangeError('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (nuevaPassword === 'Seguridad2026@') {
+      setForceChangeError('Debes elegir una contraseña distinta a la contraseña temporal.');
+      return;
+    }
+
+    if (nuevaPassword !== confirmarPassword) {
+      setForceChangeError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setForceChangeLoading(true);
+    try {
+      const result = await cambiarPasswordPrimerIngresoApi({
+        nuevaPassword,
+        confirmarPassword,
+        email: email.trim(),
+        passwordActual: password,
+        token: pendingSession?.token,
+      });
+
+      setShowForceChangeModal(false);
+      login(result.user, result.token);
+      navigate('/');
+    } catch (err) {
+      setForceChangeError(err.message || 'Error al actualizar contraseña.');
+    } finally {
+      setForceChangeLoading(false);
     }
   };
 
@@ -100,7 +160,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Nombre de Usuario"
+                placeholder="Nombre de Usuario o Correo"
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 focus:outline-none focus:border-sky-500"
               />
             </div>
@@ -154,6 +214,96 @@ export default function LoginPage() {
           Acceso Autorizado • Caja Oblatos Ahorro y Crédito
         </div>
       </div>
+
+      {/* Modal Cambio Obligatorio de Contraseña (Primer Ingreso) */}
+      {showForceChangeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+          <div className="bg-slate-900 border border-amber-500/30 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl relative">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-base">Actualización de Contraseña</h3>
+                <p className="text-xs text-amber-400/90 font-medium">Primer inicio de sesión requerido</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+              Hola <strong className="text-white">{pendingSession?.user?.nombre}</strong>. Has ingresado con la clave institucional temporal. Por seguridad, define una contraseña personal para acceder al sistema.
+            </p>
+
+            {forceChangeError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{forceChangeError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleForcePasswordChange} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Nueva Contraseña:
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={nuevaPassword}
+                    onChange={(e) => setNuevaPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4 text-amber-400" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Confirmar Nueva Contraseña:
+                </label>
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  value={confirmarPassword}
+                  onChange={(e) => setConfirmarPassword(e.target.value)}
+                  placeholder="Repite tu nueva contraseña"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForceChangeModal(false);
+                    setPassword('');
+                    setNuevaPassword('');
+                    setConfirmarPassword('');
+                  }}
+                  className="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={forceChangeLoading}
+                  className="w-2/3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {forceChangeLoading ? 'Guardando...' : 'Guardar y Entrar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Solicitar Recuperación por Correo */}
       {showResetModal && (

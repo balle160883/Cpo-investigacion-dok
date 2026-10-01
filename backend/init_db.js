@@ -15,6 +15,7 @@ async function initDb() {
         telefono VARCHAR(50),
         rol VARCHAR(50) DEFAULT 'investigador',
         activo BOOLEAN DEFAULT TRUE,
+        debe_cambiar_password BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
@@ -116,6 +117,7 @@ async function initDb() {
     // Alteraciones seguras
     try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT '123456';`); } catch (e) {}
     try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS rol VARCHAR(50) DEFAULT 'investigador';`); } catch (e) {}
+    try { await db.query(`ALTER TABLE investigadores ADD COLUMN IF NOT EXISTS debe_cambiar_password BOOLEAN DEFAULT FALSE;`); } catch (e) {}
     try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS colonia VARCHAR(255);`); } catch (e) {}
     try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS municipio VARCHAR(255) DEFAULT 'Guadalajara';`); } catch (e) {}
     try { await db.query(`ALTER TABLE direcciones ADD COLUMN IF NOT EXISTS estado_provincia VARCHAR(255) DEFAULT 'Jalisco';`); } catch (e) {}

@@ -47,19 +47,27 @@ async function login(req, res, next) {
     }
 
     const token = jwt.sign(
-      { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol },
+      { 
+        id: user.id, 
+        nombre: user.nombre, 
+        email: user.email, 
+        rol: user.rol,
+        debe_cambiar_password: !!user.debe_cambiar_password
+      },
       JWT_SECRET,
       { expiresIn: '30d' }
     );
 
     return res.json({
       token,
+      debe_cambiar_password: !!user.debe_cambiar_password,
       user: {
         id: user.id,
         nombre: user.nombre,
         email: user.email,
         telefono: user.telefono,
         rol: user.rol,
+        debe_cambiar_password: !!user.debe_cambiar_password,
       },
     });
   } catch (err) {
@@ -188,10 +196,102 @@ async function enviarResetAdmin(req, res, next) {
   }
 }
 
+// 4. Cambio de contraseña obligatorio en primer ingreso
+async function cambiarPasswordPrimerIngreso(req, res, next) {
+  try {
+    const { nuevaPassword, confirmarPassword, email, passwordActual } = req.body;
+    let userId = req.user ? req.user.id : null;
+
+    if (!userId) {
+      if (!email || !passwordActual) {
+        return res.status(401).json({ error: 'Debes estar autenticado o proporcionar tu usuario y contraseña actual.' });
+      }
+      const { rows } = await db.query(
+        `SELECT * FROM investigadores WHERE (LOWER(email) = LOWER($1) OR LOWER(nombre) = LOWER($1)) AND activo = TRUE`,
+        [email.trim()]
+      );
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+      const candidate = rows[0];
+      let valid = false;
+      if (candidate.password && (candidate.password.startsWith('$2a$') || candidate.password.startsWith('$2b$'))) {
+        valid = await bcrypt.compare(passwordActual, candidate.password);
+      } else {
+        valid = candidate.password === passwordActual;
+      }
+      if (!valid) {
+        return res.status(401).json({ error: 'La contraseña actual no es correcta' });
+      }
+      userId = candidate.id;
+    }
+
+    if (!nuevaPassword || !confirmarPassword) {
+      return res.status(400).json({ error: 'La nueva contraseña y su confirmación son obligatorias.' });
+    }
+
+    if (nuevaPassword !== confirmarPassword) {
+      return res.status(400).json({ error: 'Las contraseñas no coinciden.' });
+    }
+
+    if (nuevaPassword.length < 6) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+    }
+
+    if (nuevaPassword === 'Seguridad2026@') {
+      return res.status(400).json({ error: 'Debes elegir una contraseña personal diferente a la clave temporal Seguridad2026@.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(nuevaPassword, 10);
+
+    const { rows } = await db.query(
+      `UPDATE investigadores 
+       SET password = $1, debe_cambiar_password = FALSE 
+       WHERE id = $2 
+       RETURNING id, nombre, email, telefono, rol, activo, debe_cambiar_password;`,
+      [hashedPassword, userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    const updatedUser = rows[0];
+
+    const token = jwt.sign(
+      { 
+        id: updatedUser.id, 
+        nombre: updatedUser.nombre, 
+        email: updatedUser.email, 
+        rol: updatedUser.rol, 
+        debe_cambiar_password: false 
+      },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return res.json({
+      mensaje: 'Contraseña actualizada exitosamente. Ya puedes usar tu nueva clave personal.',
+      token,
+      user: {
+        id: updatedUser.id,
+        nombre: updatedUser.nombre,
+        email: updatedUser.email,
+        telefono: updatedUser.telefono,
+        rol: updatedUser.rol,
+        debe_cambiar_password: false,
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   login,
   me,
   recuperarPassword,
   restablecerPassword,
   enviarResetAdmin,
+  cambiarPasswordPrimerIngreso,
 };

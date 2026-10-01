@@ -456,3 +456,18 @@ export async function eliminarInvestigacionApi(id, motivo = '') {
   });
   return handleResponse(res, 'Error al eliminar la investigación');
 }
+
+export async function cambiarPasswordPrimerIngresoApi({ nuevaPassword, confirmarPassword, email, passwordActual, token }) {
+  const baseUrl = getApiBaseUrl();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${baseUrl}/auth/primer-cambio-password`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ nuevaPassword, confirmarPassword, email, passwordActual }),
+  });
+  return handleResponse(res, 'Error al actualizar la contraseña');
+}
+
