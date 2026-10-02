@@ -91,7 +91,7 @@ export default function MapaPage() {
   }, []);
 
   const centrarEnUbicacion = (lng, lat, title, invId = null) => {
-    if (map.current && lng && lat) {
+    if (map.current && lng && lat && !isNaN(parseFloat(lng)) && !isNaN(parseFloat(lat))) {
       map.current.flyTo({
         center: [parseFloat(lng), parseFloat(lat)],
         zoom: 15.5,
@@ -109,6 +109,8 @@ export default function MapaPage() {
           }
         }
       }
+    } else {
+      setToast({ message: `${title || 'Investigador'} no cuenta con transmisión GPS activa en este momento`, type: 'error' });
     }
   };
 
@@ -196,31 +198,40 @@ export default function MapaPage() {
         }
       });
 
+      // Limpiar marcadores de solicitudes obsoletas
+      reqMarkersRef.current.forEach((marker, key) => {
+        if (!activeReqKeys.has(key)) {
+          marker.remove();
+          reqMarkersRef.current.delete(key);
+        }
+      });
+
       // 2. Obtener Ubicaciones de Investigadores Activos
       const ubics = await fetchUbicacionesInvestigadores();
       const listInvestigadores = Array.isArray(ubics) ? ubics : [];
       setInvestigadores(listInvestigadores);
 
       // Renderizar y Actualizar Marcadores de Investigadores con Movimiento Animado Suave
+      // Solo pintar en el mapa a dispositivos que están activamente transmitiendo GPS en tiempo real
       const activeInvKeys = new Set();
       listInvestigadores.forEach((inv) => {
         const lat = parseFloat(inv.latitud);
         const lng = parseFloat(inv.longitud);
 
-        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && inv.en_linea) {
           const key = `inv-${inv.investigador_id}`;
           activeInvKeys.add(key);
           const isOnline = inv.en_linea;
 
             const popupHTML = `
               <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                <div style="font-size: 10px; font-weight: bold; color: ${isOnline ? '#059669' : '#475569'}; text-transform: uppercase;">
-                  ${isOnline ? '📡 INVESTIGADOR EN CAMPO (EN LÍNEA)' : '📍 ÚLTIMA UBICACIÓN CONOCIDA'}
+                <div style="font-size: 10px; font-weight: bold; color: #059669; text-transform: uppercase;">
+                  📡 INVESTIGADOR EN CAMPO (EN LÍNEA)
                 </div>
                 <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
                 <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
-                <span style="font-size: 10px; color: ${isOnline ? '#10b981' : '#64748b'}; font-weight: bold;">
-                  ${isOnline ? `🔋 Batería: ${inv.bateria_nivel || 100}%` : 'App cerrada / Sin emisión GPS'}
+                <span style="font-size: 10px; color: #10b981; font-weight: bold;">
+                  🔋 Batería: ${inv.bateria_nivel || 100}%
                 </span>
               </div>
             `;
@@ -231,14 +242,14 @@ export default function MapaPage() {
               el.style.width = '38px';
               el.style.height = '38px';
               el.style.borderRadius = '50%';
-              el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
+              el.style.backgroundColor = '#059669';
               el.style.border = '3px solid #ffffff';
               el.style.display = 'flex';
               el.style.alignItems = 'center';
               el.style.justifyContent = 'center';
               el.style.color = '#ffffff';
-              el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
-              el.style.zIndex = isOnline ? '999' : '10';
+              el.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
+              el.style.zIndex = '999';
               el.style.cursor = 'pointer';
               el.style.transition = 'transform 0.8s ease-out, background-color 0.5s ease';
               el.innerHTML = `
@@ -263,10 +274,18 @@ export default function MapaPage() {
               if (marker.getPopup()) {
                 marker.getPopup().setHTML(popupHTML);
               }
-              el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
-              el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.4)';
-              el.style.zIndex = isOnline ? '999' : '10';
+              el.style.backgroundColor = '#059669';
+              el.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
+              el.style.zIndex = '999';
             }
+        }
+      });
+
+      // Limpiar marcadores de investigadores que ya no están en línea o cerraron sesión
+      invMarkersRef.current.forEach((val, key) => {
+        if (!activeInvKeys.has(key)) {
+          val.marker.remove();
+          invMarkersRef.current.delete(key);
         }
       });
 
