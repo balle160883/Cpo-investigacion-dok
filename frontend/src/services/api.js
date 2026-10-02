@@ -65,6 +65,14 @@ export async function asignarInvestigadorLote(investigacionIds, investigadorId) 
   return handleResponse(res, 'Error al asignar investigaciones en lote');
 }
 
+export async function reutilizarVigenciaInvestigacion(investigacionId) {
+  const res = await fetch(`${getApiBaseUrl()}/investigaciones/${investigacionId}/reutilizar-vigencia`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al aplicar visita previa vigente');
+}
+
 export async function asignarAnalistaCredito({ solicitud_id_sif, investigacion_id, analista_id }) {
   const res = await fetch(`${getApiBaseUrl()}/investigaciones/asignar-analista`, {
     method: 'POST',

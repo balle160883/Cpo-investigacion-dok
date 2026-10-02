@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, asignarAnalistaLote, asignarAnalistaPorSucursales, fetchColoniasActivas, fetchSucursalesActivas, eliminarInvestigacionApi } from '../services/api';
+import { fetchInvestigaciones, fetchInvestigadores, asignarInvestigador, asignarInvestigadorLote, asignarAnalistaCredito, asignarAnalistaLote, asignarAnalistaPorSucursales, fetchColoniasActivas, fetchSucursalesActivas, eliminarInvestigacionApi, reutilizarVigenciaInvestigacion } from '../services/api';
 import { Search, Eye, UserPlus, MapPin, FileText, ChevronLeft, ChevronRight, ShieldCheck, CheckSquare, Square, Users, X, MapPinned, ChevronDown, Building2, AlertTriangle, CheckCircle2, UserCheck, Lock, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Toast from '../components/Toast';
@@ -1167,17 +1167,38 @@ export default function InvestigacionesPage() {
                       {/* COLUMNA VIGENCIA 90 DÍAS */}
                       <td className={clsx('px-5', 'py-4', 'text-xs')}>
                         {row.visita_vigente ? (
-                          <div className={clsx('flex', 'flex-col', 'gap-1')}>
+                          <div className={clsx('flex', 'flex-col', 'gap-1.5')}>
                             <span className={clsx('inline-flex', 'items-center', 'gap-1', 'px-2', 'py-1', 'rounded-full', 'bg-emerald-500/15', 'text-emerald-400', 'border', 'border-emerald-500/25', 'text-[10px]', 'font-bold')}>
                               <ShieldCheck className={clsx('w-3', 'h-3')} />
                               Vigente hasta {formatFechaCorta(row.visita_vigente_hasta)}
                             </span>
-                            <Link
-                              to={`/investigaciones/${row.visita_previa_id}`}
-                              className={clsx('text-[10px]', 'text-sky-500', 'hover:text-sky-300', 'underline', 'pl-0.5')}
-                            >
-                              Ver visita #{row.visita_previa_id}
-                            </Link>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Link
+                                to={`/investigaciones/${row.visita_previa_id}`}
+                                className={clsx('text-[10px]', 'text-sky-400', 'hover:text-sky-300', 'underline', 'pl-0.5')}
+                              >
+                                Ver visita #{row.visita_previa_id}
+                              </Link>
+                              {!['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(row.estado) && (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const res = await reutilizarVigenciaInvestigacion(row.id_sif_research);
+                                      setToast({ message: res.message || `Vigencia aplicada a #${row.id_sif_research}. No requiere visita en campo.`, type: 'success' });
+                                      loadData();
+                                    } catch (err) {
+                                      setToast({ message: 'Error aplicando vigencia: ' + err.message, type: 'error' });
+                                    }
+                                  }}
+                                  className="text-[10px] font-bold text-emerald-300 bg-emerald-950 hover:bg-emerald-900 px-2 py-0.5 rounded border border-emerald-500/40 transition flex items-center gap-1 shadow-sm"
+                                  title="Aplicar fotos y estudio de la visita previa para que el investigador no acuda a campo"
+                                >
+                                  ⚡ Aplicar
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span className={clsx('text-slate-600', 'text-[10px]', 'italic')}>Sin visita previa</span>

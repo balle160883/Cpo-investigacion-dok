@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { fetchInvestigacionDetalle, validarInvestigacion, revalidarInvestigacion, guardarComentariosValidador, solventarFolioInvestigacion, subirComprobanteFolio } from '../services/api';
+import { fetchInvestigacionDetalle, validarInvestigacion, revalidarInvestigacion, guardarComentariosValidador, solventarFolioInvestigacion, subirComprobanteFolio, reutilizarVigenciaInvestigacion } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   Printer, ChevronLeft, CheckSquare, Square, Camera, ZoomIn, ZoomOut, RotateCw, Download, 
@@ -183,6 +183,23 @@ export default function DetalleFormatoPage() {
       setToast({ message: 'Error procesando revalidación: ' + err.message, type: 'error' });
     } finally {
       setRevalidating(false);
+    }
+  }
+
+  const [aplicandoVigencia, setAplicandoVigencia] = useState(false);
+  async function handleAplicarVigencia() {
+    setAplicandoVigencia(true);
+    try {
+      const res = await reutilizarVigenciaInvestigacion(id);
+      setToast({
+        message: res.message || 'Fotografías y estudio socioeconómico aplicados exitosamente por vigencia de 90 días',
+        type: 'success',
+      });
+      await loadData();
+    } catch (err) {
+      setToast({ message: 'Error aplicando vigencia: ' + err.message, type: 'error' });
+    } finally {
+      setAplicandoVigencia(false);
     }
   }
 
@@ -2202,27 +2219,50 @@ export default function DetalleFormatoPage() {
 
       {/* BANNER VIGENCIA 90 DÍAS (oculto en impresión) */}
       {vigenciaPrevia && vigenciaPrevia.visita_vigente && (
-        <div className={clsx('no-print', 'flex', 'items-start', 'gap-3', 'bg-emerald-950/60', 'border', 'border-emerald-500/40', 'text-emerald-300', 'rounded-2xl', 'p-4', 'shadow-lg', 'shadow-emerald-500/10')}>
-          <ShieldCheck className={clsx('w-6', 'h-6', 'text-emerald-400', 'shrink-0', 'mt-0.5')} />
-          <div className={clsx('text-sm', 'leading-relaxed')}>
-            <p className={clsx('font-bold', 'text-emerald-300', 'text-base')}>
-              ✅ Visita de Campo Vigente — No requiere nueva visita
-            </p>
-            <p className={clsx('text-emerald-400', 'mt-0.5')}>
-              Esta persona ya fue investigada el{' '}
-              <strong>{formatFechaCorta(vigenciaPrevia.visita_realizada_en)}</strong>{' '}
-              como{' '}
-              <strong>{vigenciaPrevia.tipo_previo === 'CLIENTE' ? 'Solicitante' : 'Aval'}</strong>.
-              La vigencia de esa visita expira el{' '}
-              <strong className="text-white">{formatFechaCorta(vigenciaPrevia.visita_vigente_hasta)}</strong>.
-            </p>
-            <Link
-              to={`/investigaciones/${vigenciaPrevia.visita_previa_id}`}
-              className={clsx('inline-block', 'mt-1.5', 'text-xs', 'font-semibold', 'text-emerald-300', 'hover:text-white', 'underline')}
-            >
-              📎 Ver formato de la visita anterior #{vigenciaPrevia.visita_previa_id}
-            </Link>
+        <div className={clsx('no-print', 'flex', 'flex-col', 'sm:flex-row', 'items-start', 'sm:items-center', 'justify-between', 'gap-4', 'bg-emerald-950/70', 'border-2', 'border-emerald-500/50', 'text-emerald-300', 'rounded-2xl', 'p-4', 'shadow-xl', 'shadow-emerald-500/10')}>
+          <div className="flex items-start gap-3">
+            <ShieldCheck className={clsx('w-6', 'h-6', 'text-emerald-400', 'shrink-0', 'mt-0.5')} />
+            <div className={clsx('text-sm', 'leading-relaxed')}>
+              <p className={clsx('font-bold', 'text-emerald-200', 'text-base', 'flex', 'items-center', 'gap-2')}>
+                <span>✅ Visita de Campo Vigente — No requiere nueva visita en campo</span>
+                {ev.es_reutilizada_vigencia && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-extrabold uppercase border border-emerald-500/40">
+                    Fotos y Estudio Cargados
+                  </span>
+                )}
+              </p>
+              <p className={clsx('text-emerald-300/90', 'mt-0.5')}>
+                Esta persona ya fue investigada el{' '}
+                <strong>{formatFechaCorta(vigenciaPrevia.visita_realizada_en)}</strong>{' '}
+                como{' '}
+                <strong>{vigenciaPrevia.tipo_previo === 'CLIENTE' ? 'Solicitante' : 'Aval'}</strong>.
+                La vigencia de esa visita expira el{' '}
+                <strong className="text-white">{formatFechaCorta(vigenciaPrevia.visita_vigente_hasta)}</strong>.
+              </p>
+              {ev.es_reutilizada_vigencia && (
+                <p className="text-xs text-emerald-200 font-semibold mt-1 flex items-center gap-1.5">
+                  <span>📸</span> Las {fotosList.length} fotografía(s) de campo, el estudio socioeconómico y las firmas se cargaron automáticamente desde la visita previa #{vigenciaPrevia.visita_previa_id}.
+                </p>
+              )}
+              <Link
+                to={`/investigaciones/${vigenciaPrevia.visita_previa_id}`}
+                className={clsx('inline-block', 'mt-1.5', 'text-xs', 'font-semibold', 'text-sky-400', 'hover:text-white', 'underline')}
+              >
+                📎 Ver formato original de la visita anterior #{vigenciaPrevia.visita_previa_id}
+              </Link>
+            </div>
           </div>
+
+          {!['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(inv.estado) && (
+            <button
+              onClick={handleAplicarVigencia}
+              disabled={aplicandoVigencia}
+              className="shrink-0 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-200" />
+              {aplicandoVigencia ? 'Aplicando...' : '⚡ Confirmar y Completar por Vigencia (No ir a campo)'}
+            </button>
+          )}
         </div>
       )}
 
@@ -2758,9 +2798,14 @@ export default function DetalleFormatoPage() {
 
         {/* Section 5: EVIDENCIA FOTOGRÁFICA REGISTRADA DESDE LA APP MÓVIL */}
         <div className={clsx('border', 'border-slate-800', 'rounded-lg', 'overflow-hidden')}>
-          <div className={clsx('bg-slate-800', 'text-white', 'px-3', 'py-1', 'text-xs', 'font-bold', 'tracking-wider', 'uppercase', 'flex', 'items-center', 'justify-between')}>
-            <span className={clsx('flex', 'items-center', 'gap-1.5')}>
+          <div className={clsx('bg-slate-800', 'text-white', 'px-3', 'py-1', 'text-xs', 'font-bold', 'tracking-wider', 'uppercase', 'flex', 'items-center', 'justify-between', 'flex-wrap', 'gap-2')}>
+            <span className={clsx('flex', 'items-center', 'gap-1.5', 'flex-wrap')}>
               <Camera className={clsx('w-3.5', 'h-3.5')} /> 5. EVIDENCIA FOTOGRÁFICA REGISTRADA EN CAMPO
+              {ev.es_reutilizada_vigencia && (
+                <span className="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold tracking-normal normal-case border border-emerald-400/40">
+                  ✓ Reutilizada por Vigencia 90 días (Visita #{ev.reutilizada_de_investigacion})
+                </span>
+              )}
             </span>
             <span className={clsx('text-[10px]', 'font-normal', 'text-slate-300')}>
               {fotosList.length > 0 ? `${fotosList.length} Fotografía(s)` : 'Sin fotografías'}

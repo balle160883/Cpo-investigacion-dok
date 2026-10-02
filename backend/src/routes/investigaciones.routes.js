@@ -17,6 +17,7 @@ const {
   solventarFolioInvestigacion,
   subirComprobanteFolio,
   eliminarInvestigacion,
+  reutilizarVigenciaPrevia,
 } = require('../controllers/investigaciones.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 const upload = require('../middlewares/upload.middleware');
@@ -33,6 +34,7 @@ router.post('/asignar-analista-sucursales', authenticate, asignarAnalistaPorSucu
 router.post('/asignar-lote', authenticate, authorize(PERMISSIONS.ASIGNAR_INVESTIGADOR), asignarInvestigadorLote);
 router.get('/:id', authenticate, getInvestigacionDetalle);
 router.post('/:id/asignar', authenticate, authorize(PERMISSIONS.ASIGNAR_INVESTIGADOR), asignarInvestigador);
+router.post('/:id/reutilizar-vigencia', authenticate, reutilizarVigenciaPrevia);
 router.post('/:id/evidencia', authenticate, guardarEvidencia);
 router.patch('/:id/telefono', authenticate, actualizarTelefonoInvestigacion);
 router.post('/:id/validar', authenticate, authorize(PERMISSIONS.VALIDAR_INVESTIGACION), validarInvestigacion);

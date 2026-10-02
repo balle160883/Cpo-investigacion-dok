@@ -739,7 +739,15 @@ async function getInvestigacionDetalle(req, res, next) {
           inv2.tipo_sujeto AS tipo_previo,
           ev2.created_at AS visita_realizada_en,
           (ev2.created_at + INTERVAL '90 days') AS visita_vigente_hasta,
-          ((ev2.created_at + INTERVAL '90 days') > NOW()) AS visita_vigente
+          ((ev2.created_at + INTERVAL '90 days') > NOW()) AS visita_vigente,
+          ev2.latitud_checkin,
+          ev2.longitud_checkin,
+          ev2.fecha_checkin,
+          ev2.estudio_socioeconomico,
+          ev2.fotos_urls,
+          ev2.firma_url,
+          ev2.firma_investigador_url,
+          ev2.notas_investigador
         FROM evidencias_visita ev2
         JOIN investigaciones inv2 ON CAST(ev2.investigacion_id_sif AS TEXT) = CAST(inv2.id_sif_research AS TEXT)
         WHERE CAST(inv2.persona_id_sif AS TEXT) = CAST($1 AS TEXT)
@@ -751,6 +759,30 @@ async function getInvestigacionDetalle(req, res, next) {
 
       if (vigenciaRes.rows.length > 0) {
         vigenciaPrevia = vigenciaRes.rows[0];
+
+        // Si esta investigación aún no cuenta con evidencia propia (o está vacía/sin fotos),
+        // HEREDAR de inmediato las fotografías, estudio, firmas y GPS de la visita previa vigente (< 90 días)
+        const tieneEvidenciaPropiaValida = evidencia && evidencia.fotos_urls &&
+          (typeof evidencia.fotos_urls === 'string' ? evidencia.fotos_urls !== '[]' && evidencia.fotos_urls !== '' : (Array.isArray(evidencia.fotos_urls) && evidencia.fotos_urls.length > 0));
+
+        if (!tieneEvidenciaPropiaValida) {
+          evidencia = {
+            id: evidencia ? evidencia.id : null,
+            investigacion_id_sif: id,
+            latitud_checkin: vigenciaPrevia.latitud_checkin,
+            longitud_checkin: vigenciaPrevia.longitud_checkin,
+            fecha_checkin: vigenciaPrevia.fecha_checkin || vigenciaPrevia.visita_realizada_en,
+            estudio_socioeconomico: vigenciaPrevia.estudio_socioeconomico,
+            fotos_urls: vigenciaPrevia.fotos_urls,
+            firma_url: vigenciaPrevia.firma_url,
+            firma_investigador_url: vigenciaPrevia.firma_investigador_url,
+            notas_investigador: vigenciaPrevia.notas_investigador,
+            es_reutilizada_vigencia: true,
+            reutilizada_de_investigacion: vigenciaPrevia.visita_previa_id,
+            reutilizada_fecha: vigenciaPrevia.visita_realizada_en,
+            reutilizada_tipo: vigenciaPrevia.tipo_previo,
+          };
+        }
       }
     }
 
@@ -2537,6 +2569,99 @@ async function eliminarInvestigacion(req, res, next) {
   }
 }
 
+// Aplicar evidencias y fotos de visita previa vigente (< 90 días) y marcar como COMPLETADA
+async function reutilizarVigenciaPrevia(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    // 1. Obtener investigación
+    const { rows: invRows } = await db.query(
+      `SELECT * FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) OR CAST(id AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
+      [id]
+    );
+    if (invRows.length === 0) {
+      return res.status(404).json({ error: 'Investigación no encontrada' });
+    }
+    const inv = invRows[0];
+    if (!inv.persona_id_sif) {
+      return res.status(400).json({ error: 'La investigación no tiene socio/aval vinculado' });
+    }
+
+    // 2. Buscar visita previa en los últimos 90 días
+    const { rows: prevRows } = await db.query(`
+      SELECT ev2.*, inv2.id_sif_research as previa_id
+      FROM evidencias_visita ev2
+      JOIN investigaciones inv2 ON CAST(ev2.investigacion_id_sif AS TEXT) = CAST(inv2.id_sif_research AS TEXT)
+      WHERE CAST(inv2.persona_id_sif AS TEXT) = CAST($1 AS TEXT)
+        AND ev2.created_at >= NOW() - INTERVAL '90 days'
+        AND CAST(inv2.id_sif_research AS TEXT) != CAST($2 AS TEXT)
+      ORDER BY ev2.created_at DESC
+      LIMIT 1;
+    `, [inv.persona_id_sif, inv.id_sif_research]);
+
+    if (prevRows.length === 0) {
+      return res.status(400).json({ error: 'No se encontró visita previa vigente en los últimos 90 días para esta persona' });
+    }
+
+    const prevEv = prevRows[0];
+
+    // 3. Insertar o actualizar evidencias_visita para esta investigación
+    await db.query(`
+      INSERT INTO evidencias_visita (
+        investigacion_id_sif,
+        latitud_checkin,
+        longitud_checkin,
+        fecha_checkin,
+        estudio_socioeconomico,
+        fotos_urls,
+        firma_url,
+        firma_investigador_url,
+        notas_investigador,
+        sincronizado_a_sif,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW());
+    `, [
+      inv.id_sif_research,
+      prevEv.latitud_checkin,
+      prevEv.longitud_checkin,
+      prevEv.fecha_checkin || new Date(),
+      typeof prevEv.estudio_socioeconomico === 'string' ? prevEv.estudio_socioeconomico : JSON.stringify(prevEv.estudio_socioeconomico || {}),
+      typeof prevEv.fotos_urls === 'string' ? prevEv.fotos_urls : JSON.stringify(prevEv.fotos_urls || []),
+      prevEv.firma_url,
+      prevEv.firma_investigador_url,
+      `Visita y fotografías reutilizadas por vigencia de 90 días (procedentes de investigación previa #${prevEv.previa_id}).`
+    ]);
+
+    // 4. Actualizar estado de la investigación a COMPLETADA para que el investigador ya no acuda a campo
+    await db.query(`
+      UPDATE investigaciones
+      SET estado = 'COMPLETADA',
+          fecha_cumplimiento = NOW(),
+          updated_at = NOW()
+      WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT);
+    `, [inv.id_sif_research]);
+
+    registrarAuditoria({
+      usuario_id: req.user?.id || null,
+      usuario_nombre: req.user?.nombre || req.user?.email || 'Sistema',
+      usuario_rol: req.user?.rol || 'sistema',
+      accion: 'REUTILIZAR_VIGENCIA_90_DIAS',
+      recurso: 'investigaciones',
+      recurso_id: String(inv.id_sif_research),
+      descripcion: `Evidencias y fotos reutilizadas de visita #${prevEv.previa_id} por vigencia de 90 días. Marcada como COMPLETADA.`,
+      resultado: 'exito',
+    });
+
+    res.json({
+      success: true,
+      message: `Fotografías y estudio socioeconómico de la visita previa #${prevEv.previa_id} aplicados exitosamente. Investigación marcada como COMPLETADA sin requerir visita en campo.`,
+      previa_id: prevEv.previa_id
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getInvestigaciones,
   getInvestigacionDetalle,
@@ -2555,5 +2680,6 @@ module.exports = {
   solventarFolioInvestigacion,
   subirComprobanteFolio,
   eliminarInvestigacion,
+  reutilizarVigenciaPrevia,
 };
 
