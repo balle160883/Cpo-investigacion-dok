@@ -114,10 +114,11 @@ async function getUbicaciones(req, res, next) {
       LEFT JOIN (
         SELECT DISTINCT ON (investigador_id) investigador_id, latitud, longitud, bateria_nivel, updated_at
         FROM ubicaciones_investigadores
+        WHERE updated_at >= NOW() - INTERVAL '18 hours'
         ORDER BY investigador_id, updated_at DESC
       ) u ON CAST(i.id AS TEXT) = CAST(u.investigador_id AS TEXT)
       WHERE COALESCE(i.activo, TRUE) = TRUE
-      ORDER BY en_linea DESC, i.nombre ASC;
+      ORDER BY en_linea DESC, u.updated_at DESC NULLS LAST, i.nombre ASC;
     `);
     res.json(rows);
   } catch (err) {

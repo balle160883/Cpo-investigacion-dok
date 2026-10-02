@@ -212,48 +212,51 @@ export default function MapaPage() {
       setInvestigadores(listInvestigadores);
 
       // Renderizar y Actualizar Marcadores de Investigadores con Movimiento Animado Suave
-      // Solo pintar en el mapa a dispositivos que están activamente transmitiendo GPS en tiempo real
+      // Verde = En línea (últimos 15 min) | Gris = Última ubicación conocida de hoy
       const activeInvKeys = new Set();
       listInvestigadores.forEach((inv) => {
         const lat = parseFloat(inv.latitud);
         const lng = parseFloat(inv.longitud);
 
-        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && inv.en_linea) {
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
           const key = `inv-${inv.investigador_id}`;
           activeInvKeys.add(key);
-          const isOnline = inv.en_linea;
+          const isOnline = !!inv.en_linea;
+          const horaReporte = inv.updated_at
+            ? new Date(inv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : '';
 
             const popupHTML = `
-              <div style="color: #0f172a; padding: 6px; font-family: sans-serif;">
-                <div style="font-size: 10px; font-weight: bold; color: #059669; text-transform: uppercase;">
-                  📡 INVESTIGADOR EN CAMPO (EN LÍNEA)
+              <div style="color: #0f172a; padding: 6px; font-family: sans-serif; min-width: 180px;">
+                <div style="font-size: 10px; font-weight: bold; color: ${isOnline ? '#059669' : '#64748b'}; text-transform: uppercase; margin-bottom: 2px;">
+                  ${isOnline ? '📡 INVESTIGADOR EN CAMPO (EN LÍNEA)' : '📍 ÚLTIMA UBICACIÓN CONOCIDA (HOY)'}
                 </div>
                 <strong style="font-size: 13px; color: #0f172a;">${inv.nombre}</strong><br/>
                 <span style="font-size: 11px; color: #475569;">📞 ${inv.telefono || inv.email}</span><br/>
-                <span style="font-size: 10px; color: #10b981; font-weight: bold;">
-                  🔋 Batería: ${inv.bateria_nivel || 100}%
-                </span>
+                <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #e2e8f0; font-size: 10px; font-weight: bold; color: ${isOnline ? '#10b981' : '#64748b'};">
+                  ${isOnline ? `🔋 Batería: ${inv.bateria_nivel || 100}%` : `⏰ Último reporte: ${horaReporte} (App cerrada/suspendida)`}
+                </div>
               </div>
             `;
 
             if (!invMarkersRef.current.has(key)) {
               const el = document.createElement('div');
               el.className = 'custom-inv-marker';
-              el.style.width = '38px';
-              el.style.height = '38px';
+              el.style.width = '36px';
+              el.style.height = '36px';
               el.style.borderRadius = '50%';
-              el.style.backgroundColor = '#059669';
-              el.style.border = '3px solid #ffffff';
+              el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
+              el.style.border = isOnline ? '3px solid #ffffff' : '2px solid #cbd5e1';
               el.style.display = 'flex';
               el.style.alignItems = 'center';
               el.style.justifyContent = 'center';
               el.style.color = '#ffffff';
-              el.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
-              el.style.zIndex = '999';
+              el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.5)';
+              el.style.zIndex = isOnline ? '999' : '10';
               el.style.cursor = 'pointer';
               el.style.transition = 'transform 0.8s ease-out, background-color 0.5s ease';
               el.innerHTML = `
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                   <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
                   <circle cx="12" cy="10" r="3"/>
                 </svg>
@@ -274,14 +277,15 @@ export default function MapaPage() {
               if (marker.getPopup()) {
                 marker.getPopup().setHTML(popupHTML);
               }
-              el.style.backgroundColor = '#059669';
-              el.style.boxShadow = '0 0 16px rgba(16, 185, 129, 0.8)';
-              el.style.zIndex = '999';
+              el.style.backgroundColor = isOnline ? '#059669' : '#64748b';
+              el.style.border = isOnline ? '3px solid #ffffff' : '2px solid #cbd5e1';
+              el.style.boxShadow = isOnline ? '0 0 16px rgba(16, 185, 129, 0.8)' : '0 4px 12px rgba(0,0,0,0.5)';
+              el.style.zIndex = isOnline ? '999' : '10';
             }
         }
       });
 
-      // Limpiar marcadores de investigadores que ya no están en línea o cerraron sesión
+      // Limpiar marcadores de investigadores que ya no tienen coordenadas del día
       invMarkersRef.current.forEach((val, key) => {
         if (!activeInvKeys.has(key)) {
           val.marker.remove();
@@ -455,17 +459,23 @@ export default function MapaPage() {
                   className={`p-3 border rounded-xl cursor-pointer transition space-y-1 ${
                     inv.en_linea
                       ? 'bg-slate-800/80 hover:bg-slate-800 border-emerald-500/50 hover:border-emerald-400 shadow-md'
-                      : 'bg-slate-900/60 hover:bg-slate-800/40 border-slate-800 opacity-60'
+                      : inv.latitud
+                      ? 'bg-slate-900/80 hover:bg-slate-800/60 border-slate-700/60'
+                      : 'bg-slate-900/40 hover:bg-slate-800/30 border-slate-800/60 opacity-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-white flex items-center gap-1.5">
-                      <span className={`w-2.5 h-2.5 rounded-full ${inv.en_linea ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
+                      <span className={`w-2.5 h-2.5 rounded-full ${inv.en_linea ? 'bg-emerald-400 animate-pulse' : (inv.latitud ? 'bg-slate-400' : 'bg-slate-600')}`}></span>
                       {inv.nombre}
                     </span>
                     {inv.en_linea ? (
                       <span className="text-[10px] text-emerald-400 font-mono font-bold">
                         {inv.bateria_nivel || 100}% 🔋
+                      </span>
+                    ) : inv.latitud ? (
+                      <span className="text-[9px] text-slate-400 font-mono font-semibold">
+                        {inv.updated_at ? new Date(inv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Hoy'} 📍
                       </span>
                     ) : (
                       <span className="text-[9px] text-slate-500 uppercase font-semibold">
@@ -475,8 +485,10 @@ export default function MapaPage() {
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center justify-between">
                     <span>{inv.telefono || 'Investigador CPO'}</span>
-                    {inv.en_linea && inv.latitud && (
-                      <span className="text-[10px] text-sky-400 hover:underline font-semibold">📍 Centrar en Mapa</span>
+                    {inv.latitud && (
+                      <span className={`text-[10px] font-semibold ${inv.en_linea ? 'text-sky-400 hover:underline' : 'text-slate-300 hover:text-white hover:underline'}`}>
+                        📍 {inv.en_linea ? 'Centrar en Mapa' : 'Ver última pos.'}
+                      </span>
                     )}
                   </div>
                 </div>
