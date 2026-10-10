@@ -156,6 +156,14 @@ async function initDb() {
             END IF;
           -- 2. Si la actualización proviene del Sincronizador de SIF (externo)
           ELSE
+            -- Si la investigación está REAGENDADA (por visita con cita o folio), mantenerla desasignada o con la asignación realizada en CPO
+            IF OLD.estado = 'REAGENDADA' THEN
+              NEW.estado := 'REAGENDADA';
+              NEW.investigador_id := OLD.investigador_id;
+              NEW.asignacion_manual := TRUE;
+              RETURN NEW;
+            END IF;
+
             -- Si la investigación ya fue asignada manualmente, está en proceso/completada/validada en CPO o ya tiene evidencias
             IF OLD.asignacion_manual = TRUE 
                OR OLD.estado IN ('EN_PROCESO', 'COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'DEVUELTA_A_VALIDADOR', 'RECHAZADA')
@@ -574,20 +582,248 @@ async function initDb() {
       await db.query(`UPDATE investigadores SET rol = 'superadmin' WHERE email = 'admin@cajaoblatos.com.mx';`);
     } catch (e) {}
 
-    // Garantizar clasificación correcta de tipo_sujeto ('SOLICITANTE' vs 'AVAL')
+    // 🛡️ PROTECCIÓN Y AUTO-REPARACIÓN AUTOMÁTICA DE ROLES (SOCIO SOLICITANTE vs AVAL)
     try {
       await db.query(`
-        UPDATE investigaciones inv
-        SET tipo_sujeto = CASE 
-          WHEN CAST(inv.persona_id_sif AS TEXT) = CAST(s.cliente_id_sif AS TEXT) THEN 'SOLICITANTE'
-          ELSE 'AVAL'
-        END
-        FROM solicitudes_credito s
-        WHERE CAST(inv.solicitud_id_sif AS TEXT) = CAST(s.id_sif AS TEXT)
-          AND (inv.tipo_sujeto IS NULL OR inv.tipo_sujeto = 'CLIENTE');
+        CREATE OR REPLACE FUNCTION fn_auto_reparar_roles_credito()
+        RETURNS TRIGGER AS $$
+        DECLARE
+          v_solicitud_id BIGINT;
+          v_aval_id BIGINT;
+          v_socio_id BIGINT;
+          v_cliente_actual BIGINT;
+          v_dir_id BIGINT;
+        BEGIN
+          IF pg_trigger_depth() > 1 THEN
+            RETURN NEW;
+          END IF;
+
+          IF TG_TABLE_NAME = 'investigaciones' THEN
+            v_solicitud_id := NEW.solicitud_id_sif;
+
+            IF EXISTS (
+              SELECT 1 FROM solicitud_avales 
+              WHERE solicitud_id_sif = v_solicitud_id AND aval_id_sif = NEW.persona_id_sif
+            ) THEN
+              NEW.tipo_sujeto := 'AVAL';
+              UPDATE personas SET es_aval = TRUE WHERE id_sif = NEW.persona_id_sif AND es_aval IS NOT TRUE;
+            ELSE
+              NEW.tipo_sujeto := 'SOLICITANTE';
+              UPDATE personas SET es_aval = FALSE WHERE id_sif = NEW.persona_id_sif AND es_aval IS NOT FALSE;
+
+              SELECT cliente_id_sif INTO v_cliente_actual 
+              FROM solicitudes_credito 
+              WHERE id_sif = v_solicitud_id;
+
+              IF v_cliente_actual IS NOT NULL AND v_cliente_actual != NEW.persona_id_sif THEN
+                IF EXISTS (
+                  SELECT 1 FROM solicitud_avales 
+                  WHERE solicitud_id_sif = v_solicitud_id AND aval_id_sif = v_cliente_actual
+                ) THEN
+                  SELECT id_sif INTO v_dir_id 
+                  FROM direcciones 
+                  WHERE persona_id_sif = NEW.persona_id_sif AND es_principal = TRUE 
+                  ORDER BY id_sif DESC LIMIT 1;
+
+                  UPDATE solicitudes_credito
+                  SET cliente_id_sif = NEW.persona_id_sif,
+                      direccion_id_sif = COALESCE(v_dir_id, direccion_id_sif),
+                      inconsistencias = (
+                        SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                        FROM jsonb_array_elements(COALESCE(inconsistencias, '[]'::jsonb)) elem
+                        WHERE elem->>'tipo' != 'AUTO_AVAL_PROHIBIDO'
+                      ),
+                      total_inconsistencias = (
+                        SELECT count(*)
+                        FROM jsonb_array_elements(COALESCE(inconsistencias, '[]'::jsonb)) elem
+                        WHERE elem->>'tipo' != 'AUTO_AVAL_PROHIBIDO'
+                      )
+                  WHERE id_sif = v_solicitud_id;
+                END IF;
+              END IF;
+            END IF;
+
+          ELSIF TG_TABLE_NAME = 'solicitud_avales' THEN
+            v_solicitud_id := NEW.solicitud_id_sif;
+            v_aval_id := NEW.aval_id_sif;
+
+            UPDATE personas SET es_aval = TRUE WHERE id_sif = v_aval_id AND es_aval IS NOT TRUE;
+
+            UPDATE investigaciones 
+            SET tipo_sujeto = 'AVAL' 
+            WHERE solicitud_id_sif = v_solicitud_id AND persona_id_sif = v_aval_id AND tipo_sujeto != 'AVAL';
+
+            SELECT cliente_id_sif INTO v_cliente_actual 
+            FROM solicitudes_credito 
+            WHERE id_sif = v_solicitud_id;
+
+            IF v_cliente_actual = v_aval_id THEN
+              SELECT persona_id_sif INTO v_socio_id
+              FROM investigaciones
+              WHERE solicitud_id_sif = v_solicitud_id AND persona_id_sif != v_aval_id
+              LIMIT 1;
+
+              IF v_socio_id IS NOT NULL THEN
+                SELECT id_sif INTO v_dir_id 
+                FROM direcciones 
+                WHERE persona_id_sif = v_socio_id AND es_principal = TRUE 
+                ORDER BY id_sif DESC LIMIT 1;
+
+                UPDATE solicitudes_credito
+                SET cliente_id_sif = v_socio_id,
+                    direccion_id_sif = COALESCE(v_dir_id, direccion_id_sif),
+                    inconsistencias = (
+                      SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                      FROM jsonb_array_elements(COALESCE(inconsistencias, '[]'::jsonb)) elem
+                      WHERE elem->>'tipo' != 'AUTO_AVAL_PROHIBIDO'
+                    ),
+                    total_inconsistencias = (
+                      SELECT count(*)
+                      FROM jsonb_array_elements(COALESCE(inconsistencias, '[]'::jsonb)) elem
+                      WHERE elem->>'tipo' != 'AUTO_AVAL_PROHIBIDO'
+                    )
+                WHERE id_sif = v_solicitud_id;
+
+                UPDATE investigaciones 
+                SET tipo_sujeto = 'SOLICITANTE' 
+                WHERE solicitud_id_sif = v_solicitud_id AND persona_id_sif = v_socio_id AND tipo_sujeto != 'SOLICITANTE';
+
+                UPDATE personas SET es_aval = FALSE WHERE id_sif = v_socio_id AND es_aval IS NOT FALSE;
+              END IF;
+            END IF;
+
+          ELSIF TG_TABLE_NAME = 'solicitudes_credito' THEN
+            v_solicitud_id := NEW.id_sif;
+            v_cliente_actual := NEW.cliente_id_sif;
+
+            IF EXISTS (
+              SELECT 1 FROM solicitud_avales 
+              WHERE solicitud_id_sif = v_solicitud_id AND aval_id_sif = v_cliente_actual
+            ) THEN
+              SELECT persona_id_sif INTO v_socio_id
+              FROM investigaciones
+              WHERE solicitud_id_sif = v_solicitud_id AND persona_id_sif != v_cliente_actual
+              LIMIT 1;
+
+              IF v_socio_id IS NOT NULL THEN
+                NEW.cliente_id_sif := v_socio_id;
+                SELECT id_sif INTO v_dir_id 
+                FROM direcciones 
+                WHERE persona_id_sif = v_socio_id AND es_principal = TRUE 
+                ORDER BY id_sif DESC LIMIT 1;
+                IF v_dir_id IS NOT NULL THEN
+                  NEW.direccion_id_sif := v_dir_id;
+                END IF;
+              END IF;
+            END IF;
+          END IF;
+
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
       `);
+
+      try {
+        await db.query(`
+          DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_investigaciones_auto_rol') THEN
+              CREATE TRIGGER trg_investigaciones_auto_rol
+              BEFORE INSERT OR UPDATE OF persona_id_sif, solicitud_id_sif, tipo_sujeto
+              ON investigaciones FOR EACH ROW
+              EXECUTE FUNCTION fn_auto_reparar_roles_credito();
+            END IF;
+          END $$;
+        `);
+      } catch (e) {}
+
+      try {
+        await db.query(`
+          DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_solicitud_avales_auto_rol') THEN
+              CREATE TRIGGER trg_solicitud_avales_auto_rol
+              AFTER INSERT OR UPDATE OF aval_id_sif, solicitud_id_sif
+              ON solicitud_avales FOR EACH ROW
+              EXECUTE FUNCTION fn_auto_reparar_roles_credito();
+            END IF;
+          END $$;
+        `);
+      } catch (e) {}
+
+      try {
+        await db.query(`
+          DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_solicitudes_credito_auto_rol') THEN
+              CREATE TRIGGER trg_solicitudes_credito_auto_rol
+              BEFORE INSERT OR UPDATE OF cliente_id_sif
+              ON solicitudes_credito FOR EACH ROW
+              EXECUTE FUNCTION fn_auto_reparar_roles_credito();
+            END IF;
+          END $$;
+        `);
+      } catch (e) {}
+
+      await db.query(`
+        CREATE OR REPLACE FUNCTION fn_reparar_todos_creditos_invertidos()
+        RETURNS TABLE(solicitud_folio VARCHAR, socio_anterior BIGINT, socio_nuevo BIGINT, aval_id BIGINT) AS $$
+        DECLARE
+          r RECORD;
+          v_socio_real BIGINT;
+          v_dir_id BIGINT;
+        BEGIN
+          FOR r IN 
+            SELECT sc.id_sif as sol_id, sc.folio, sc.cliente_id_sif, sa.aval_id_sif
+            FROM solicitudes_credito sc
+            JOIN solicitud_avales sa ON sc.id_sif = sa.solicitud_id_sif AND sc.cliente_id_sif = sa.aval_id_sif
+          LOOP
+            SELECT inv.persona_id_sif INTO v_socio_real
+            FROM investigaciones inv
+            WHERE inv.solicitud_id_sif = r.sol_id AND inv.persona_id_sif != r.aval_id_sif
+            LIMIT 1;
+
+            IF v_socio_real IS NOT NULL THEN
+              SELECT id_sif INTO v_dir_id 
+              FROM direcciones 
+              WHERE persona_id_sif = v_socio_real AND es_principal = TRUE 
+              ORDER BY id_sif DESC LIMIT 1;
+
+              UPDATE solicitudes_credito
+              SET cliente_id_sif = v_socio_real,
+                  direccion_id_sif = COALESCE(v_dir_id, direccion_id_sif),
+                  inconsistencias = (
+                    SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                    FROM jsonb_array_elements(COALESCE(inconsistencias, '[]'::jsonb)) elem
+                    WHERE elem->>'tipo' != 'AUTO_AVAL_PROHIBIDO'
+                  ),
+                  total_inconsistencias = (
+                    SELECT count(*)
+                    FROM jsonb_array_elements(COALESCE(inconsistencias, '[]'::jsonb)) elem
+                    WHERE elem->>'tipo' != 'AUTO_AVAL_PROHIBIDO'
+                  )
+              WHERE id_sif = r.sol_id;
+
+              UPDATE personas SET es_aval = FALSE WHERE id_sif = v_socio_real;
+              UPDATE personas SET es_aval = TRUE WHERE id_sif = r.aval_id_sif;
+
+              UPDATE investigaciones SET tipo_sujeto = 'SOLICITANTE' WHERE solicitud_id_sif = r.sol_id AND persona_id_sif = v_socio_real;
+              UPDATE investigaciones SET tipo_sujeto = 'AVAL' WHERE solicitud_id_sif = r.sol_id AND persona_id_sif = r.aval_id_sif;
+
+              solicitud_folio := r.folio;
+              socio_anterior := r.cliente_id_sif;
+              socio_nuevo := v_socio_real;
+              aval_id := r.aval_id_sif;
+              RETURN NEXT;
+            END IF;
+          END LOOP;
+        END;
+        $$ LANGUAGE plpgsql;
+      `);
+
+      const resRep = await db.query('SELECT * FROM fn_reparar_todos_creditos_invertidos();');
+      if (resRep.rows.length > 0) {
+        console.log(`🛡️ Auto-reparación preventiva ejecutada: ${resRep.rows.length} crédito(s) invertido(s) corregido(s).`);
+      }
     } catch (e) {
-      console.error('Error sincronizando tipo_sujeto en investigaciones:', e.message);
+      console.error('Error configurando triggers de auto-reparación de roles:', e.message);
     }
 
     console.log('✅ Esquema inicializado correctamente.');

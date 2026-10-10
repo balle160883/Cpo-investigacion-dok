@@ -36,8 +36,8 @@ export default function InvestigacionesPage() {
   })();
   const isNormaBermejo = userName.includes('norma') || userName.includes('bermejo') || userEmail.includes('norma') || userEmail.includes('bermejo');
   const isAnalista = userRole === 'analista' && !isNormaBermejo;
-  // Solo administradores y asignadores pueden asignar investigadores de campo. Norma Bermejo y analistas NO asignan visitas.
-  const canAssign = ['superadmin', 'admin', 'asignador'].some(r => userRole.includes(r)) && !isNormaBermejo && userRole !== 'analista';
+  // Administradores, asignadores y validadores pueden asignar investigadores de campo. Norma Bermejo y analistas NO asignan visitas.
+  const canAssign = ['superadmin', 'admin', 'asignador', 'validador'].some(r => userRole.includes(r)) && !isNormaBermejo && userRole !== 'analista';
   // ÚNICAMENTE Norma Lizette Bermejo Palos (y superadmin de soporte) tiene facultades para asignar analistas
   const canAssignAnalista = isNormaBermejo || userRole === 'superadmin';
   // Permiso para seleccionar con checkboxes: asignadores de campo O asignadores de analistas

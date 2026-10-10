@@ -352,13 +352,15 @@ export default function DetalleInvestigacionScreen({ route, navigation }) {
       )}
 
       {/* 5. Botón de Captura o Banner de Bloqueo */}
-      {inv.estado === 'COMPLETADA' ? (
-        <View style={{ backgroundColor: '#1e293b', borderLeftWidth: 4, borderLeftColor: '#10b981', padding: 16, borderRadius: 12, marginTop: 8, marginBottom: 40 }}>
-          <Text style={{ color: '#10b981', fontSize: 14, fontWeight: 'bold', marginBottom: 4 }}>
-            🔒 INVESTIGACIÓN COMPLETADA Y BLOQUEADA
+      {inv.estado === 'COMPLETADA' || inv.estado === 'REAGENDADA' ? (
+        <View style={{ backgroundColor: '#1e293b', borderLeftWidth: 4, borderLeftColor: inv.estado === 'REAGENDADA' ? '#a855f7' : '#10b981', padding: 16, borderRadius: 12, marginTop: 8, marginBottom: 40 }}>
+          <Text style={{ color: inv.estado === 'REAGENDADA' ? '#c084fc' : '#10b981', fontSize: 14, fontWeight: 'bold', marginBottom: 4 }}>
+            {inv.estado === 'REAGENDADA' ? '📌 VISITA CON FOLIO / CITA REGISTRADA' : '🔒 INVESTIGACIÓN COMPLETADA Y BLOQUEADA'}
           </Text>
           <Text style={{ color: '#94a3b8', fontSize: 12 }}>
-            Esta visita ya fue guardada con evidencias, fotos y firmas. No se puede modificar salvo que un supervisor la reasigne.
+            {inv.estado === 'REAGENDADA'
+              ? 'Esta visita ya fue registrada con folio/cita de citatorio en campo. Ha sido turnada a la mesa de control y asignador para su reagendación.'
+              : 'Esta visita ya fue guardada con evidencias, fotos y firmas. No se puede modificar salvo que un supervisor la reasigne.'}
           </Text>
         </View>
       ) : (

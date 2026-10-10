@@ -236,11 +236,11 @@ export default function VisitasScreen({ navigation, route }) {
     return { ...item, distanciaKm: dist };
   });
 
-  const totalPendientes = visitas.filter((item) => !['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(item.estado)).length;
-  const totalCompletadas = visitas.filter((item) => ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(item.estado)).length;
+  const totalPendientes = visitas.filter((item) => !['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'REAGENDADA'].includes(item.estado)).length;
+  const totalCompletadas = visitas.filter((item) => ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'REAGENDADA'].includes(item.estado)).length;
 
   const visitasFiltradas = listConDistancia.filter((item) => {
-    const esTerminada = ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL'].includes(item.estado);
+    const esTerminada = ['COMPLETADA', 'VALIDADA', 'APROBADA_FINAL', 'REAGENDADA'].includes(item.estado);
 
     if (filtroEstado !== 'TODOS') {
       if (filtroEstado === 'PENDIENTE') {
