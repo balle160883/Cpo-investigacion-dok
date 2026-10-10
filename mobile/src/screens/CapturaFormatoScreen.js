@@ -47,6 +47,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
 
   const [estadoCivil, setEstadoCivil] = useState('casado');
   const [ocupacion, setOcupacion] = useState('');
+  const [nombreConyuge, setNombreConyuge] = useState('');
   const [ocupacionConyuge, setOcupacionConyuge] = useState('');
   const [situacionVivienda, setSituacionVivienda] = useState('propia');
   const [nombreQuienPresta, setNombreQuienPresta] = useState('');
@@ -58,6 +59,7 @@ export default function CapturaFormatoScreen({ route, navigation }) {
   const [personasMayores18, setPersonasMayores18] = useState('2');
   const [personasMenores18, setPersonasMenores18] = useState('0');
   const [personasGeneranIngresos, setPersonasGeneranIngresos] = useState('1');
+  const [personasEstudian, setPersonasEstudian] = useState('0');
 
   // Pensión
   const [recibePension, setRecibePension] = useState('NO');
@@ -595,6 +597,7 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
         numero_niveles: parseInt(numeroNiveles || '1'),
         estado_civil: estadoCivil,
         ocupacion: ocupacion,
+        nombre_conyuge: nombreConyuge,
         ocupacion_conyuge: ocupacionConyuge,
         situacion_vivienda: situacionVivienda,
         nombre_quien_presta: nombreQuienPresta,
@@ -605,6 +608,7 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
         personas_mayores_18: parseInt(personasMayores18 || '0'),
         personas_menores_18: parseInt(personasMenores18 || '0'),
         personas_generan_ingresos: parseInt(personasGeneranIngresos || '0'),
+        personas_estudian: parseInt(personasEstudian || '0'),
         recibe_pension: recibePension === 'SI',
         personas_reciben_pension: parseInt(personasPensionadas || (recibePension === 'SI' ? '1' : '0')),
         tipo_pension: tipoPension,
@@ -1106,12 +1110,21 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
 
         {(estadoCivil === 'casado' || estadoCivil === 'union_libre') && (
           <View style={{ marginTop: 4 }}>
-            <Text style={styles.label}>Ocupación / Trabajo del Cónyuge:</Text>
+            <Text style={styles.label}>Nombre del Cónyuge / Pareja:</Text>
+            <TextInput
+              style={styles.input}
+              value={nombreConyuge}
+              onChangeText={setNombreConyuge}
+              placeholder="Ej. María López Pérez"
+              placeholderTextColor="#64748b"
+            />
+
+            <Text style={[styles.label, { marginTop: 6 }]}>Ocupación / Trabajo del Cónyuge:</Text>
             <TextInput
               style={styles.input}
               value={ocupacionConyuge}
               onChangeText={setOcupacionConyuge}
-              placeholder="Ej. Comerciante / Empleado"
+              placeholder="Ej. Comerciante / Empleado / Hogar"
               placeholderTextColor="#64748b"
             />
           </View>
@@ -1150,6 +1163,16 @@ SUPUESTO: ${supuesto || 'N/A'}${infoCita}
             onChangeText={setPersonasGeneranIngresos}
             keyboardType="numeric"
             placeholder="Ej. 1"
+            placeholderTextColor="#64748b"
+          />
+
+          <Text style={styles.label}>Personas que Estudian:</Text>
+          <TextInput
+            style={styles.input}
+            value={personasEstudian}
+            onChangeText={setPersonasEstudian}
+            keyboardType="numeric"
+            placeholder="Ej. 0"
             placeholderTextColor="#64748b"
           />
 

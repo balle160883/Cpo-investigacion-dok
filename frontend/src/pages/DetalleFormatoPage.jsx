@@ -60,6 +60,7 @@ export default function DetalleFormatoPage() {
     tipo_identificacion: 'INE',
     folio_identificacion: '',
     ocupacion: '',
+    nombre_conyuge: '',
     ocupacion_conyuge: '',
     telefono_visitado: '',
     casa_color: '',
@@ -396,6 +397,7 @@ export default function DetalleFormatoPage() {
       tipo_identificacion: est.tipo_identificacion || 'INE',
       folio_identificacion: est.folio_identificacion || '',
       ocupacion: est.ocupacion || '',
+      nombre_conyuge: est.nombre_conyuge || '',
       ocupacion_conyuge: est.ocupacion_conyuge || '',
       telefono_visitado: est.telefono_visitado || inv.telefono_principal || inv.telefono || '',
       casa_color: est.casa_color || '',
@@ -464,6 +466,7 @@ export default function DetalleFormatoPage() {
           tipo_identificacion: formSolventar.tipo_identificacion,
           folio_identificacion: formSolventar.folio_identificacion,
           ocupacion: formSolventar.ocupacion,
+          nombre_conyuge: formSolventar.nombre_conyuge,
           ocupacion_conyuge: formSolventar.ocupacion_conyuge,
           telefono_visitado: formSolventar.telefono_visitado,
           casa_color: formSolventar.casa_color,
@@ -1341,6 +1344,17 @@ export default function DetalleFormatoPage() {
                         value={formSolventar.ocupacion}
                         onChange={(e) => setFormSolventar(prev => ({ ...prev, ocupacion: e.target.value }))}
                         placeholder="Ej. Empleado, Comerciante..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-medium mb-1">Nombre del Cónyuge / Pareja:</label>
+                      <input
+                        type="text"
+                        value={formSolventar.nombre_conyuge}
+                        onChange={(e) => setFormSolventar(prev => ({ ...prev, nombre_conyuge: e.target.value }))}
+                        placeholder="Ej. Nombre completo del cónyuge..."
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
                       />
                     </div>
@@ -2455,6 +2469,14 @@ export default function DetalleFormatoPage() {
                 <div>( {est.estado_civil === 'union_libre' ? 'X' : ' '} ) Unión Libre</div>
                 <div>( {est.estado_civil === 'viudo' ? 'X' : ' '} ) Viudo</div>
               </div>
+              {(Boolean(est.nombre_conyuge) || Boolean(est.ocupacion_conyuge) || est.estado_civil === 'casado' || est.estado_civil === 'union_libre') && (
+                <div className={clsx('mt-2', 'text-[10px]', 'text-slate-800', 'bg-purple-50', 'p-1.5', 'rounded', 'border', 'border-purple-200', 'space-y-0.5')}>
+                  {Boolean(est.nombre_conyuge) && (
+                    <div><strong>Cónyuge / Pareja:</strong> <span className="font-semibold text-slate-900">{est.nombre_conyuge}</span></div>
+                  )}
+                  <div><strong>Ocupación Cónyuge:</strong> <span className={clsx('font-semibold', est.ocupacion_conyuge ? 'text-purple-900' : 'text-slate-500 italic')}>{est.ocupacion_conyuge || 'No especificada'}</span></div>
+                </div>
+              )}
             </div>
 
             <div>
