@@ -479,3 +479,24 @@ export async function cambiarPasswordPrimerIngresoApi({ nuevaPassword, confirmar
   return handleResponse(res, 'Error al actualizar la contraseña');
 }
 
+export async function fetchDictamenCredito(folio) {
+  const res = await fetch(`${getApiBaseUrl()}/creditos/dictamen/${encodeURIComponent(folio)}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al consultar dictamen de crédito');
+}
+
+export async function buscarCreditos(q) {
+  const res = await fetch(`${getApiBaseUrl()}/creditos/buscar?q=${encodeURIComponent(q)}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al buscar créditos');
+}
+
+export async function fetchCreditosRecientes() {
+  const res = await fetch(`${getApiBaseUrl()}/creditos/recientes`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res, 'Error al obtener créditos recientes');
+}
+

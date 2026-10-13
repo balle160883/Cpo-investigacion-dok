@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Informe Ejecutivo de Proyecto - Sistema de Investigaciones CPO</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    @page {
+      size: A4;
+      margin: 16mm 14mm 16mm 14mm;
+      @bottom-right {
+        content: "Página " counter(page);
+        font-family: 'Inter', sans-serif;
+        font-size: 8pt;
+        color: #64748b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1e293b;
+      background-color: #ffffff;
+      line-height: 1.5;
+      font-size: 10pt;
+    }
+
+    /* Clases de salto de página */
+    .page-break {
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .avoid-break {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* Portada Ejecutiva */
+    .cover-page {
+      height: 98vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 30px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #091e3a 0%, #1e3a8a 50%, #0284c7 100%);
+      color: #ffffff;
+      position: relative;
+    }
+
+    .cover-header {
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      padding-bottom: 20px;
+    }
+
+    .cover-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 9pt;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+    }
+
+    .cover-title {
+      font-size: 26pt;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .cover-subtitle {
+      font-size: 13pt;
+      font-weight: 400;
+      color: #cbd5e1;
+      max-width: 650px;
+      line-height: 1.4;
+    }
+
+    .cover-meta {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 22px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      font-size: 9pt;
+    }
+
+    .meta-item strong {
+      display: block;
+      color: #93c5fd;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .cover-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      padding-top: 15px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 8.5pt;
+      color: #94a3b8;
+    }
+
+    /* Encabezados y Estructura */
+    h1 {
+      font-size: 16pt;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 2px solid #0284c7;
+      padding-bottom: 6px;
+      margin-top: 24px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h2 {
+      font-size: 12pt;
+      font-weight: 600;
+      color: #1e3a8a;
+      margin-top: 18px;
+      margin-bottom: 10px;
+    }
+
+    h3 {
+      font-size: 10pt;
+      font-weight: 600;
+      color: #334155;
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+
+    p {
+      margin-bottom: 10px;
+      text-align: justify;
+      color: #334155;
+      font-size: 9.5pt;
+    }
+
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+      color: #334155;
+      font-size: 9.5pt;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    /* Tablas Ejecutivas */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 8.5pt;
+      background-color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 600;
+      text-align: left;
+      padding: 8px 10px;
+      border: 1px solid #1e293b;
+      font-size: 8.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 7px 10px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+      color: #334155;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    /* Cajas y Callouts */
+    .callout {
+      border-left: 4px solid #0284c7;
+      background-color: #f0f9ff;
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      font-size: 9pt;
+      color: #0369a1;
+    }
+
+    .callout-success {
+      border-left-color: #10b981;
+      background-color: #ecfdf5;
+      color: #065f46;
+    }
+
+    .callout-warning {
+      border-left-color: #f59e0b;
+      background-color: #fffbeb;
+      color: #92400e;
+    }
+
+    .callout strong {
+      display: block;
+      font-size: 9.5pt;
+      margin-bottom: 4px;
+    }
+
+    /* Badges de Estado */
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 7.5pt;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-green {
+      background-color: #d1fae5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .badge-blue {
+      background-color: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+
+    .badge-purple {
+      background-color: #f3e8ff;
+      color: #6b21a8;
+      border: 1px solid #e9d5ff;
+    }
+
+    .badge-amber {
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+    }
+
+    /* Diagrama en Cajas */
+    .diagram-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 16px 0;
+      padding: 14px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+    }
+
+    .diagram-step {
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 12px;
+      gap: 12px;
+    }
+
+    .step-number {
+      background: #1e3a8a;
+      color: white;
+      font-weight: 700;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 8pt;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-weight: 600;
+      font-size: 9pt;
+      color: #0f172a;
+      width: 170px;
+      flex-shrink: 0;
+    }
+
+    .step-desc {
+      font-size: 8.5pt;
+      color: #64748b;
+    }
+
+    /* Grid de Métricas */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .metric-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .metric-val {
+      font-size: 16pt;
+      font-weight: 800;
+      color: #1e3a8a;
+    }
+
+    .metric-label {
+      font-size: 7.5pt;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PORTADA -->
+  <div class="cover-page page-break">
+    <div class="cover-header">
+      <div class="cover-badge">Documento de Gestión & Dirección Técnica</div>
+      <div class="cover-title">INFORME EJECUTIVO DE PROYECTO</div>
+      <div class="cover-subtitle">Sistema Integral de Gestión de Investigaciones Domiciliarias, Auditoría Socioeconómica y Monitoreo Georreferenciado</div>
+    </div>
+
+    <div class="cover-meta">
+      <div class="meta-item">
+        <strong>Organización Cliente</strong>
+        Caja Popular Oblatos S.C. de A.P. de R.L. de C.V. (CPO)
+      </div>
+      <div class="meta-item">
+        <strong>Proyecto</strong>
+        Plataforma CPO Investigaciones (Web, Móvil & ETL SIF)
+      </div>
+      <div class="meta-item">
+        <strong>Áreas Involucradas</strong>
+        Crédito, Mesa de Control, Analistas y Operación de Campo
+      </div>
+      <div class="meta-item">
+        <strong>Fecha de Emisión</strong>
+        Octubre 2026 | Versión 1.0 (Línea Base y Operación)
+      </div>
+      <div class="meta-item">
+        <strong>Infraestructura Core</strong>
+        Dokploy PostgreSQL 15, Redis 7, Node.js API, Vite SPA, React Native
+      </div>
+      <div class="meta-item">
+        <strong>Clasificación</strong>
+        Uso Interno Confidencial / Dirección y Project Management
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <span>Caja Popular Oblatos &bull; Tecnología de la Información</span>
+      <span>Reporte Oficial de Entregables y Estado Operativo</span>
+    </div>
+  </div>
+
+  <!-- SECCIÓN 1: RESUMEN EJECUTIVO -->
+  <h1>1. Resumen Ejecutivo (Executive Summary)</h1>
+  <p>
+    El <strong>Sistema de Gestión de Investigaciones Domiciliarias CPO</strong> es una solución corporativa de misión crítica concebida para digitalizar, estructurar, georreferenciar y auditar de forma integral el levantamiento de estudios socioeconómicos para <strong>Solicitantes de Préstamo</strong> y <strong>Avales</strong> de Caja Popular Oblatos.
+  </p>
+  <p>
+    El proyecto resuelve la brecha operativa histórica existente entre la captura de solicitudes en sucursales bancarias dentro del core financiero <strong>SIF (SQL Server)</strong>, el trabajo presencial de los investigadores de campo y la posterior deliberación crediticia por parte de los analistas en oficina matriz.
+  </p>
+
+  <div class="metrics-grid avoid-break">
+    <div class="metric-card">
+      <div class="metric-val">+18,140</div>
+      <div class="metric-label">Investigaciones Sincronizadas</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val">&lt; 50 ms</div>
+      <div class="metric-label">Tiempo de Respuesta (Redis)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val">60 seg</div>
+      <div class="metric-label">Ciclo de Sincronización ETL</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val">100%</div>
+      <div class="metric-label">Trazabilidad y Auditoría GPS</div>
+    </div>
+  </div>
+
+  <div class="callout callout-success avoid-break">
+    <strong>Impacto Estratégico y Beneficios Clave:</strong>
+    1. <strong>Cero Papel y Estandarización:</strong> Reemplazo total de formatos físicos por captura estructurada digital con fotos y firma electrónica.<br>
+    2. <strong>Reducción Drástica de SLA:</strong> Eliminación de traslados innecesarios y consulta instantánea del expediente por parte del analista al validarse.<br>
+    3. <strong>Blindaje Antifraude:</strong> Verificación satelital de coordenadas GPS al momento de la visita y registro inmutable en bitácora de auditoría.
+  </div>
+
+  <!-- SECCIÓN 2: ARQUITECTURA TECNOLÓGICA -->
+  <h1>2. Arquitectura Tecnológica y Componentes</h1>
+  <p>
+    El ecosistema opera mediante una arquitectura de microservicios contenerizada con <strong>Docker y Docker Compose</strong> en un servidor Dokploy de alta disponibilidad:
+  </p>
+
+  <div class="diagram-container avoid-break">
+    <div class="diagram-step">
+      <div class="step-number">1</div>
+      <div class="step-title">🏦 SQL Server SIF (Core)</div>
+      <div class="step-desc">Base de datos institucional (172.28.5.231:1433). Contiene los registros maestros de clientes, líneas de crédito y avales.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">2</div>
+      <div class="step-title">⚙️ Motor ETL Continuo</div>
+      <div class="step-desc">Procesos secuenciales cada 60s con estrategia UPSERT (ON CONFLICT DO UPDATE) que garantiza sincronización libre de duplicados.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">3</div>
+      <div class="step-title">🐘 PostgreSQL + Redis Cache</div>
+      <div class="step-desc">Motor transaccional central (31.97.144.6:5437) optimizado con JSONB para formularios dinámicos y Redis para aceleración web.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">4</div>
+      <div class="step-title">🚀 API RESTful + WebSockets</div>
+      <div class="step-desc">Node.js Express con Swagger UI (/api/docs), Socket.io para telemetría GPS y seguridad HTTP con Helmet/JWT.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">5</div>
+      <div class="step-title">💻 Web SPA & 📱 App Móvil</div>
+      <div class="step-desc">Frontend administrativo en React Vite con Mapbox GL y App Móvil en Expo / React Native para encuestadores de campo.</div>
+    </div>
+  </div>
+
+  <div class="avoid-break">
+    <h2>Servicios Contenerizados (docker-compose.yml)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Servicio</th>
+          <th>Tecnología</th>
+          <th>Puerto</th>
+          <th>Función Principal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>backend</strong></td>
+          <td>Node.js 20 Express / Socket.io</td>
+          <td>4002 &rarr; 4000</td>
+          <td>Lógica de negocio, autenticación JWT, RBAC, endpoints REST y WebSockets.</td>
+        </tr>
+        <tr>
+          <td><strong>frontend</strong></td>
+          <td>React 18 / Vite / TailwindCSS</td>
+          <td>3002 &rarr; 80</td>
+          <td>Portal web administrativo, dashboards, mapas satelitales y visor de formatos.</td>
+        </tr>
+        <tr>
+          <td><strong>redis</strong></td>
+          <td>Redis 7 Alpine</td>
+          <td>6379 (interno)</td>
+          <td>Caché de consultas complejas en memoria con política LRU (máx. 128MB).</td>
+        </tr>
+        <tr>
+          <td><strong>db-backup</strong></td>
+          <td>PostgreSQL 15 Alpine (Cron)</td>
+          <td>Automático</td>
+          <td>Rutina periódica de respaldos comprimidos diarios (.sql.gz) con retención de 30 días.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- SECCIÓN 3: MATRIZ DE GOBERNANZA RBAC -->
+  <h1>3. Matriz de Gobernanza, Roles y Permisos (RBAC)</h1>
+  <p>
+    Para salvaguardar el secreto bancario y la integridad crediticia, el sistema aplica el principio de menor privilegio (*Principle of Least Privilege*):
+  </p>
+
+  <table class="avoid-break">
+    <thead>
+      <tr>
+        <th>Rol del Sistema</th>
+        <th>Perfil Institucional</th>
+        <th>Permisos Clave Otorgados</th>
+        <th>Restricciones Operativas</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-purple">superadmin</span></td>
+        <td>Dirección de TI / SysAdmin</td>
+        <td>Control absoluto, gestión de usuarios, auditoría forense y configuración de entorno.</td>
+        <td>Uso estrictamente restringido a personal técnico de infraestructura.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-blue">admin</span></td>
+        <td>Jefatura de Crédito</td>
+        <td>Gestión global de investigaciones, catálogos, mapas, estadísticas y exportación.</td>
+        <td>No puede crear ni eliminar cuentas de usuarios del sistema.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-amber">asignador</span></td>
+        <td>Coordinación de Campo</td>
+        <td>Asignar y reasignar visitas a investigadores, monitoreo en mapa satelital.</td>
+        <td>No dictamina créditos ni autoriza validaciones socioeconómicas.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">validador</span></td>
+        <td>Mesa de Control</td>
+        <td>Validación de calidad, examen de fotos, aprobación de estudio, <strong>cancelación lógica exclusiva</strong>.</td>
+        <td>Filtro previo indispensable antes de la entrega formal al analista de crédito.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-blue">coordinadora_analistas</span></td>
+        <td>Norma Lizette Bermejo Palos</td>
+        <td>Supervisión de expedientes validados, filtro múltiple por sucursales, asignación a analistas y mapa GPS.</td>
+        <td>Visión gerencial de todo el lote validado; distribuye las cargas de trabajo.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-blue">analista</span></td>
+        <td>Mesa Analítica de Crédito</td>
+        <td>Revisión de capacidad de pago y dictamen final. Puede devolver el paquete al validador.</td>
+        <td><strong>Restricción estricta:</strong> solo ve los folios que le fueron asignados directamente.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-amber">investigador</span></td>
+        <td>Encuestador de Campo</td>
+        <td>Acceso exclusivo en App Móvil a su propia cola del día, captura offline/online y GPS.</td>
+        <td>No tiene acceso a la plataforma web ni ve folios de otros investigadores.</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-purple">auditor</span></td>
+        <td>Auditoría / Cumplimiento</td>
+        <td>Lectura de bitácora inmutable (*Audit Log*), métricas de productividad y SLA.</td>
+        <td>Perfil 100% de solo lectura; sin permisos de edición ni aprobación.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECCIÓN 4: FLUJO OPERATIVO Y CICLO DE VIDA -->
+  <h1>4. Flujo Operativo y Ciclo de Vida del Crédito</h1>
+  <p>
+    El circuito operativo garantiza que ningún crédito se autorice sin que el 100% de las visitas del paquete (solicitante y avales) estén concluidas y validadas con evidencia física:
+  </p>
+
+  <div class="diagram-container avoid-break">
+    <div class="diagram-step">
+      <div class="step-number">A</div>
+      <div class="step-title">1. Captura en Sucursal</div>
+      <div class="step-desc">El socio solicita el crédito. Sucursal captura en SQL Server SIF. El motor ETL lo detecta en menos de 60 segundos.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">B</div>
+      <div class="step-title">2. Asignación a Campo</div>
+      <div class="step-desc">El Asignador ubica el domicilio en el mapa satelital y delega la orden al investigador asignado a esa zona geográfica.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">C</div>
+      <div class="step-title">3. Levantamiento en App</div>
+      <div class="step-desc">El encuestador arriba al sitio con Google Maps/Waze, captura fotos de fachada/interior, cuestionario y firma digital.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">D</div>
+      <div class="step-title">4. Mesa de Validación</div>
+      <div class="step-desc">El Validador examina el "Paquete Completado". Si cumple la calidad requerida, lo valida; de lo contrario, lo rechaza para solventar.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">E</div>
+      <div class="step-title">5. Asignación a Analista</div>
+      <div class="step-desc">Norma Bermejo supervisa el paquete validado y lo asigna al analista de crédito responsable de la sucursal de origen.</div>
+    </div>
+    <div class="diagram-step">
+      <div class="step-number">F</div>
+      <div class="step-title">6. Dictamen y Desembolso</div>
+      <div class="step-desc">El analista revisa los ingresos vs egresos. Emite el dictamen final favorable que habilita a la sucursal a entregar los fondos.</div>
+    </div>
+  </div>
+
+  <div class="callout callout-warning avoid-break">
+    <strong>Procedimiento Especial Ante Ausencia: Supuesto "Con Folio / Ticket de Cita"</strong>
+    Si el socio no se encuentra en el domicilio al acudir el investigador, se implementó un protocolo formal: el investigador fotografía la fachada, expide el comprobante con la leyenda <em>"FOLIO INVESTIGACIÓN: {id}"</em> y clasifica la orden en espera. Esto previene gastos redundantes de combustible si el socio ya acudió a sucursal con previa cita.
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- SECCIÓN 5: HITOS Y MEJORAS ENTREGADAS -->
+  <h1>5. Hitos Clave y Mejoras Recientes Entregadas</h1>
+  <p>
+    Durante el último ciclo de desarrollo se completaron con éxito requerimientos de alta prioridad técnica y operativa:
+  </p>
+
+  <div class="avoid-break">
+    <h3>1. Erradicación de Deadlocks y Bloqueos en Base de Datos</h3>
+    <p>
+      Se solucionó un incidente crítico donde conexiones en estado <code>idle in transaction</code> con bloqueos exclusivos bloqueaban la app móvil y el portal web. Se reubicaron las sentencias estructurales a <code>init_db.js</code> y se configuró <code>idle_in_transaction_session_timeout = '60s'</code>, logrando 100% de disponibilidad continua.
+    </p>
+
+    <h3>2. Gobernanza de Supervisión y Asignación de Analistas (Norma Bermejo)</h3>
+    <p>
+      Se eliminó la visibilidad global desordenada para los analistas de crédito. Cada analista únicamente ve sus folios asignados, mientras que la coordinadora Norma Bermejo cuenta con un módulo de distribución con multiselección por sucursal y acceso completo al Mapa Satelital GPS.
+    </p>
+
+    <h3>3. Mecanismo de Devolución de Paquete Completo</h3>
+    <p>
+      Se implementó la capacidad de devolver en un solo clic el paquete integral de investigaciones al validador cuando el analista detecta incongruencias en la capacidad de pago del titular o avales.
+    </p>
+
+    <h3>4. Filtro Inteligente de Paquetes Completados vs En Espera</h3>
+    <p>
+      La plataforma web ahora agrupa los créditos por paquete (titular + avales), señalando visualmente con distintivos verdes los créditos con 100% de visitas concluidas en campo para evitar revisiones a medias.
+    </p>
+
+    <h3>5. Blindaje de Cancelación Lógica (*Soft-Delete*)</h3>
+    <p>
+      Se prohibió el borrado físico de registros; solo el Validador de Crédito puede cancelar una investigación justificando el motivo en un modal obligatorio, quedando registrado de forma indeleble en auditoría.
+    </p>
+
+    <h3>6. Estandarización de Seguridad de Credenciales</h3>
+    <p>
+      Reseteo generalizado a estándar seguro corporativo (<code>Seguridad2026@</code>) con activación de la política de cambio obligatorio de contraseña en el primer inicio de sesión para todo el personal.
+    </p>
+  </div>
+
+  <!-- SECCIÓN 6: GESTIÓN DE RIESGOS Y PRÓXIMOS PASOS -->
+  <h1>6. Gestión de Riesgos y Recomendaciones para el PM</h1>
+  <table class="avoid-break">
+    <thead>
+      <tr>
+        <th>Riesgo Identificado</th>
+        <th>Nivel</th>
+        <th>Estrategia de Mitigación Implementada</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Bloqueo transaccional en PostgreSQL</td>
+        <td>ALTO</td>
+        <td>Timeouts preventivos de 60 segundos y sanitización de sentencias SQL.</td>
+        <td><span class="badge badge-green">Cerrado / Resuelto</span></td>
+      </tr>
+      <tr>
+        <td>Fuga o mezcla de folios entre analistas</td>
+        <td>MEDIO</td>
+        <td>Restricción estricta por token JWT a nivel backend con código HTTP 403.</td>
+        <td><span class="badge badge-green">Cerrado / Resuelto</span></td>
+      </tr>
+      <tr>
+        <td>Pérdida de evidencias fotográficas en campo</td>
+        <td>ALTO</td>
+        <td>Almacenamiento persistente en volumen Docker y respaldos diarios comprimidos.</td>
+        <td><span class="badge badge-green">Cerrado / Resuelto</span></td>
+      </tr>
+      <tr>
+        <td>Sobrecarga de consultas ante +18k registros</td>
+        <td>MEDIO</td>
+        <td>Implementación de Redis Cache (&lt; 50ms) y filtro por defecto de últimos 90 días.</td>
+        <td><span class="badge badge-green">Cerrado / Resuelto</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-success avoid-break" style="margin-top: 18px;">
+    <strong>Recomendaciones para el Project Manager y Próximos Pasos:</strong>
+    1. <strong>Generación de Compilados Móviles (EAS Build):</strong> Generar los archivos binarios APK definitivos para entrega formal e instalación en los dispositivos móviles de los encuestadores.<br>
+    2. <strong>Capacitación Operativa:</strong> Coordinar sesión de inducción con validadores y analistas de crédito apoyándose en el <em>Manual Operativo de 4 Roles</em> ya disponible en el repositorio.<br>
+    3. <strong>Monitoreo de SLAs:</strong> Dar seguimiento a la pantalla de SLA Timer durante los primeros 30 días para identificar posibles cuellos de botella en la sucursal de origen.
+  </div>
+
+  <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; font-size: 8pt; color: #64748b;">
+    <span>Caja Popular Oblatos &bull; Plataforma CPO Investigaciones</span>
+    <span>Documento Generado Exclusivamente para Project Management</span>
+  </div>
+
+</body>
+</html>

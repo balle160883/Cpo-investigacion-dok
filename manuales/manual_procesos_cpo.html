@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Manual de Procesos Operativos - Sistema de Investigaciones CPO</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    @page {
+      size: A4;
+      margin: 16mm 14mm 16mm 14mm;
+      @bottom-right {
+        content: "Página " counter(page);
+        font-family: 'Inter', sans-serif;
+        font-size: 8pt;
+        color: #64748b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1e293b;
+      background-color: #ffffff;
+      line-height: 1.5;
+      font-size: 9.5pt;
+    }
+
+    .page-break {
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .avoid-break {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* Portada Ejecutiva */
+    .cover-page {
+      height: 96vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #061c38 0%, #0f3460 50%, #0284c7 100%);
+      color: #ffffff;
+      position: relative;
+    }
+
+    .cover-header {
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      padding-bottom: 22px;
+    }
+
+    .cover-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 8.5pt;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .cover-title {
+      font-size: 26pt;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .cover-subtitle {
+      font-size: 13pt;
+      font-weight: 400;
+      color: #cbd5e1;
+      max-width: 680px;
+      line-height: 1.4;
+    }
+
+    .cover-meta {
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 22px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      font-size: 9pt;
+    }
+
+    .meta-item strong {
+      display: block;
+      color: #93c5fd;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+
+    .cover-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      padding-top: 15px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 8.5pt;
+      color: #94a3b8;
+    }
+
+    /* Encabezados */
+    h1 {
+      font-size: 15pt;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: 2px solid #0284c7;
+      padding-bottom: 6px;
+      margin-top: 22px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h2 {
+      font-size: 11.5pt;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+
+    h3 {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #334155;
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+
+    p {
+      margin-bottom: 10px;
+      text-align: justify;
+      color: #334155;
+      font-size: 9pt;
+      line-height: 1.5;
+    }
+
+    ul, ol {
+      margin-left: 22px;
+      margin-bottom: 10px;
+      color: #334155;
+      font-size: 9pt;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    /* Tablas */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 16px 0;
+      font-size: 8.5pt;
+      background-color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 600;
+      text-align: left;
+      padding: 8px 10px;
+      border: 1px solid #1e293b;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 7px 10px;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+      color: #334155;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    /* Cajas y Callouts */
+    .callout {
+      border-left: 4px solid #0284c7;
+      background-color: #f0f9ff;
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      margin: 12px 0;
+      font-size: 8.5pt;
+      color: #0369a1;
+    }
+
+    .callout-success {
+      border-left-color: #10b981;
+      background-color: #ecfdf5;
+      color: #065f46;
+    }
+
+    .callout-warning {
+      border-left-color: #f59e0b;
+      background-color: #fffbeb;
+      color: #92400e;
+    }
+
+    .callout-danger {
+      border-left-color: #ef4444;
+      background-color: #fef2f2;
+      color: #991b1b;
+    }
+
+    .callout strong {
+      display: block;
+      font-size: 9pt;
+      margin-bottom: 3px;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 7.5pt;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-green { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .badge-blue { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .badge-amber { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .badge-purple { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+    .badge-red { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    /* Pasos de Flujo */
+    .flow-step-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 12px 0;
+      padding: 12px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+    }
+
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 12px;
+      gap: 12px;
+    }
+
+    .flow-step-num {
+      background: #1e3a8a;
+      color: white;
+      font-weight: 700;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 8pt;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .flow-step-content h4 {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+
+    .flow-step-content p {
+      font-size: 8pt;
+      color: #475569;
+      margin-bottom: 0;
+    }
+
+    /* Cuadrícula de KPIs */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .kpi-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .kpi-card .val {
+      font-size: 14pt;
+      font-weight: 800;
+      color: #1e3a8a;
+    }
+
+    .kpi-card .lbl {
+      font-size: 7pt;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .doc-header-strip {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      font-size: 7.5pt;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PORTADA -->
+  <div class="cover-page page-break">
+    <div class="cover-header">
+      <div class="cover-badge">Manual Normativo de Procedimientos Operativos</div>
+      <div class="cover-title">MANUAL DE PROCESOS OPERATIVOS</div>
+      <div class="cover-subtitle">Sistema Integral de Gestión, Auditoría Socioeconómica, Validación y Monitoreo Georreferenciado de Investigaciones Domiciliarias</div>
+    </div>
+
+    <div class="cover-meta">
+      <div class="meta-item">
+        <strong>Institución</strong>
+        Caja Popular Oblatos S.C. de A.P. de R.L. de C.V. (CPO)
+      </div>
+      <div class="meta-item">
+        <strong>Sistema</strong>
+        Plataforma CPO Investigaciones (Portal Web, App Móvil & Motor ETL)
+      </div>
+      <div class="meta-item">
+        <strong>Áreas Involucradas</strong>
+        Crédito, Mesa de Validación, Asignación de Campo y Análisis
+      </div>
+      <div class="meta-item">
+        <strong>Versión / Estado</strong>
+        Versión 2.5 Institucional • En Operación Productiva
+      </div>
+      <div class="meta-item">
+        <strong>Infraestructura Core</strong>
+        SQL Server SIF, Dokploy PostgreSQL 15, Redis Cache, Node.js API
+      </div>
+      <div class="meta-item">
+        <strong>Fecha de Emisión</strong>
+        Octubre 2026 • Documento de Cumplimiento Normativo
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <span>Caja Popular Oblatos &bull; Dirección de TI & Jefatura de Crédito</span>
+      <span>Guía Oficial de Operación Multi-Rol</span>
+    </div>
+  </div>
+
+  <!-- PÁGINA 1: OBJETIVO Y GOBERNANZA RBAC -->
+  <div class="page-break">
+    <div class="doc-header-strip">
+      <span>Caja Popular Oblatos &bull; Manual de Procesos</span>
+      <span>Sección 1 & 2: Gobernanza y Roles</span>
+    </div>
+
+    <h1>1. Objetivo y Alcance Normativo</h1>
+    <p>
+      El presente <strong>Manual de Procesos Operativos</strong> establece las directrices de ejecución, estándares de captura, responsabilidades funcionales y flujos de control que rigen el levantamiento y dictamen de estudios socioeconómicos domiciliarios para <strong>Solicitantes de Crédito</strong> y <strong>Avales</strong> de Caja Popular Oblatos.
+    </p>
+    <p>
+      El propósito institucional es erradicar el uso de papel, blindar la cooperativa contra riesgos de suplantación o fraude de domicilio mediante verificación satelital GPS en tiempo real, reducir los tiempos de respuesta (SLA) de colocación crediticia y garantizar expedientes digitales 100% auditables antes del desembolso en sucursales.
+    </p>
+
+    <div class="kpi-grid avoid-break">
+      <div class="kpi-card">
+        <div class="val">60 seg</div>
+        <div class="lbl">Ciclo ETL SIF ➔ Web</div>
+      </div>
+      <div class="kpi-card">
+        <div class="val">&lt; 4 hrs</div>
+        <div class="lbl">SLA Asignación</div>
+      </div>
+      <div class="kpi-card">
+        <div class="val">24-48 hrs</div>
+        <div class="lbl">SLA Visita en Campo</div>
+      </div>
+      <div class="kpi-card">
+        <div class="val">100%</div>
+        <div class="lbl">Trazabilidad Audit Log</div>
+      </div>
+    </div>
+
+    <h1>2. Matriz de Gobernanza y Roles del Sistema (RBAC)</h1>
+    <p>
+      Para salvaguardar la confidencialidad de los datos personales y el secreto financiero, el sistema opera bajo una estricta matriz de <strong>Control de Acceso Basado en Roles (RBAC)</strong>:
+    </p>
+
+    <table class="avoid-break">
+      <thead>
+        <tr>
+          <th style="width: 18%;">Rol</th>
+          <th style="width: 22%;">Perfil Institucional</th>
+          <th style="width: 32%;">Atribuciones Otorgadas</th>
+          <th style="width: 28%;">Restricciones de Seguridad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-purple">superadmin</span></td>
+          <td>Dirección de TI / SysAdmin</td>
+          <td>Control total del sistema, gestión de usuarios, auditoría forense y mantenimiento de BD.</td>
+          <td>Uso estrictamente reservado a personal técnico autorizado de TI.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-blue">admin</span></td>
+          <td>Jefatura de Crédito</td>
+          <td>Visión macro del parque de solicitudes, mapas GPS, catálogos e informes ejecutivos.</td>
+          <td>No puede crear ni revocar accesos de usuarios del sistema.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-amber">asignador</span></td>
+          <td>Coordinación de Campo</td>
+          <td>Asignar y reasignar visitas a encuestadores, monitoreo en mapa GPS en tiempo real.</td>
+          <td>No tiene permisos para validar estudios ni autorizar créditos.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-amber">investigador</span></td>
+          <td>Encuestador en Campo</td>
+          <td>Acceso exclusivo en App Móvil a su cola del día, check-in GPS, cuestionario y firmas.</td>
+          <td>Sin acceso al portal web ni visibilidad de órdenes de otros compañeros.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">validador</span></td>
+          <td>Mesa de Control</td>
+          <td>Examen de fotos HD, coherencia socioeconómica, dictamen de validación o rechazo.</td>
+          <td>Filtro obligatorio; ningún folio llega al analista sin su aprobación.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-blue">coordinadora_analistas</span></td>
+          <td>Supervisión de Análisis</td>
+          <td>Monitoreo de lotes validados por sucursal, distribución balanceada de carga a analistas.</td>
+          <td>Supervisión general; delega los folios a los analistas de crédito.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-blue">analista</span></td>
+          <td>Mesa Analítica de Crédito</td>
+          <td>Revisión de capacidad de pago y dictamen final previo al comité de crédito.</td>
+          <td><strong>Restricción estricta:</strong> solo ve los folios asignados a su usuario.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-purple">auditor</span></td>
+          <td>Auditoría y Control</td>
+          <td>Inspección de la bitácora inalterable (<code>audit_log</code>), métricas de SLA y tiempos.</td>
+          <td>Perfil 100% de solo lectura; sin permisos de edición ni aprobación.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- PÁGINA 2: MAPA END-TO-END Y PROCESOS 1 Y 2 -->
+  <div class="page-break">
+    <div class="doc-header-strip">
+      <span>Caja Popular Oblatos &bull; Manual de Procesos</span>
+      <span>Sección 3 & 4: Sincronización y Asignación</span>
+    </div>
+
+    <h1>3. Mapa General del Circuito Operativo (End-to-End)</h1>
+    <p>
+      El circuito garantiza que ningún crédito se autorice sin que el 100% de las investigaciones requeridas (titular y avales) estén concluidas y validadas documentalmente:
+    </p>
+
+    <div class="flow-step-container avoid-break">
+      <div class="flow-step">
+        <div class="flow-step-num">1</div>
+        <div class="flow-step-content">
+          <h4>Captura en Sucursal (SQL Server SIF)</h4>
+          <p>El socio solicita crédito en sucursal. El ejecutivo captura los datos en SIF (172.28.5.231). La solicitud entra a la tabla <code>LOA.LoanResearch</code>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">2</div>
+        <div class="flow-step-content">
+          <h4>Sincronización Automática ETL (sync_engine)</h4>
+          <p>Motor continuo cada 60s extrae cliente, domicilio, crédito y avales hacia PostgreSQL Dokploy, generando el caso con estado <strong>PENDIENTE</strong>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">3</div>
+        <div class="flow-step-content">
+          <h4>Asignación y Logística de Rutas (Portal Web)</h4>
+          <p>El Asignador examina el mapa georreferenciado Mapbox y delega las órdenes a los investigadores por zona geográfica (estado <strong>EN_PROCESO</strong>).</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">4</div>
+        <div class="flow-step-content">
+          <h4>Levantamiento en Campo con App Móvil</h4>
+          <p>El encuestador arriba al sitio con Google Maps/Waze, realiza check-in GPS, toma fotos de fachada e interior, recaba firma digital y sube el estudio (<strong>COMPLETADA</strong>).</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">5</div>
+        <div class="flow-step-content">
+          <h4>Mesa de Control y Validación Documental</h4>
+          <p>El Validador evalúa la nitidez de fotos, coordenadas GPS y coherencia. Si es satisfactorio emite <strong>VALIDADA</strong>; si hay fallas, <strong>RECHAZADA</strong> para subsanación.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">6</div>
+        <div class="flow-step-content">
+          <h4>Mesa Analítica y Dictamen Definitivo</h4>
+          <p>La Coordinadora distribuye los paquetes validados. El Analista dictamina capacidad financiera. Al aprobar, el caso pasa a <strong>APROBADA_FINAL</strong> para desembolso.</p>
+        </div>
+      </div>
+    </div>
+
+    <h1>4. Proceso 1: Ingesta Automática ETL (SIF ➔ PostgreSQL)</h1>
+    <p>
+      El motor de sincronización se ejecuta como microservicio contenerizado con política de reinicio automático y realiza un ciclo secuencial de 5 fases cada 60 segundos:
+    </p>
+    <ul>
+      <li><strong>Fase A — Personas:</strong> Ingesta de nombres, apellidos y CURP de clientes desde <code>PER.Person</code> y <code>PER.IndividualPerson</code>.</li>
+      <li><strong>Fase B — Direcciones:</strong> Inserción de la dirección principal vigente desde <code>PER.Address</code> con coordenadas geográficas latitud/longitud.</li>
+      <li><strong>Fase C — Solicitudes de Crédito:</strong> Extracción de folio comercial, monto solicitado y sucursal capturadora desde <code>LOA.CreditLine</code>.</li>
+      <li><strong>Fase D — Avales y Garantías:</strong> Identificación de avales desde <code>LOA.CreditLineGuarantee</code>, marcando <code>es_aval = TRUE</code> en la tabla central de personas.</li>
+      <li><strong>Fase E — Orden de Investigación:</strong> Creación de la orden en tabla <code>investigaciones</code>. Se implementa la estrategia <strong>UPSERT</strong> (<code>ON CONFLICT DO UPDATE</code>) garantizando cero duplicados.</li>
+    </ul>
+
+    <h1>5. Proceso 2: Asignación y Ruteo de Investigaciones</h1>
+    <p>
+      El Asignador ingresa a <strong>Investigaciones Domiciliarias</strong> y consulta los folios en estado <code>Pendientes</code>:
+    </p>
+    <ol>
+      <li><strong>Asignación Individual:</strong> Presiona el botón <em>Asignar</em> en el registro del socio o aval, selecciona al encuestador activo en el menú desplegable y confirma. El estado cambia a <code>EN_PROCESO</code>.</li>
+      <li><strong>Asignación Masiva en Lote:</strong> Marca las casillas de verificación de múltiples registros correspondientes a un mismo sector geográfico y pulsa <em>Asignar Lote (N)</em> para distribuirlos simultáneamente.</li>
+      <li><strong>Monitoreo de Telemetría GPS:</strong> En la pestaña <em>Mapa Satelital</em> visualiza la ubicación en tiempo real de los encuestadores y los pines de visitas pendientes para optimizar las rutas y reducir tiempos de traslado.</li>
+    </ol>
+  </div>
+
+  <!-- PÁGINA 3: PROCESO 3 Y 4 (CAMPO Y PROTOCOLO CON FOLIO) -->
+  <div class="page-break">
+    <div class="doc-header-strip">
+      <span>Caja Popular Oblatos &bull; Manual de Procesos</span>
+      <span>Sección 5 & 6: Operación en Campo y Protocolo de Ausencia</span>
+    </div>
+
+    <h1>6. Proceso 3: Levantamiento en Campo (App Móvil)</h1>
+    <p>
+      Los investigadores utilizan la aplicación móvil institucional CPO instalada en sus dispositivos Android o iOS.
+    </p>
+
+    <div class="avoid-break">
+      <h3>Paso 3.1: Recepción y Traslado al Domicilio</h3>
+      <p>
+        El encuestador ingresa a <em>Mis Visitas Asignadas</em>. Al seleccionar una orden, presiona el botón de navegación GPS que enlaza automáticamente las coordenadas de la vivienda con <strong>Google Maps</strong> o <strong>Waze</strong>.
+      </p>
+
+      <h3>Paso 3.2: Check-In Satelital Obligatorio</h3>
+      <p>
+        Al arribar frente al inmueble, el encuestador debe presionar el botón <strong>📍 Check-In Arribo</strong>. La aplicación captura de forma instantánea e inalterable:
+      </p>
+      <ul>
+        <li>Coordenadas GPS reales del punto de captura (latitud y longitud).</li>
+        <li>Hora exacta de inicio de la entrevista domiciliaria.</li>
+      </ul>
+
+      <h3>Paso 3.3: Llenado del Formato Socioeconómico Digital</h3>
+      <p>
+        Se capturan los datos estructurados en formato dinámico (JSONB):
+      </p>
+      <ul>
+        <li><strong>Persona que atendió:</strong> Identidad, parentesco con el titular y exhibición de INE/Pasaporte.</li>
+        <li><strong>Características de la Vivienda:</strong> Tipo de inmueble (propia, rentada, familiar), niveles de construcción, material de fachada y cancel.</li>
+        <li><strong>Bienes y Entorno Económico:</strong> Mobiliario visible, vehículos en cochera, actividades productivas e ingresos comprobables.</li>
+      </ul>
+
+      <h3>Paso 3.4: Captura Fotográfica con Estampa de Agua y Firma</h3>
+      <ul>
+        <li><strong>Fotos obligatorias:</strong> 1) Fachada completa con número exterior oficial visible, 2) Calle/entorno urbano, 3) Interior de vivienda/negocio, 4) Identificación oficial cotejada.</li>
+        <li><strong>Marca de agua forense:</strong> Cada fotografía se guarda con estampa indeleble de fecha, hora y coordenadas GPS.</li>
+        <li><strong>Firma digital:</strong> El socio o persona que atendió estampa su firma en pantalla táctil, complementada por la firma del investigador.</li>
+      </ul>
+
+      <h3>Paso 3.5: Check-Out y Envío</h3>
+      <p>
+        Al presionar <strong>Check-Out Finalizar</strong>, el sistema calcula la duración de la entrevista (minutos), sincroniza las evidencias al servidor y transfiere el estado a <code>COMPLETADA</code>. El formulario se bloquea para impedir modificaciones posteriores.
+      </p>
+    </div>
+
+    <h1>7. Proceso 4: Protocolo de Ausencia ("Supuesto Con Folio")</h1>
+    <p>
+      Para prevenir visitas infructuosas repetidas, gastos redundantes de combustible y cruces operativos cuando el socio ya acudió a la sucursal:
+    </p>
+
+    <div class="callout callout-warning avoid-break">
+      <strong>Protocolo Oficial de No Localización Domiciliaria:</strong>
+      1. <strong>Inspección Física:</strong> Si tras tocar el timbre/puerta nadie responde, el investigador corrobora con vecinos inmediatos si el socio habita en el lugar (sin vulnerar la privacidad financiera).<br>
+      2. <strong>Evidencia Fotográfica:</strong> Se captura obligatoriamente la fotografía de la fachada con el número exterior oficial visible.<br>
+      3. <strong>Expedición del Citatorio Oficial:</strong> Se deposita bajo la puerta o buzón el ticket institucional que contiene la leyenda visible: <em>"FOLIO INVESTIGACIÓN: {id_investigacion}"</em>, notificándole comunicarse a la sucursal.<br>
+      4. <strong>Clasificación en App:</strong> En el dictamen de campo se marca <code>NO LOCALIZADO / CITATORIO DEJADO</code>. El caso se envía al servidor con etiqueta de espera, alertando a la Mesa de Control y a la sucursal.
+    </div>
+  </div>
+
+  <!-- PÁGINA 4: MESA DE CONTROL, RECHAZOS Y REASIGNACIÓN -->
+  <div class="page-break">
+    <div class="doc-header-strip">
+      <span>Caja Popular Oblatos &bull; Manual de Procesos</span>
+      <span>Sección 7 & 8: Validación y Circuito de Rechazo</span>
+    </div>
+
+    <h1>8. Proceso 5: Mesa de Control y Validación de Evidencias</h1>
+    <p>
+      El Validador de Crédito tiene la responsabilidad indelegable de auditar la veracidad técnica de cada investigación finalizada en campo antes de permitir su turno a la mesa analítica.
+    </p>
+
+    <div class="avoid-break">
+      <h3>Checklist de Calidad del Validador</h3>
+      <ul>
+        <li><strong>Legibilidad del Número Exterior:</strong> Uso del visor HD con zoom y rotación para constatar que el número oficial de la fachada coincide exactamente con la solicitud de crédito.</li>
+        <li><strong>Coincidencia Geográfica GPS:</strong> Cotejo del pin de check-in del encuestador contra las coordenadas geocodificadas del domicilio original.</li>
+        <li><strong>Regla de Integridad de Paquete:</strong> Si la línea de crédito cuenta con avales, el sistema bloquea la aprobación individual hasta que <strong>el 100% de las visitas del paquete</strong> (titular + avales) se encuentren concluidas.</li>
+      </ul>
+
+      <h3>Dictamen de Validación Satisfactoria</h3>
+      <p>
+        Si el expediente cumple los estándares, el usuario presiona <strong>✅ Validar con Dictamen</strong>, redacta sus observaciones técnicas y confirma. El estado pasa a <code>VALIDADA</code>, estampándose el sello y fecha de certificación en el pie de firma digital del formato oficial.
+      </p>
+    </div>
+
+    <h1>9. Proceso 6: Circuito de Rechazo, Devolución y Reasignación</h1>
+    <p>
+      Cuando un estudio socioeconómico presenta inconsistencias, se detona un circuito cerrado de subsanación sin pérdida de información:
+    </p>
+
+    <div class="flow-step-container avoid-break">
+      <div class="flow-step">
+        <div class="flow-step-num">A</div>
+        <div class="flow-step-content">
+          <h4>Rechazo Formal por el Validador</h4>
+          <p>El Validador presiona <strong>❌ Rechazar Estudio</strong>. En la ventana modal redacta obligatoriamente el motivo específico (ej. <em>"Fotografía de fachada ilegible, no se aprecia número exterior"</em>). El estado pasa a <code>RECHAZADA</code>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">B</div>
+        <div class="flow-step-content">
+          <h4>Reasignación por el Coordinador / Asignador</h4>
+          <p>El Asignador filtra la lista por <code>Rechazadas</code>, consulta el motivo del validador y decide: <strong>1) Reasignar al mismo encuestador</strong> (corrección menor de foto), o <strong>2) Reasignar a un nuevo encuestador</strong> (segunda opinión o cambio de zona). El estado vuelve a <code>EN_PROCESO</code>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">C</div>
+        <div class="flow-step-content">
+          <h4>Subsanación en App Móvil</h4>
+          <p>La orden aparece en la app móvil con banner distintivo rojo y el motivo del validador. El formulario se desbloquea manteniendo precargados los datos y fotos previas. El encuestador toma la fotografía solicitada y pulsa <strong>Guardar Estudio</strong>, retornando a <code>COMPLETADA</code> para reevaluación.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-success avoid-break">
+      <strong>Garantía de Persistencia:</strong> El sistema nunca elimina la información o fotografías capturadas en la primera visita. El encuestador únicamente añade o reemplaza las evidencias observadas, optimizando tiempos de corrección.
+    </div>
+  </div>
+
+  <!-- PÁGINA 5: MESA ANALÍTICA, CANCELACIÓN Y AUDITORÍA -->
+  <div class="page-break">
+    <div class="doc-header-strip">
+      <span>Caja Popular Oblatos &bull; Manual de Procesos</span>
+      <span>Sección 9, 10 & 11: Dictamen Analítico y Auditoría</span>
+    </div>
+
+    <h1>10. Proceso 7: Mesa Analítica y Dictamen Crediticio</h1>
+    <p>
+      El paquete de investigaciones debidamente validadas pasa a la Mesa de Análisis de Crédito para su deliberación patrimonial y financiera:
+    </p>
+
+    <div class="avoid-break">
+      <h3>10.1 Distribución por la Coordinadora de Analistas (Norma Bermejo)</h3>
+      <p>
+        La Coordinadora cuenta con una bandeja de supervisión con multiselección por sucursal de origen y balanceo de carga. Selecciona los paquetes completos validados y los asigna formalmente al Analista de Crédito responsable.
+      </p>
+
+      <h3>10.2 Evaluación y Dictamen por el Analista</h3>
+      <p>
+        El Analista ingresa con su cuenta y únicamente visualiza los expedientes que le fueron delegados. Coteja los ingresos y gastos manifestados en el estudio contra el monto del crédito solicitado:
+      </p>
+      <ul>
+        <li><strong>Aprobación Definitiva:</strong> Si existe plena solvencia, presiona <strong>✅ Aprobar Definitivamente</strong>. El estado se actualiza a <code>APROBADA_FINAL</code>, quedando listo para formalización en sucursal y desembolso.</li>
+        <li><strong>Devolución al Validador por Inconsistencia:</strong> Si identifica discrepancias contables o patrimoniales no detectadas en campo, presiona <strong>🔄 Devolver al Validador</strong>. El expediente adquiere el estado <code>DEVUELTA_A_VALIDADOR</code> y regresa a la mesa de control con las observaciones pertinentes.</li>
+      </ul>
+    </div>
+
+    <h1>11. Proceso 8: Cancelación Lógica y Auditoría Forense</h1>
+
+    <div class="callout callout-danger avoid-break">
+      <strong>Prohibición Terminante de Borrado Físico:</strong>
+      Ningún registro de socio, aval o investigación puede ser eliminado físicamente (<code>DELETE</code>) de la base de datos, garantizando cumplimiento normativo ante órganos reguladores.
+    </div>
+
+    <div class="avoid-break">
+      <h3>Cancelación Lógica (*Soft-Delete*)</h3>
+      <p>
+        Únicamente el rol <strong>Validador</strong> o <strong>Superadmin</strong> puede cancelar un expediente (por desistimiento del socio en sucursal o captura errónea). En el modal obligatorio debe asentar el motivo justificado; el sistema marca <code>deleted_at = NOW()</code>, actualiza el estado a <code>CANCELADA</code> y oculta el registro de las bandejas operativas.
+      </p>
+
+      <h3>Bitácora Inalterable de Auditoría (audit_log)</h3>
+      <p>
+        Cada transición de estado, asignación, reasignación, validación, rechazo o cancelación se graba de forma perpetua e inalterable en la tabla <code>audit_log</code> de PostgreSQL registrando:
+      </p>
+      <ul>
+        <li>ID del usuario y nombre completo del ejecutor.</li>
+        <li>Rol institucional desempeñado.</li>
+        <li>Dirección IP de conexión y estampa de tiempo ISO (con zona horaria).</li>
+        <li>Valores previos y valores nuevos modificados (en formato JSONB).</li>
+      </ul>
+    </div>
+
+    <h1>12. Matriz de Indicadores Clave de Desempeño (KPIs y SLA)</h1>
+    <table class="avoid-break">
+      <thead>
+        <tr>
+          <th>Indicador</th>
+          <th>Definición de Métrica</th>
+          <th>Meta / SLA Institucional</th>
+          <th>Área Responsable</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>SLA Asignación</strong></td>
+          <td>Tiempo desde ingesta en SIF hasta su asignación a encuestador.</td>
+          <td>&lt; 4 horas hábiles</td>
+          <td>Asignador de Campo</td>
+        </tr>
+        <tr>
+          <td><strong>SLA Levantamiento</strong></td>
+          <td>Tiempo desde que el encuestador recibe la orden hasta Check-Out.</td>
+          <td>&lt; 24 a 48 horas</td>
+          <td>Investigadores en Campo</td>
+        </tr>
+        <tr>
+          <td><strong>Duración Entrevista</strong></td>
+          <td>Tiempo efectivo en domicilio cronometrado entre Check-In y Check-Out.</td>
+          <td>25 a 45 minutos</td>
+          <td>Investigadores en Campo</td>
+        </tr>
+        <tr>
+          <td><strong>SLA Validación</strong></td>
+          <td>Tiempo de revisión en Mesa de Control tras estado COMPLETADA.</td>
+          <td>&lt; 4 horas hábiles</td>
+          <td>Validador de Crédito</td>
+        </tr>
+        <tr>
+          <td><strong>Tasa de Rechazo</strong></td>
+          <td>Porcentaje de estudios devueltos por fotos o datos deficientes.</td>
+          <td>&lt; 5% del total</td>
+          <td>Asignador / Campo</td>
+        </tr>
+        <tr>
+          <td><strong>SLA Dictamen Analista</strong></td>
+          <td>Tiempo desde asignación del paquete validado hasta dictamen final.</td>
+          <td>&lt; 8 horas hábiles</td>
+          <td>Analista de Crédito</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; font-size: 8pt; color: #64748b;">
+      <span>Caja Popular Oblatos &bull; Plataforma CPO Investigaciones</span>
+      <span>Manual Oficial de Procesos Operativos • Versión 2.5</span>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -24,6 +24,7 @@ const agendaRoutes = require('./src/routes/agenda.routes');
 const contactosRoutes = require('./src/routes/contactos.routes');
 const configuracionRoutes = require('./src/routes/configuracion.routes');
 const suscripcionRoutes = require('./src/routes/suscripcion.routes');
+const creditosRoutes = require('./src/routes/creditos.routes');
 
 const http = require('http');
 const { Server } = require('socket.io');
@@ -117,6 +118,7 @@ app.use('/api/agenda', agendaRoutes);
 app.use('/api/contactos', contactosRoutes);
 app.use('/api/configuracion', configuracionRoutes);
 app.use('/api/suscripcion', suscripcionRoutes);
+app.use('/api/creditos', creditosRoutes);
 
 // Middleware Global de Manejo de Errores
 app.use(errorHandler);

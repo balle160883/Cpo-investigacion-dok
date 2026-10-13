@@ -13,6 +13,7 @@ import AuditLogPage from './pages/AuditLogPage';
 import AjustesPage from './pages/AjustesPage';
 import SupervisionAnalistasPage from './pages/SupervisionAnalistasPage';
 import SlaTimerPage from './pages/SlaTimerPage';
+import AperturaCreditoPage from './pages/AperturaCreditoPage';
 
 function AppRoutes() {
   const { user, isAuthenticated, loading, logout, theme } = useAuth();
@@ -50,6 +51,7 @@ function AppRoutes() {
         <main className="flex-1 p-6 overflow-y-auto">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/apertura-credito" element={<AperturaCreditoPage />} />
             <Route path="/investigaciones" element={<InvestigacionesPage />} />
             <Route path="/investigaciones/:id" element={<DetalleFormatoPage />} />
             <Route
