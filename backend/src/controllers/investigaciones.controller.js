@@ -1024,7 +1024,7 @@ async function guardarEvidencia(req, res, next) {
     if (esGpsRealValido) {
       try {
         const invInfo = await db.query(
-          `SELECT persona_id_sif, solicitud_id_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) OR CAST(id AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
+          `SELECT persona_id_sif, solicitud_id_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
           [id]
         );
         if (invInfo.rows.length > 0 && invInfo.rows[0].persona_id_sif) {
@@ -1167,7 +1167,7 @@ async function guardarEvidencia(req, res, next) {
           WHERE CAST(id_sif AS TEXT) = (
             SELECT CAST(persona_id_sif AS TEXT) 
             FROM investigaciones 
-            WHERE CAST(id_sif_research AS TEXT) = CAST($3 AS TEXT) OR CAST(id AS TEXT) = CAST($3 AS TEXT) 
+            WHERE CAST(id_sif_research AS TEXT) = CAST($3 AS TEXT) 
             LIMIT 1
           );
         `, [telVisitadoLimpio, req.user?.nombre || 'Investigador Móvil', id]);
@@ -1666,7 +1666,7 @@ async function actualizarTelefonoInvestigacion(req, res, next) {
 
     // 1. Obtener la persona vinculada a la investigación
     const { rows: invRows } = await db.query(
-      `SELECT persona_id_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) OR CAST(id AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
+      `SELECT persona_id_sif FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
       [id]
     );
 
@@ -2576,7 +2576,7 @@ async function reutilizarVigenciaPrevia(req, res, next) {
 
     // 1. Obtener investigación
     const { rows: invRows } = await db.query(
-      `SELECT * FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) OR CAST(id AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
+      `SELECT * FROM investigaciones WHERE CAST(id_sif_research AS TEXT) = CAST($1 AS TEXT) LIMIT 1;`,
       [id]
     );
     if (invRows.length === 0) {
@@ -2606,31 +2606,63 @@ async function reutilizarVigenciaPrevia(req, res, next) {
     const prevEv = prevRows[0];
 
     // 3. Insertar o actualizar evidencias_visita para esta investigación
-    await db.query(`
-      INSERT INTO evidencias_visita (
-        investigacion_id_sif,
-        latitud_checkin,
-        longitud_checkin,
-        fecha_checkin,
-        estudio_socioeconomico,
-        fotos_urls,
-        firma_url,
-        firma_investigador_url,
-        notas_investigador,
-        sincronizado_a_sif,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW());
-    `, [
-      inv.id_sif_research,
-      prevEv.latitud_checkin,
-      prevEv.longitud_checkin,
-      prevEv.fecha_checkin || new Date(),
-      typeof prevEv.estudio_socioeconomico === 'string' ? prevEv.estudio_socioeconomico : JSON.stringify(prevEv.estudio_socioeconomico || {}),
-      typeof prevEv.fotos_urls === 'string' ? prevEv.fotos_urls : JSON.stringify(prevEv.fotos_urls || []),
-      prevEv.firma_url,
-      prevEv.firma_investigador_url,
-      `Visita y fotografías reutilizadas por vigencia de 90 días (procedentes de investigación previa #${prevEv.previa_id}).`
-    ]);
+    const { rows: existingEv } = await db.query(
+      `SELECT id FROM evidencias_visita WHERE CAST(investigacion_id_sif AS TEXT) = CAST($1 AS TEXT) ORDER BY created_at DESC LIMIT 1;`,
+      [inv.id_sif_research]
+    );
+
+    if (existingEv.length > 0) {
+      await db.query(`
+        UPDATE evidencias_visita
+        SET latitud_checkin = $2,
+            longitud_checkin = $3,
+            fecha_checkin = $4,
+            estudio_socioeconomico = $5,
+            fotos_urls = $6,
+            firma_url = $7,
+            firma_investigador_url = $8,
+            notas_investigador = $9,
+            sincronizado_a_sif = TRUE,
+            created_at = NOW()
+        WHERE id = $1;
+      `, [
+        existingEv[0].id,
+        prevEv.latitud_checkin,
+        prevEv.longitud_checkin,
+        prevEv.fecha_checkin || new Date(),
+        typeof prevEv.estudio_socioeconomico === 'string' ? prevEv.estudio_socioeconomico : JSON.stringify(prevEv.estudio_socioeconomico || {}),
+        typeof prevEv.fotos_urls === 'string' ? prevEv.fotos_urls : JSON.stringify(prevEv.fotos_urls || []),
+        prevEv.firma_url,
+        prevEv.firma_investigador_url,
+        `Visita y fotografías reutilizadas por vigencia de 90 días (procedentes de investigación previa #${prevEv.previa_id}).`
+      ]);
+    } else {
+      await db.query(`
+        INSERT INTO evidencias_visita (
+          investigacion_id_sif,
+          latitud_checkin,
+          longitud_checkin,
+          fecha_checkin,
+          estudio_socioeconomico,
+          fotos_urls,
+          firma_url,
+          firma_investigador_url,
+          notas_investigador,
+          sincronizado_a_sif,
+          created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW());
+      `, [
+        inv.id_sif_research,
+        prevEv.latitud_checkin,
+        prevEv.longitud_checkin,
+        prevEv.fecha_checkin || new Date(),
+        typeof prevEv.estudio_socioeconomico === 'string' ? prevEv.estudio_socioeconomico : JSON.stringify(prevEv.estudio_socioeconomico || {}),
+        typeof prevEv.fotos_urls === 'string' ? prevEv.fotos_urls : JSON.stringify(prevEv.fotos_urls || []),
+        prevEv.firma_url,
+        prevEv.firma_investigador_url,
+        `Visita y fotografías reutilizadas por vigencia de 90 días (procedentes de investigación previa #${prevEv.previa_id}).`
+      ]);
+    }
 
     // 4. Actualizar estado de la investigación a COMPLETADA para que el investigador ya no acuda a campo
     await db.query(`
