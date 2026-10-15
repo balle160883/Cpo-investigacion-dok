@@ -338,6 +338,23 @@ async function getDictamenCredito(req, res, next) {
       semaforoMotivos.push('100% de firmantes analizados cumplen con los criterios de aptitud.');
     }
 
+    // Incorporar observaciones financieras normativas (Ahorro 12m, Morosidad, Retiros)
+    if (solicitud.resumen_financiero) {
+      const rfResumen = solicitud.resumen_financiero.resumen || {};
+      if (solicitud.cumple_habito_ahorro === false || rfResumen.cumple_habito_ahorro === false) {
+        const meses = rfResumen.meses_ahorro || (solicitud.resumen_financiero.titular?.meses_ahorro_cumplidos ? `${solicitud.resumen_financiero.titular.meses_ahorro_cumplidos}/12` : 'Incompleto');
+        semaforoMotivos.push(`Hábito de Ahorro: Incumplimiento del depósito mensual mínimo de $50 pesos cada mes (Cumplió ${meses} meses).`);
+      }
+      if (solicitud.tiene_morosidad === true || rfResumen.tiene_morosidad_titular === true || (rfResumen.max_dias_mora_titular > 0)) {
+        semaforoMotivos.push(`Historial de Morosidad: Se detectaron atrasos de hasta ${rfResumen.max_dias_mora_titular || 1} días en créditos anteriores.`);
+      }
+      if (Number(solicitud.total_retiros_12m || rfResumen.total_retiros_12m) > 0) {
+        const cantRet = rfResumen.cantidad_retiros_12m || solicitud.resumen_financiero.titular?.cantidad_retiros_12m || 'varios';
+        const montoRet = Number(solicitud.total_retiros_12m || rfResumen.total_retiros_12m || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+        semaforoMotivos.push(`Retiros de Ahorro: Registra ${cantRet} retiro(s) por un total de $${montoRet} en los últimos 12 meses.`);
+      }
+    }
+
     // Tomar dictamen previo si está fijado en solicitudes_credito
     const dictamenFinal = solicitud.dictamen_aptitud || semaforoGlobal;
 
